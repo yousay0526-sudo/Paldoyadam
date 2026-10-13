@@ -1,0 +1,96 @@
+name: Build and publish browser game
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: paldo-web-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - name: Test common C gameplay and terrain
+        run: |
+          cmake -S . -B build-core -DPALDO_BUILD_GAME=OFF -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-core --parallel 2
+          ctest --test-dir build-core --output-on-failure
+      - name: Get the official Emscripten SDK
+        uses: actions/checkout@v6
+        with:
+          repository: emscripten-core/emsdk
+          ref: c0bb220cb6e6f4e0fabb6f6db9efd53390ef5e56 # emsdk driver tag 4.0.23
+          path: .emsdk
+      - name: Install and activate Emscripten 3.1.74
+        run: |
+          ./.emsdk/emsdk install 3.1.74
+          ./.emsdk/emsdk activate 3.1.74
+      - name: Compile the C game for browsers
+        run: |
+          source .emsdk/emsdk_env.sh
+          python3 scripts/build_web.py
+          python3 scripts/build_web.py --single-file --output dist/offline
+      - name: Downloadable browser builds
+        uses: actions/upload-artifact@v4
+        with:
+          name: paldo-browser
+          path: |
+            dist/web/
+            dist/offline/
+          retention-days: 14
+      - name: Prepare the website artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: dist/web
+
+  deploy:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.publish.outputs.page_url }}
+    steps:
+      - name: Check whether GitHub Pages is enabled
+        id: pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          status=$(curl --silent --show-error --output "$RUNNER_TEMP/paldo-pages.json" --write-out '%{http_code}' \
+            -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
+            "$GITHUB_API_URL/repos/$REPO/pages")
+          if [ "$status" = 200 ]; then
+            echo 'enabled=true' >> "$GITHUB_OUTPUT"
+          elif [ "$status" = 404 ]; then
+            echo 'enabled=false' >> "$GITHUB_OUTPUT"
+            echo '### Enable the browser game link' >> "$GITHUB_STEP_SUMMARY"
+            echo 'Open Settings → Pages → Source: GitHub Actions, then rerun this workflow. The downloadable paldo-browser artifact is already available.' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "GitHub Pages API returned HTTP $status"
+            exit 1
+          fi
+      - name: Configure GitHub Pages
+        if: steps.pages.outputs.enabled == 'true'
+        uses: actions/configure-pages@v5
+      - name: Publish the browser game
+        if: steps.pages.outputs.enabled == 'true'
+        id: publish
+        uses: actions/deploy-pages@v4

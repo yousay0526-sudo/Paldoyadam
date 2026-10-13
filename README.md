@@ -1,6 +1,18 @@
-# 증강: 팔도야담 — C 네이티브 버전
+# 증강: 팔도야담 — C 게임과 브라우저 테스트
 
-**C11 + SDL2로 실행하는 픽셀 스토리 RPG 시제품입니다.** 전투·퀘스트·상점·대화·화면 렌더링을 C로 구현했습니다. HTML, JavaScript, 브라우저 또는 WebView를 실행하지 않습니다.
+**C11 + SDL2로 만드는 픽셀 스토리 RPG 시제품입니다.** 전투·퀘스트·상점·대화·지형·화면 렌더링을 C로 구현했습니다. 같은 소스로 PC용 실행 파일과 브라우저 테스트용 WebAssembly를 빌드합니다. 브라우저의 HTML/JavaScript는 화면과 로더 역할만 맡습니다.
+
+## 0.5 — 어디서든 브라우저로 테스트
+
+- 회사 PC에 CMake·SDL2·VS Code 확장을 설치하지 않고 브라우저에서 플레이할 수 있습니다.
+- `src/`의 C 코드를 GitHub에서 수정하고 커밋하면 `.github/workflows/web.yml`이 자동으로 웹 버전을 빌드합니다.
+- 고정 게임 주소를 쓰려면 저장소 **Settings → Pages → Source: GitHub Actions**를 한 번 설정한 뒤 Actions의 **Build and publish browser game → Run workflow**를 실행합니다.
+- Pages를 아직 설정하지 않았어도 빌드는 성공하며, 해당 실행의 **Artifacts → paldo-browser**에서 결과를 내려받을 수 있습니다.
+- `offline/index.html`은 코드와 그림·폰트를 모두 포함합니다. 압축을 푼 뒤 브라우저로 열 수 있습니다. 회사 정책에서 로컬 HTML이나 WebAssembly 실행을 허용해야 합니다.
+- 가로 화면, 한글 컷신, 키보드·마우스·터치 입력, 화면 위 대화창, 지형 충돌을 공통 C 코드로 실행합니다.
+- 새로고침·창 닫기 시 진행은 초기화됩니다. 영구 저장은 아직 없습니다.
+
+처음 설정, 회사에서 수정하는 방법, 웹 빌드 명령은 **[브라우저 개발 안내](docs/WEB.md)**를 참고하세요.
 
 ![C 게임 실행 화면](docs/native-village.png)
 
@@ -87,11 +99,13 @@ python3 scripts/prepare_android.py
 | `src/game.h`, `src/game.c` | SDL에 의존하지 않는 게임 상태·전투·퀘스트·상점 |
 | `src/draw.h`, `src/draw.c` | 이미지·한글 폰트·카메라·가림 효과·컷신 렌더링 |
 | `src/world.h`, `src/world.c` | 지형 다각형·발밑 충돌·길찾기·공격 시야 판정 |
-| `src/main.c` | 창, 터치·키보드, 대화, 메뉴, 게임 루프 |
+| `src/main.c` | 창, 터치·키보드, 대화, 메뉴, PC/브라우저 공통 프레임 |
 | `tests/test_game.c`, `tests/test_world.c` | 퀘스트·거래·전투·이동·충돌·증강 검증 |
 | `assets/` | 기존 PNG 그래픽과 한글 폰트 |
 | `android/` | Gradle·NDK·SDL 앱 진입점 |
 | `scripts/prepare_android.py` | 공식 SDL 소스 준비 및 체크섬 확인 |
+| `scripts/build_web.py`, `web/shell.html` | Emscripten 빌드와 브라우저 로더 |
+| `.github/workflows/web.yml` | C 검사, 웹 자동 빌드, Pages가 설정된 경우 배포 |
 
 로직만 검사할 때는 SDL 설치 없이 빌드할 수 있습니다.
 

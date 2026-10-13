@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#102226">
+  <title>증강: 팔도야담</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #102226; }
+    body { color: #eee3ca; font-family: system-ui, sans-serif; overscroll-behavior: none; }
+    #canvas { position: fixed; inset: 0; width: 100% !important; height: 100% !important;
+      display: block; outline: none; touch-action: none; user-select: none; -webkit-user-select: none; }
+    #loading { position: fixed; inset: 0; display: grid; place-items: center;
+      background: radial-gradient(ellipse at center, #293b32, #0b171b); z-index: 2; }
+    #loading[hidden] { display: none; }
+    .panel { text-align: center; padding: 28px; max-width: 520px; }
+    .mark { display: block; color: #e3c183; letter-spacing: .38em; font-size: 14px; }
+    h1 { font-family: serif; font-weight: 600; font-size: clamp(36px, 7vw, 58px); letter-spacing: .12em; margin: 12px 0 30px; }
+    #status { min-height: 2.8em; font-size: 14px; line-height: 1.7; color: #c5c8b5; white-space: pre-line; }
+    progress { display: block; width: 240px; max-width: 100%; height: 5px; margin: 24px auto; accent-color: #e3c183; }
+    button { background: #e3c183; color: #102226; border: 0; padding: 12px 24px; cursor: pointer; font: inherit; }
+    #notice { position: fixed; bottom: max(24px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%);
+      max-width: 90%; padding: 12px 18px; background: #102226ee; color: #eee3ca; z-index: 3; pointer-events: none; }
+    #notice[hidden] { display: none; }
+  </style>
+</head>
+<body>
+  <canvas id="canvas" tabindex="0" aria-label="증강 팔도야담 게임 화면"></canvas>
+  <div id="loading" role="status" aria-live="polite">
+    <div class="panel">
+      <span class="mark">증강</span><h1>팔도야담</h1>
+      <p id="status">여정을 준비하고 있습니다.</p>
+      <progress id="progress" max="100"></progress>
+      <button id="retry" hidden onclick="location.reload()">다시 불러오기</button>
+    </div>
+  </div>
+  <div id="notice" hidden role="status"></div>
+  <noscript>게임을 실행하려면 브라우저에서 JavaScript를 허용해야 합니다.</noscript>
+  <script>
+    const canvas = document.getElementById('canvas');
+    const loading = document.getElementById('loading');
+    const statusText = document.getElementById('status');
+    const progress = document.getElementById('progress');
+    let failed = false, noticeTimer;
+    function fail(message) {
+      failed = true;
+      loading.hidden = false;
+      statusText.textContent = message;
+      progress.hidden = true;
+      document.getElementById('retry').hidden = false;
+    }
+    function notice(message) {
+      const el = document.getElementById('notice');
+      el.textContent = message; el.hidden = false;
+      clearTimeout(noticeTimer);
+      noticeTimer = setTimeout(() => { el.hidden = true; }, 3500);
+    }
+    var Module = {
+      canvas,
+      print: (...args) => console.log(...args),
+      printErr: (...args) => console.error(...args),
+      setStatus(text) {
+        if (failed) return;
+        const match = /\((\d+(?:\.\d+)?)\/(\d+)\)/.exec(text);
+        if (match) {
+          const percent = Math.min(100, Math.floor(Number(match[1]) / Number(match[2]) * 100));
+          progress.value = percent;
+          statusText.textContent = '마을과 이야기를 불러오고 있습니다. ' + percent + '%';
+        }
+      },
+      onAbort(reason) {
+        console.error(reason);
+        fail('게임을 불러오지 못했습니다.\n연결 상태와 브라우저의 실행 허용 여부를 확인해 주세요.');
+      },
+      paldoReady() {
+        if (failed) return;
+        loading.hidden = true;
+        canvas.focus({preventScroll: true});
+        document.body.dataset.gameReady = 'true';
+      },
+      async paldoToggleFullscreen() {
+        try {
+          if (document.fullscreenElement) await document.exitFullscreen();
+          else if (document.documentElement.requestFullscreen) {
+            await document.documentElement.requestFullscreen();
+            if (screen.orientation && screen.orientation.lock)
+              screen.orientation.lock('landscape').catch(() => {});
+          } else notice('이 브라우저는 전체화면을 지원하지 않습니다. 폰을 가로로 돌려 주세요.');
+        } catch (_) { notice('전체화면 전환을 허용하지 않는 브라우저입니다.'); }
+        canvas.focus({preventScroll: true});
+      }
+    };
+    if (!window.WebAssembly) fail('이 브라우저에서는 게임 실행에 필요한 WebAssembly를 사용할 수 없습니다.');
+    window.addEventListener('error', () => fail('게임 실행 중 오류가 발생했습니다.\n페이지를 다시 불러와 주세요.'));
+    window.addEventListener('unhandledrejection', event => {
+      console.error(event.reason);
+      fail('게임 자료를 불러오지 못했습니다.\n연결 상태를 확인하고 다시 시도해 주세요.');
+    });
+    canvas.addEventListener('webglcontextlost', event => {
+      event.preventDefault(); fail('그래픽 연결이 끊겼습니다. 페이지를 다시 불러와 주세요.');
+    });
+    canvas.addEventListener('contextmenu', event => event.preventDefault());
+    canvas.addEventListener('pointerdown', () => canvas.focus({preventScroll: true}));
+    window.addEventListener('keydown', event => {
+      if (document.activeElement === canvas && ['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','F3','F11'].includes(event.code))
+        event.preventDefault();
+    }, {passive: false});
+    document.addEventListener('fullscreenchange', () => window.dispatchEvent(new Event('resize')));
+    if (window.visualViewport)
+      window.visualViewport.addEventListener('resize', () => window.dispatchEvent(new Event('resize')));
+  </script>
+  {{{ SCRIPT }}}
+</body>
+</html>
