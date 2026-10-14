@@ -51,14 +51,14 @@ async function shot(page, name) {
       assert.equal(s.density,mobile?2:1);
       await shot(page,mobile?'mobile-title':'desktop-title');
       if (mobile) await page.touchscreen.tap(width*.75,height*.35+25);
-      else await page.keyboard.press('Enter');
+      else await page.keyboard.press('Space');
       await phase(page,1);
       await page.waitForTimeout(550);
       await shot(page,mobile?'mobile-prologue':'desktop-prologue');
       // Advance all five narrative panels using real keyboard/touch input.
       for(let i=0;i<5;i++) {
         if(mobile) await page.touchscreen.tap(width-98,height-100);
-        else await page.keyboard.press('Enter');
+        else await page.keyboard.press('Space');
         await page.waitForTimeout(120);
       }
       await phase(page,2);
@@ -92,11 +92,23 @@ async function shot(page, name) {
         await page.keyboard.press('Escape'); await phase(page,2);
         await page.keyboard.press('j'); await phase(page,6);
         await page.keyboard.press('Escape'); await phase(page,2);
-        await page.keyboard.press('e'); await phase(page,3);
+        await page.keyboard.press('Space'); await phase(page,3);
+        assert.equal((await state(page)).dialogue,0,'Opening dialogue must not also skip a line');
+        assert.equal((await state(page)).cooldown,0,'Space must not trigger the skill');
+        await page.keyboard.down('Space');
+        await page.keyboard.down('Space');
+        await page.waitForTimeout(150);
+        assert.equal((await state(page)).dialogue,1,'Repeated keydown must not skip another line');
+        await page.keyboard.up('Space');
         await shot(page,'dialogue');
-        for(let i=0;i<3;i++){await page.keyboard.press('Enter');await page.waitForTimeout(100);}
+        for(let i=0;i<2;i++){await page.keyboard.press('Space');await page.waitForTimeout(100);}
         await phase(page,2);
         assert.equal((await state(page)).quest,1,'Elder dialogue must accept the quest');
+        await page.keyboard.press('f');
+        assert.equal((await state(page)).phase,2,'Pickup key must not reopen nearby NPC dialogue');
+        assert.equal((await state(page)).herbs,0,'No loot in reach must not grant an item');
+        await page.keyboard.press('q');
+        assert((await state(page)).cooldown>0,'Q must trigger the skill');
         await page.setViewportSize({width:960,height:540});await page.waitForTimeout(150);
         assert.equal(Math.round((await state(page)).width),960);
         await page.mouse.click(960-83,32);

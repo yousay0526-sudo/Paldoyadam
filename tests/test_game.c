@@ -1,4 +1,5 @@
 #include "game.h"
+#include "world.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -230,12 +231,52 @@ static void augments_and_bounds(void) {
     game_tick(&g, 1, (Vec2){1, 0});
     CHECK(fabsf(g.hero.pos.x - position.x - 7.75f) < .01f);
 }
+static void dedicated_pickup(void) {
+    Game g;
+    game_reset(&g);
+    game_start(&g);
+    g.quest = Q_RECOVER;
+    g.hero.pos = NPCS[ELDER].pos;
+    g.drops[0] = (Drop){.pos = g.hero.pos, .exists = true};
+    g.drops[1] = (Drop){.pos = {g.hero.pos.x + 20, g.hero.pos.y}, .exists = true};
+    g.drops[2] = (Drop){.pos = {g.hero.pos.x + PICKUP_RADIUS, g.hero.pos.y}, .exists = true};
+    CHECK(game_nearby(&g).kind == NEAR_NPC);
+    CHECK(game_pickup_count(&g) == 2);
+    Vec2 position = g.hero.pos;
+    CHECK(game_pickup_nearby(&g) == 2);
+    CHECK(g.herbs == 2 && g.quest == Q_RECOVER);
+    CHECK(distance(g.hero.pos, position) == 0);
+    CHECK(game_pickup_nearby(&g) == 0 && g.herbs == 2);
+    g.drops[2].pos = g.hero.pos;
+    g.phase = PH_PAUSED;
+    CHECK(game_pickup_count(&g) == 0 && game_pickup_nearby(&g) == 0);
+    g.phase = PH_PLAY;
+    CHECK(game_pickup_nearby(&g) == 1);
+    CHECK(g.quest == Q_DELIVER && g.herbs == 3);
+    CHECK(game_pickup_nearby(&g) == 0);
+    char brief[160];
+    game_objective_brief(&g, brief, sizeof brief);
+    CHECK(strstr(brief, "약방") != NULL);
+    CHECK(g.toast_time == TOAST_SECONDS);
+
+    /* A thin garden gate pillar separates two points inside pickup range. */
+    game_reset(&g);
+    game_start(&g);
+    g.quest = Q_RECOVER;
+    g.hero.pos = (Vec2){490 * 1.5f, 259 * 1.5f};
+    g.drops[0] = (Drop){.pos = {535 * 1.5f, 259 * 1.5f}, .exists = true};
+    CHECK(distance(g.hero.pos, g.drops[0].pos) < PICKUP_RADIUS);
+    CHECK(!world_segment(g.hero.pos, g.drops[0].pos, 0));
+    CHECK(game_pickup_count(&g) == 0);
+    CHECK(game_pickup_nearby(&g) == 0 && g.herbs == 0);
+}
 int main(void) {
     quest_chain();
     shops();
     supplies();
     death_and_pause();
     augments_and_bounds();
+    dedicated_pickup();
     printf(
         "PASS: %d checks across quests, transactions, consumables, recovery, pause, augments and bounds.\n",
         checks);

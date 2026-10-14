@@ -88,7 +88,7 @@ static void dead(Game *g) {
 }
 void game_toast(Game *g, const char *s) {
     snprintf(g->toast, sizeof g->toast, "%s", s);
-    g->toast_time = 4;
+    g->toast_time = TOAST_SECONDS;
 }
 void game_reset(Game *g) {
     memset(g, 0, sizeof *g);
@@ -107,7 +107,7 @@ void game_reset(Game *g) {
 }
 void game_start(Game *g) {
     g->phase = PH_PLAY;
-    game_toast(g, "금빛 길잡이를 따라 마을 이장을 찾아가세요.");
+    game_toast(g, "여정 시작 · 마을 이장과 대화");
 }
 bool game_boars_active(const Game *g) {
     return g->traces[0] && g->traces[1];
@@ -132,15 +132,33 @@ Nearby game_nearby(const Game *g) {
                 result = (Nearby){NEAR_TRACE, i};
             }
         }
-    for (int i = 0; i < BOAR_COUNT; i++) {
-        float d = distance(g->hero.pos, g->drops[i].pos);
-        if (g->drops[i].exists && !g->drops[i].collected && d < best &&
-            world_segment(g->hero.pos, g->drops[i].pos, 0)) {
-            best = d;
-            result = (Nearby){NEAR_DROP, i};
-        }
-    }
     return result;
+}
+/* Loot has its own action: a nearby NPC must never steal the pickup button. */
+static bool can_pickup(const Game *g, int i) {
+    return i >= 0 && i < BOAR_COUNT && g->phase == PH_PLAY && g->quest == Q_RECOVER &&
+           g->drops[i].exists && !g->drops[i].collected &&
+           distance(g->hero.pos, g->drops[i].pos) < PICKUP_RADIUS &&
+           world_segment(g->hero.pos, g->drops[i].pos, 0);
+}
+int game_pickup_count(const Game *g) {
+    int count = 0;
+    for (int i = 0; i < BOAR_COUNT; i++)
+        if (can_pickup(g, i))
+            count++;
+    return count;
+}
+int game_pickup_nearby(Game *g) {
+    int count = 0;
+    for (int i = 0; i < BOAR_COUNT; i++)
+        if (game_collect(g, i))
+            count++;
+    if (count) {
+        char text[128];
+        snprintf(text, sizeof text, "약재 +%d · 회수 %d/3", count, g->herbs);
+        game_toast(g, text);
+    }
+    return count;
 }
 Vec2 game_objective(const Game *g) {
     Vec2 p = NPCS[ELDER].pos;
@@ -178,11 +196,23 @@ void game_quest_text(const Game *g, char *out, size_t size) {
     else
         snprintf(out, size, "%s", QUESTS[g->quest].detail);
 }
+void game_objective_brief(const Game *g, char *out, size_t size) {
+    static const char *brief[QUEST_COUNT] = {
+        "마을 이장과 대화", "동쪽 숲길의 흔적 조사", "멧돼지 제압 · 약재 회수",
+        "약방에 약재 전달", "이장에게 조사 결과 보고", "동쪽 도축터로 이동",
+        "공격을 피하며 백정 제압", "이장에게 소식 전하기", "전령 윤겸과 대화"};
+    if (g->quest == Q_TRACES)
+        snprintf(out, size, "%s  %d/2", brief[g->quest], g->traces[0] + g->traces[1]);
+    else if (g->quest == Q_RECOVER)
+        snprintf(out, size, "%s  %d/3", brief[g->quest], g->herbs);
+    else
+        snprintf(out, size, "%s", brief[g->quest]);
+}
 bool game_accept(Game *g) {
     if (g->phase != PH_PLAY || g->quest != Q_MEET || !near_npc(g, ELDER))
         return false;
     g->quest = Q_TRACES;
-    game_toast(g, "동쪽 숲길의 두 흔적을 조사하세요. 마을 상점에서 채비할 수 있습니다.");
+    game_toast(g, "의뢰 수락 · 숲길의 흔적");
     return true;
 }
 bool game_inspect(Game *g, int i) {
@@ -195,15 +225,13 @@ bool game_inspect(Game *g, int i) {
     return true;
 }
 bool game_collect(Game *g, int i) {
-    if (i < 0 || i >= BOAR_COUNT || g->phase != PH_PLAY || g->quest != Q_RECOVER || !g->drops[i].exists ||
-        g->drops[i].collected || distance(g->hero.pos, g->drops[i].pos) >= 70 ||
-        !world_segment(g->hero.pos, g->drops[i].pos, 0))
+    if (!can_pickup(g, i))
         return false;
     g->drops[i].collected = true;
     g->herbs++;
     if (g->herbs == 3) {
         g->quest = Q_DELIVER;
-        game_toast(g, "약재를 모두 되찾았다. 마을 약방에 돌려주자.");
+        game_toast(g, "약재 회수 완료 · 약방으로");
     } else {
         char s[128];
         snprintf(s, sizeof s, "약재 꾸러미 회수 · %d/3", g->herbs);
@@ -221,14 +249,14 @@ bool game_deliver(Game *g) {
     g->tonics += 2;
     g->bandages++;
     g->quest = Q_REPORT;
-    game_toast(g, "보상 · 55문, 탕약 2개, 지혈산 1개. 이장에게 조사 결과를 전하세요.");
+    game_toast(g, "보상 +55문 · 탕약 2 · 지혈산 1");
     return true;
 }
 bool game_report(Game *g) {
     if (g->phase != PH_PLAY || g->quest != Q_REPORT || !g->supplies_delivered || !near_npc(g, ELDER))
         return false;
     g->quest = Q_HUNT;
-    game_toast(g, "백정은 동쪽 숲의 도축터에 있다. 장비와 약을 점검하고 떠나세요.");
+    game_toast(g, "목표 갱신 · 동쪽 도축터");
     return true;
 }
 bool game_open_shop(Game *g, int n) {
@@ -339,7 +367,7 @@ bool game_damage(Game *g, Enemy *e, int amount, EffectKind kind) {
                 if (e == &g->boars[i])
                     g->drops[i] = (Drop){.pos = e->pos, .exists = true};
             g->coins += 9;
-            game_toast(g, "변이한 멧돼지 제압 · 9문. 떨어진 약재 꾸러미를 주우세요.");
+            game_toast(g, "멧돼지 제압 +9문 · 약재 발견");
         }
     }
     return true;
@@ -353,7 +381,7 @@ void game_hurt(Game *g, int amount, bool bleed) {
     if (bleed) {
         g->hero.bleed = 5;
         g->hero.bleed_tick = 1;
-        game_toast(g, "출혈! 공격 범위를 피하고 지혈산을 사용하세요.");
+        game_toast(g, "출혈 · 지혈산으로 치료");
     }
     effect(g, (Effect){.kind = FX_NUMBER,
                        .pos = add(g->hero.pos, (Vec2){0, -35}),
@@ -408,7 +436,7 @@ bool game_begin_boss(Game *g) {
     g->phase = PH_PLAY;
     g->boss.state = AI_CHASE;
     g->boss.timer = 1.2f;
-    game_toast(g, "붉은 범위를 피하고, 식칼을 거둘 때 다가가세요.");
+    game_toast(g, "붉은 범위 밖으로 · 공격 뒤가 기회");
     return true;
 }
 void game_recover(Game *g) {
@@ -427,7 +455,7 @@ void game_recover(Game *g) {
     g->cooldown = g->item_cooldown = 0;
     g->effect_count = 0;
     g->notices = 0;
-    game_toast(g, "마을에서 다시 일어났다. 조사한 흔적과 회수한 물품은 그대로입니다.");
+    game_toast(g, "마을에서 회복 · 여정 진행 유지");
 }
 void game_retry(Game *g) {
     g->hero.pos = add(BOSS_HOME, (Vec2){-145, 0});
@@ -447,7 +475,7 @@ bool game_choose(Game *g, Augment a) {
     g->augment = a;
     g->quest = Q_MESSENGER;
     g->phase = PH_PLAY;
-    game_toast(g, "말발굽 소리. 한양에서 전령이 도착했습니다.");
+    game_toast(g, "한양의 전령 도착 · 윤겸과 대화");
     return true;
 }
 static void tick_boar(Game *g, Enemy *e, float dt) {

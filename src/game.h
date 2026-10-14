@@ -9,6 +9,8 @@
 #define NPC_COUNT 5
 #define TRACE_COUNT 2
 #define EFFECT_MAX 48
+#define TOAST_SECONDS 2.8f
+#define PICKUP_RADIUS 70.0f
 
 typedef struct {
     float x, y;
@@ -127,8 +129,11 @@ void game_start(Game *g);
 void game_tick(Game *g, float dt, Vec2 movement);
 void game_toast(Game *g, const char *text);
 Nearby game_nearby(const Game *g);
+int game_pickup_count(const Game *g);
+int game_pickup_nearby(Game *g);
 Vec2 game_objective(const Game *g);
 void game_quest_text(const Game *g, char *out, size_t size);
+void game_objective_brief(const Game *g, char *out, size_t size);
 bool game_accept(Game *g);
 bool game_inspect(Game *g, int index);
 bool game_collect(Game *g, int index);
