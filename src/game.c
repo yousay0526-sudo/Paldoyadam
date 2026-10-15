@@ -134,7 +134,7 @@ Nearby game_nearby(const Game *g) {
         }
     return result;
 }
-/* Loot has its own action: a nearby NPC must never steal the pickup button. */
+/* The optional keyboard pickup never competes with NPC interaction. */
 static bool can_pickup(const Game *g, int i) {
     return i >= 0 && i < BOAR_COUNT && g->phase == PH_PLAY && g->quest == Q_RECOVER &&
            g->drops[i].exists && !g->drops[i].collected &&
@@ -228,6 +228,7 @@ bool game_collect(Game *g, int i) {
     if (!can_pickup(g, i))
         return false;
     g->drops[i].collected = true;
+    g->drops[i].attracting = false;
     g->herbs++;
     if (g->herbs == 3) {
         g->quest = Q_DELIVER;
@@ -563,6 +564,29 @@ static void tick_boss(Game *g, float dt) {
         break;
     }
 }
+/* Follow only an unobstructed segment. Menus pause this with the rest of the world. */
+static void tick_loot(Game *g, float dt) {
+    if (g->phase != PH_PLAY || g->quest != Q_RECOVER || dt <= 0)
+        return;
+    for (int i = 0; i < BOAR_COUNT; i++) {
+        Drop *drop = &g->drops[i];
+        drop->attracting = false;
+        if (!drop->exists || drop->collected)
+            continue;
+        float d = distance(g->hero.pos, drop->pos);
+        if (d > MAGNET_RADIUS || !world_segment(drop->pos, g->hero.pos, 0))
+            continue;
+        drop->attracting = true;
+        if (d > COLLECT_RADIUS) {
+            float step = fminf(d, (180 + (MAGNET_RADIUS - d) * 2.4f) * dt);
+            drop->pos = world_move(drop->pos,
+                (Vec2){(g->hero.pos.x - drop->pos.x) * step / d,
+                       (g->hero.pos.y - drop->pos.y) * step / d}, 0);
+        }
+        if (distance(g->hero.pos, drop->pos) <= COLLECT_RADIUS)
+            game_collect(g, i);
+    }
+}
 void game_tick(Game *g, float dt, Vec2 input) {
     if (!isfinite(dt) || !isfinite(input.x) || !isfinite(input.y))
         return;
@@ -625,4 +649,5 @@ void game_tick(Game *g, float dt, Vec2 input) {
         for (int i = 0; i < BOAR_COUNT && g->phase == PH_PLAY; i++)
             if (g->boars[i].hp > 0)
                 tick_boar(g, &g->boars[i], dt);
+    tick_loot(g, dt);
 }

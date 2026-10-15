@@ -270,6 +270,55 @@ static void dedicated_pickup(void) {
     CHECK(game_pickup_count(&g) == 0);
     CHECK(game_pickup_nearby(&g) == 0 && g.herbs == 0);
 }
+static void automatic_magnet(void) {
+    Game g;
+    game_reset(&g);
+    game_start(&g);
+    g.quest = Q_RECOVER;
+    g.hero.pos = HOME;
+    for (int i = 0; i < BOAR_COUNT; i++) g.boars[i].hp = 0;
+    g.drops[0] = (Drop){.pos = {HOME.x + 120, HOME.y}, .exists = true};
+    g.drops[1] = (Drop){.pos = {HOME.x, HOME.y + MAGNET_RADIUS + 1}, .exists = true};
+    Vec2 first = g.drops[0].pos, outside = g.drops[1].pos;
+    game_tick(&g, 0, (Vec2){0, 0});
+    CHECK(distance(first, g.drops[0].pos) == 0 && g.herbs == 0);
+    game_tick(&g, .05f, (Vec2){0, 0});
+    CHECK(g.drops[0].attracting && distance(first, g.drops[0].pos) > 0);
+    CHECK(g.herbs == 0 && !g.drops[0].collected); /* Travel is visible, not a teleport. */
+    CHECK(distance(outside, g.drops[1].pos) == 0 && !g.drops[1].attracting);
+    Vec2 traveling = g.drops[0].pos;
+    g.phase = PH_DIALOGUE;
+    game_tick(&g, .05f, (Vec2){0, 0});
+    CHECK(distance(traveling, g.drops[0].pos) == 0 && g.herbs == 0);
+    g.phase = PH_PAUSED;
+    game_tick(&g, .05f, (Vec2){0, 0});
+    CHECK(distance(traveling, g.drops[0].pos) == 0 && g.herbs == 0);
+    g.phase = PH_PLAY;
+    for (int i = 0; i < 24; i++) game_tick(&g, .05f, (Vec2){0, 0});
+    CHECK(g.herbs == 1 && g.drops[0].collected);
+    CHECK(distance(g.hero.pos, HOME) == 0 && g.quest == Q_RECOVER);
+    g.drops[1].pos = (Vec2){HOME.x + 80, HOME.y};
+    g.drops[2] = (Drop){.pos = {HOME.x + 110, HOME.y}, .exists = true};
+    for (int i = 0; i < 24; i++) game_tick(&g, .05f, (Vec2){.5f, 0});
+    CHECK(g.herbs == 3 && g.quest == Q_DELIVER);
+    CHECK(distance(g.hero.pos, HOME) > 0); /* Gathering does not interrupt movement. */
+    CHECK(g.drops[1].collected && g.drops[2].collected);
+    for (int i = 0; i < 12; i++) game_tick(&g, .05f, (Vec2){0, 0});
+    CHECK(g.herbs == 3); /* Exactly once even with overlapping pickups. */
+
+    game_reset(&g);
+    game_start(&g);
+    g.quest = Q_RECOVER;
+    g.hero.pos = (Vec2){490 * 1.5f, 259 * 1.5f};
+    g.drops[0] = (Drop){.pos = {535 * 1.5f, 259 * 1.5f}, .exists = true};
+    first = g.drops[0].pos;
+    for (int i = 0; i < 24; i++) game_tick(&g, .05f, (Vec2){0, 0});
+    CHECK(distance(first, g.drops[0].pos) == 0 && !g.drops[0].attracting && g.herbs == 0);
+    g.hero.pos = g.drops[0].pos;
+    g.quest = Q_TRACES;
+    game_tick(&g, .05f, (Vec2){0, 0});
+    CHECK(g.herbs == 0); /* Inactive quest items cannot advance the story early. */
+}
 int main(void) {
     quest_chain();
     shops();
@@ -277,6 +326,7 @@ int main(void) {
     death_and_pause();
     augments_and_bounds();
     dedicated_pickup();
+    automatic_magnet();
     printf(
         "PASS: %d checks across quests, transactions, consumables, recovery, pause, augments and bounds.\n",
         checks);

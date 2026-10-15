@@ -87,19 +87,23 @@ bool gfx_load(Gfx *g, SDL_Renderer *renderer, const char *root) {
         if (i >= 5)
             SDL_SetTextureScaleMode(pictures[i]->texture, SDL_ScaleModeLinear);
     }
-    asset_path(path, sizeof path, root, "fonts/NanumGothic-Regular.ttf");
-    size_t size;
-    g->font_bytes = read_asset(path, &size);
-    if (!g->font_bytes ||
-        !stbtt_InitFont(&g->font, g->font_bytes, stbtt_GetFontOffsetForIndex(g->font_bytes, 0))) {
-        SDL_Log("Cannot load Korean font %s", path);
-        gfx_free(g);
-        return false;
+    const char *font_names[] = {"fonts/NanumMyeongjo-Bold.ttf", "fonts/NanumBrushScript-Regular.ttf"};
+    for (int i = 0; i < 2; i++) {
+        Typeface *face = &g->fonts[i];
+        asset_path(path, sizeof path, root, font_names[i]);
+        size_t size;
+        face->font_bytes = read_asset(path, &size);
+        if (!face->font_bytes || !stbtt_InitFont(&face->font, face->font_bytes,
+                stbtt_GetFontOffsetForIndex(face->font_bytes, 0))) {
+            SDL_Log("Cannot load Korean font %s", path);
+            gfx_free(g);
+            return false;
+        }
+        face->font_scale = stbtt_ScaleForMappingEmToPixels(&face->font, 80);
+        int ascent;
+        stbtt_GetFontVMetrics(&face->font, &ascent, NULL, NULL);
+        face->ascent = (float)ascent * face->font_scale;
     }
-    g->font_scale = stbtt_ScaleForPixelHeight(&g->font, 40);
-    int ascent;
-    stbtt_GetFontVMetrics(&g->font, &ascent, NULL, NULL);
-    g->ascent = (float)ascent * g->font_scale;
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
     return true;
 }
@@ -111,12 +115,15 @@ void gfx_free(Gfx *g) {
             SDL_DestroyTexture(pictures[i]->texture);
         pictures[i]->texture = NULL;
     }
-    for (int i = 0; i < g->glyph_count; i++)
-        if (g->glyphs[i].texture)
-            SDL_DestroyTexture(g->glyphs[i].texture);
-    g->glyph_count = 0;
-    free(g->font_bytes);
-    g->font_bytes = NULL;
+    for (int j = 0; j < 2; j++) {
+        Typeface *face = &g->fonts[j];
+        for (int i = 0; i < face->glyph_count; i++)
+            if (face->glyphs[i].texture)
+                SDL_DestroyTexture(face->glyphs[i].texture);
+        face->glyph_count = 0;
+        free(face->font_bytes);
+        face->font_bytes = NULL;
+    }
 }
 static void color(Gfx *g, SDL_Color c) {
     SDL_SetRenderDrawColor(g->renderer, c.r, c.g, c.b, c.a);
@@ -128,6 +135,40 @@ void gfx_rect(Gfx *g, SDL_FRect r, SDL_Color c) {
 void gfx_border(Gfx *g, SDL_FRect r, SDL_Color c) {
     color(g, c);
     SDL_RenderDrawRectF(g->renderer, &r);
+}
+static void round_points(SDL_FRect r, float radius, SDL_FPoint *p) {
+    radius = fminf(radius, fminf(r.w, r.h) / 2);
+    for (int corner = 0; corner < 4; corner++) {
+        float cx = r.x + (corner == 0 || corner == 3 ? r.w - radius : radius);
+        float cy = r.y + (corner < 2 ? r.h - radius : radius);
+        for (int j = 0; j <= 10; j++) {
+            float angle = (corner + j / 10.0f) * PI / 2;
+            p[corner * 11 + j] = (SDL_FPoint){cx + cosf(angle) * radius, cy + sinf(angle) * radius};
+        }
+    }
+    p[44] = p[0];
+}
+void gfx_round(Gfx *g, SDL_FRect r, float radius, SDL_Color c) {
+    if (r.w <= 0 || r.h <= 0) return;
+    SDL_FPoint points[45];
+    SDL_Vertex vertices[46];
+    int indices[132];
+    round_points(r, radius, points);
+    vertices[0] = (SDL_Vertex){{r.x + r.w / 2, r.y + r.h / 2}, c, {0, 0}};
+    for (int i = 0; i < 45; i++)
+        vertices[i + 1] = (SDL_Vertex){points[i], c, {0, 0}};
+    for (int i = 0; i < 44; i++) {
+        indices[i * 3] = 0;
+        indices[i * 3 + 1] = i + 1;
+        indices[i * 3 + 2] = i + 2;
+    }
+    SDL_RenderGeometry(g->renderer, NULL, vertices, 46, indices, 132);
+}
+void gfx_round_border(Gfx *g, SDL_FRect r, float radius, SDL_Color c) {
+    SDL_FPoint points[45];
+    round_points(r, radius, points);
+    color(g, c);
+    SDL_RenderDrawLinesF(g->renderer, points, 45);
 }
 void gfx_line(Gfx *g, Vec2 a, Vec2 b, SDL_Color c) {
     color(g, c);
@@ -176,18 +217,19 @@ static int next_codepoint(const char **s) {
     return c;
 }
 static Glyph *glyph(Gfx *g, int codepoint) {
-    for (int i = 0; i < g->glyph_count; i++)
-        if (g->glyphs[i].codepoint == codepoint)
-            return &g->glyphs[i];
-    if (g->glyph_count >= 1024)
+    Typeface *face = &g->fonts[g->face];
+    for (int i = 0; i < face->glyph_count; i++)
+        if (face->glyphs[i].codepoint == codepoint)
+            return &face->glyphs[i];
+    if (face->glyph_count >= 1024)
         return NULL;
-    Glyph *out = &g->glyphs[g->glyph_count++];
+    Glyph *out = &face->glyphs[face->glyph_count++];
     memset(out, 0, sizeof *out);
     out->codepoint = codepoint;
     int advance;
-    stbtt_GetCodepointHMetrics(&g->font, codepoint, &advance, NULL);
-    out->advance = (float)advance * g->font_scale;
-    unsigned char *bitmap = stbtt_GetCodepointBitmap(&g->font, 0, g->font_scale, codepoint, &out->w, &out->h,
+    stbtt_GetCodepointHMetrics(&face->font, codepoint, &advance, NULL);
+    out->advance = (float)advance * face->font_scale;
+    unsigned char *bitmap = stbtt_GetCodepointBitmap(&face->font, 0, face->font_scale, codepoint, &out->w, &out->h,
                                                      &out->xoff, &out->yoff);
     if (bitmap && out->w > 0 && out->h > 0) {
         size_t count = (size_t)out->w * (size_t)out->h;
@@ -221,12 +263,12 @@ float gfx_measure(Gfx *g, const char *text, float size) {
         }
         Glyph *v = glyph(g, c);
         if (v)
-            line += v->advance * size / 40;
+            line += v->advance * size / 80;
     }
     return fmaxf(best, line);
 }
 float gfx_text(Gfx *g, const char *text, float x, float y, float size, float max_width, SDL_Color c) {
-    float start = x, top = y, scale = size / 40;
+    float start = x, top = y, scale = size / 80;
     while (*text) {
         int cp = next_codepoint(&text);
         if (cp == '\n') {
@@ -244,7 +286,7 @@ float gfx_text(Gfx *g, const char *text, float x, float y, float size, float max
                 continue;
         }
         if (v->texture) {
-            SDL_FRect r = {x + (float)v->xoff * scale, y + (g->ascent + (float)v->yoff) * scale,
+            SDL_FRect r = {x + (float)v->xoff * scale, y + (g->fonts[g->face].ascent + (float)v->yoff) * scale,
                            (float)v->w * scale, (float)v->h * scale};
             SDL_SetTextureColorMod(v->texture, c.r, c.g, c.b);
             SDL_SetTextureAlphaMod(v->texture, c.a);
@@ -256,6 +298,35 @@ float gfx_text(Gfx *g, const char *text, float x, float y, float size, float max
 }
 void gfx_center(Gfx *g, const char *text, float x, float y, float size, SDL_Color c) {
     gfx_text(g, text, x - gfx_measure(g, text, size) * .5f, y, size, 0, c);
+}
+/* Center actual visible glyph bounds, including brush overhangs and descenders. */
+void gfx_label(Gfx *g, const char *text, SDL_FRect r, float size, SDL_Color c) {
+    float fit = gfx_measure(g, text, size);
+    if (fit > r.w - 16 && fit > 0)
+        size *= fmaxf(1, r.w - 16) / fit;
+    float scale = size / 80, pen = 0, left = 1e9f, right = -1e9f, top = 1e9f, bottom = -1e9f;
+    const char *s = text;
+    while (*s) {
+        Glyph *v = glyph(g, next_codepoint(&s));
+        if (!v) continue;
+        if (v->w && v->h) {
+            left = fminf(left, pen + v->xoff * scale);
+            right = fmaxf(right, pen + (v->xoff + v->w) * scale);
+            top = fminf(top, v->yoff * scale);
+            bottom = fmaxf(bottom, (v->yoff + v->h) * scale);
+        }
+        pen += v->advance * scale;
+    }
+    if (left > right) return;
+    gfx_text(g, text, r.x + (r.w - (right - left)) / 2 - left,
+             r.y + (r.h - (bottom - top)) / 2 - top - g->fonts[g->face].ascent * scale,
+             size, 0, c);
+}
+void gfx_heading(Gfx *g, const char *text, SDL_FRect r, float size, SDL_Color c) {
+    int previous = g->face;
+    g->face = 1;
+    gfx_label(g, text, r, size, c);
+    g->face = previous;
 }
 void gfx_sprite(Gfx *g, Picture *p, Vec2 v, float w, float h, bool flip) {
     float scale = fminf(w / (float)p->w, h / (float)p->h);
@@ -385,7 +456,15 @@ void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool walkin
         if (g->drops[i].exists && !g->drops[i].collected) {
             Vec2 p = screen_pos(g->drops[i].pos, camera);
             marker(f, (Vec2){p.x, p.y - 9});
-            label(f, "약재 꾸러미", (Vec2){p.x, p.y - 42}, GOLD);
+            if (g->drops[i].attracting) {
+                Vec2 tail = {g->drops[i].pos.x - g->hero.pos.x, g->drops[i].pos.y - g->hero.pos.y};
+                float d = fmaxf(1, hypotf(tail.x, tail.y));
+                for (int j = 1; j <= 3; j++) {
+                    Vec2 dot = {p.x + tail.x / d * j * 7, p.y - 9 + tail.y / d * j * 7};
+                    gfx_sector(f, dot, 2, 0, PI, (SDL_Color){227, 193, 131, (Uint8)(160 - j * 35)});
+                }
+            } else
+                label(f, "약재", (Vec2){p.x, p.y - 36}, GOLD);
         }
     typedef struct {
         int kind, index;

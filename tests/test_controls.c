@@ -65,11 +65,10 @@ static void pickup(App *a) {
     CHECK(a->game.herbs == 1);
     key(a, SDLK_RETURN, false);
     CHECK(a->game.phase == PH_PLAY);
-    /* Use the same touch hit testing as the on-screen pickup control. */
-    a->button_count = 1;
-    a->buttons[0] = (Button){{636, 246, 194, 44}, ACT_PICKUP, 0, true};
-    pointer_down(a, 3, (Vec2){700, 270});
-    CHECK(a->game.herbs == 2 && !a->pointer_down);
+    /* Auto-loot uses no button and leaves ongoing movement intact. */
+    a->target_set = true;
+    game_tick(&a->game, .016f, (Vec2){0, 0});
+    CHECK(a->game.herbs == 2 && a->target_set);
     CHECK(a->game.phase == PH_PLAY && a->game.cooldown == 0);
 }
 int main(void) {
@@ -82,6 +81,6 @@ int main(void) {
     pickup(a);
     free(a);
     SDL_Quit();
-    printf("PASS: %d controls checks: Space dialogue/repeat, Q skill, F/touch pickup, panel isolation.\n", checks);
+    printf("PASS: %d controls checks: Space dialogue/repeat, Q skill, F/automatic pickup, panel isolation.\n", checks);
     return 0;
 }

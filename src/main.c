@@ -63,7 +63,7 @@ typedef struct {
     Line dialogue[5];
     int dialogue_count, dialogue_index, story_index;
     DialogueDone dialogue_done;
-    bool running, target_set, pointer_down, pointer_moved, headless, debug_collision;
+    bool touch_input, running, target_set, pointer_down, pointer_moved, headless, debug_collision;
     Sint64 pointer_id;
     Vec2 pointer_start, pointer_delta, target;
     float journal_scroll, story_elapsed;
@@ -311,59 +311,51 @@ static void dispatch(App *a, Action action, int value) {
         break;
     }
 }
+static void surface(Gfx *f, SDL_FRect r, float radius, SDL_Color fill) {
+    gfx_round(f, (SDL_FRect){r.x, r.y + 3, r.w, r.h}, radius, (SDL_Color){3, 12, 15, 50});
+    gfx_round(f, r, radius, fill);
+    gfx_round_border(f, r, radius, (SDL_Color){207, 185, 139, 65});
+}
 static void button(App *a, SDL_FRect r, const char *label, Action action, int value, bool enabled,
                    bool primary) {
     if (a->button_count < BUTTON_MAX)
         a->buttons[a->button_count++] = (Button){r, action, value, enabled};
-    SDL_Color fill = primary ? (SDL_Color){212, 187, 130, 250} : INK;
-    if (!enabled)
-        fill = (SDL_Color){38, 57, 49, 238};
-    gfx_rect(&a->gfx, r, fill);
-    gfx_border(&a->gfx, r, enabled ? GOLD : (SDL_Color){92, 107, 83, 255});
-    float size = 15;
-    while (size > 10 && gfx_measure(&a->gfx, label, size) > r.w - 12)
-        size -= 1;
-    gfx_center(&a->gfx, label, r.x + r.w / 2, r.y + (r.h - size) / 2 - 1, size,
-               enabled ? (primary ? INK : PAPER) : MUTED);
+    SDL_Color fill = primary ? (SDL_Color){223, 201, 156, 255} : (SDL_Color){21, 39, 40, 235};
+    if (!enabled) fill = (SDL_Color){31, 46, 44, 220};
+    surface(&a->gfx, r, fminf(16, r.h / 2), fill);
+    gfx_label(&a->gfx, label, r, 15, enabled ? (primary ? INK : PAPER) : (SDL_Color){153, 166, 151, 255});
 }
 static SDL_FRect panel(App *a, const char *kicker, const char *title, float desired_h) {
-    float width = fminf(740, a->width - 44), height = fminf(desired_h, a->height - 30);
+    float width = fminf(740, a->width - 32), height = fminf(desired_h, a->height - 24);
     SDL_FRect p = {(a->width - width) / 2, (a->height - height) / 2, width, height};
     gfx_rect(&a->gfx, (SDL_FRect){0, 0, a->width, a->height}, (SDL_Color){4, 17, 20, 150});
-    gfx_rect(&a->gfx, p, INK);
-    gfx_border(&a->gfx, p, GOLD);
-    gfx_text(&a->gfx, kicker, p.x + 22, p.y + 14, 13, p.w - 150, GOLD);
-    gfx_text(&a->gfx, title, p.x + 22, p.y + 34, 27, p.w - 150, PAPER);
-    button(a, (SDL_FRect){p.x + p.w - 98, p.y + 17, 76, 40}, "닫기", ACT_CLOSE, 0, true, false);
+    surface(&a->gfx, p, 22, INK);
+    gfx_text(&a->gfx, kicker, p.x + 24, p.y + 12, 12, p.w - 150, GOLD);
+    gfx_heading(&a->gfx, title, (SDL_FRect){p.x + 16, p.y + 32, 150, 38}, 36, PAPER);
+    button(a, (SDL_FRect){p.x + p.w - 100, p.y + 20, 76, 44}, "닫기", ACT_CLOSE, 0, true, false);
+    gfx_line(&a->gfx, (Vec2){p.x + 24, p.y + 73}, (Vec2){p.x + p.w - 24, p.y + 73},
+             (SDL_Color){207, 185, 139, 42});
     return p;
 }
-/* Quiet edge HUD: rounded ink wash, one accent line, no centre-screen modal. */
 static void hud_card(Gfx *f, SDL_FRect r, Uint8 alpha) {
-    float radius = 7;
-    for (int row = 0; row < (int)r.h; row++) {
-        float y = (float)row + .5f;
-        float dy = y < radius ? radius - y : (y > r.h - radius ? y - (r.h - radius) : 0);
-        float inset = dy > 0 ? radius - sqrtf(fmaxf(0, radius * radius - dy * dy)) : 0;
-        gfx_rect(f, (SDL_FRect){r.x + inset, r.y + row, r.w - inset * 2, 1},
-                 (SDL_Color){12, 28, 31, alpha});
-    }
+    gfx_round(f, r, 14, (SDL_Color){12, 28, 31, alpha});
 }
 static void draw_quest_tracker(App *a) {
     Game *g = &a->game;
     Gfx *f = &a->gfx;
-    SDL_FRect r = {14, 80, fminf(286, a->width * .46f), 48};
+    SDL_FRect r = {12, 78, fminf(290, a->width * .46f), 52};
     if (a->button_count < BUTTON_MAX)
         a->buttons[a->button_count++] = (Button){r, ACT_JOURNAL, 0, true};
     hud_card(f, r, 196);
     gfx_rect(f, (SDL_FRect){r.x, r.y + 10, 2, r.h - 20}, (SDL_Color){227, 193, 131, 205});
     gfx_text(f, QUESTS[g->quest].title, r.x + 12, r.y + 7, 11, 0, GOLD);
-    gfx_text(f, "여정  J", r.x + r.w - 49, r.y + 7, 10, 0, MUTED);
+    gfx_text(f, a->touch_input ? "여정" : "여정 J", r.x + r.w - 54, r.y + 7, 10, 0, MUTED);
     char text[160];
     game_objective_brief(g, text, sizeof text);
     float size = 14;
     while (size > 11 && gfx_measure(f, text, size) > r.w - 24)
         size -= .5f;
-    gfx_text(f, text, r.x + 12, r.y + 25, size, 0, PAPER);
+    gfx_text(f, text, r.x + 12, r.y + 27, size, 0, PAPER);
 }
 static void draw_notification(App *a) {
     Game *g = &a->game;
@@ -375,12 +367,12 @@ static void draw_notification(App *a) {
     float size = 12, limit = fminf(316, a->width * .49f);
     while (size > 10 && gfx_measure(f, g->toast, size) > limit - 24)
         size -= .5f;
-    SDL_FRect r = {14, 134 + (1 - fade) * 4, fminf(limit, gfx_measure(f, g->toast, size) + 24), 29};
+    SDL_FRect r = {12, 138 + (1 - fade) * 4, fminf(limit, gfx_measure(f, g->toast, size) + 24), 29};
     hud_card(f, r, (Uint8)(182 * fade));
     /* Clip custom/developer notices too: a long message must never grow into the map. */
     SDL_Rect clip = {(int)r.x + 8, (int)r.y, (int)r.w - 16, (int)r.h};
     SDL_RenderSetClipRect(a->renderer, &clip);
-    gfx_text(f, g->toast, r.x + 12, r.y + 8, size, 0, (SDL_Color){228, 218, 192, (Uint8)(255 * fade)});
+    gfx_label(f, g->toast, r, size, (SDL_Color){228, 218, 192, (Uint8)(255 * fade)});
     SDL_RenderSetClipRect(a->renderer, NULL);
 }
 static void draw_hud(App *a) {
@@ -388,53 +380,45 @@ static void draw_hud(App *a) {
     Game *g = &a->game;
     float w = a->width, h = a->height;
     char text[512];
-    hud_card(f, (SDL_FRect){14, 12, 252, 56}, 211);
-    gfx_text(f, "제1장 · 경상도 남부", 26, 21, 12, 0, GOLD);
-    gfx_rect(f, (SDL_FRect){57, 48, 130, 5}, (SDL_Color){25, 18, 19, 255});
-    gfx_rect(f, (SDL_FRect){57, 48, 130 * (float)g->hero.hp / 100, 5}, RED);
-    gfx_text(f, "체력", 26, 41, 11, 0, MUTED);
-    snprintf(text, sizeof text, "%d / 100", g->hero.hp);
-    gfx_text(f, text, 197, 41, 11, 0, MUTED);
+    hud_card(f, (SDL_FRect){12, 12, 218, 56}, 214);
+    gfx_text(f, "제1장 · 경상도 남부", 26, 20, 12, 0, GOLD);
+    gfx_round(f, (SDL_FRect){58, 48, 100, 5}, 2.5f, (SDL_Color){25, 18, 19, 255});
+    gfx_round(f, (SDL_FRect){58, 48, 100 * (float)g->hero.hp / 100, 5}, 2.5f, RED);
+    gfx_text(f, "체력", 26, 40, 11, 0, MUTED);
+    snprintf(text, sizeof text, "%d/100", g->hero.hp);
+    gfx_text(f, text, 170, 40, 11, 0, MUTED);
     if (g->phase == PH_PLAY) {
-        button(a, (SDL_FRect){w - 55, 12, 41, 41}, "정지", ACT_PAUSE, 0, true, false);
+        button(a, (SDL_FRect){w - 56, 12, 44, 44}, "정지", ACT_PAUSE, 0, true, false);
 #ifndef __ANDROID__
-        button(a, (SDL_FRect){w - 104, 12, 41, 41}, "화면", ACT_FULLSCREEN, 0, true, false);
+        button(a, (SDL_FRect){w - 108, 12, 44, 44}, "화면", ACT_FULLSCREEN, 0, true, false);
 #endif
         snprintf(text, sizeof text, "가방 · %d문", g->coins);
-        button(a, (SDL_FRect){w - 237, 12, 125, 41}, text, ACT_BAG, 0, true, false);
+        button(a, (SDL_FRect){w - 228, 12, 112, 44}, text, ACT_BAG, 0, true, false);
         draw_quest_tracker(a);
         const char *weapon = g->augment == AUG_STEEL  ? "강철 대검"
                              : g->augment == AUG_WIND ? "환도 · 바람의 깃"
                              : g->sword               ? "단련한 환도"
                                                       : "환도";
-        gfx_rect(f, (SDL_FRect){14, h - 55, w < 800 ? 136 : 245, 40}, INK);
-        gfx_text(f, weapon, 25, h - 46, 15, 230, GOLD);
-        if (w >= 800)
-            gfx_text(f, "끌어 이동 · 가까운 적 자동 공격", 25, h - 27, 11, 230, MUTED);
+        SDL_FRect weapon_card = {12, h - 58, w < 800 ? 132 : 246, 44};
+        hud_card(f, weapon_card, 205);
+        if (w < 800)
+            gfx_label(f, weapon, weapon_card, 14, GOLD);
+        else {
+            gfx_text(f, weapon, 26, h - 54, 14, 0, GOLD);
+            gfx_text(f, "끌어 이동 · 가까운 적 자동 공격", 26, h - 33, 11, 0, MUTED);
+        }
         snprintf(text, sizeof text, "탕약 %d", g->tonics);
-        button(a, (SDL_FRect){w - 209, h - 92, 82, 35}, text, ACT_USE, ITEM_TONIC,
+        button(a, (SDL_FRect){w - 204, h - 110, 88, 44}, text, ACT_USE, ITEM_TONIC,
                game_can_use(g, ITEM_TONIC), false);
         snprintf(text, sizeof text, "지혈산 %d", g->bandages);
-        button(a, (SDL_FRect){w - 209, h - 51, 82, 35}, text, ACT_USE, ITEM_BANDAGE,
+        button(a, (SDL_FRect){w - 204, h - 58, 88, 44}, text, ACT_USE, ITEM_BANDAGE,
                game_can_use(g, ITEM_BANDAGE), false);
-        snprintf(text, sizeof text,
-                 g->cooldown > 0          ? "%.1f초"
-                 : g->augment == AUG_FLOW ? "파고들기 Q"
-                                          : "갈라베기 Q",
-                 g->cooldown);
-        button(a, (SDL_FRect){w - 118, h - 92, 104, 76}, text, ACT_SKILL, 0, g->cooldown <= 0, false);
-        int pickups = game_pickup_count(g);
-        SDL_FRect pickup = {w - 208, h - 144, 194, 44};
-        if (a->button_count < BUTTON_MAX)
-            a->buttons[a->button_count++] = (Button){pickup, ACT_PICKUP, 0, pickups > 0};
-        hud_card(f, pickup, pickups ? 235 : 135);
-        if (pickups) {
-            gfx_rect(f, (SDL_FRect){pickup.x, pickup.y + 9, 2, 26}, GOLD);
-            snprintf(text, sizeof text, "줍기 · 약재 %d", pickups);
-        } else
-            snprintf(text, sizeof text, "줍기 · 근처 물품 없음");
-        gfx_text(f, text, pickup.x + 13, pickup.y + 15, 13, 0, pickups ? PAPER : MUTED);
-        gfx_center(f, "F", pickup.x + pickup.w - 17, pickup.y + 15, 12, pickups ? GOLD : MUTED);
+        if (g->cooldown > 0)
+            snprintf(text, sizeof text, "%.1f초", g->cooldown);
+        else
+            snprintf(text, sizeof text, "%s%s", g->augment == AUG_FLOW ? "파고들기" : "갈라베기",
+                     a->touch_input ? "" : " Q");
+        button(a, (SDL_FRect){w - 104, h - 94, 92, 80}, text, ACT_SKILL, 0, g->cooldown <= 0, true);
         Nearby near = game_nearby(g);
         if (near.kind != NEAR_NONE) {
             if (near.kind == NEAR_TRACE)
@@ -445,14 +429,19 @@ static void draw_hud(App *a) {
                 snprintf(text, sizeof text, "%s · Space", NPCS[near.index].role);
             else
                 snprintf(text, sizeof text, "대화 · Space");
-            float bw = fminf(228, w * .31f);
-            button(a, (SDL_FRect){w * .48f - bw / 2, h - 60, bw, 44}, text, ACT_INTERACT, 0, true, false);
+            if (a->touch_input) {
+                char *hint = strstr(text, " · Space");
+                if (hint) *hint = '\0';
+            }
+            float left = w < 800 ? 156 : 274, right = w - 220;
+            float bw = fminf(220, right - left);
+            button(a, (SDL_FRect){left + (right - left - bw) / 2, h - 58, bw, 44}, text, ACT_INTERACT, 0, true, false);
         }
     }
     if (g->quest == Q_COMBAT) {
         float bw = fminf(270, w * .32f);
         SDL_FRect r = {w - bw - 14, 66, bw, 48};
-        gfx_rect(f, r, INK);
+        hud_card(f, r, 220);
         gfx_text(f, "변이한 백정", r.x + 12, r.y + 7, 14, 0, PAPER);
         snprintf(text, sizeof text, "%d", g->boss.hp);
         gfx_text(f, text, r.x + bw - 44, r.y + 7, 13, 0, MUTED);
@@ -481,7 +470,7 @@ static void draw_shop(App *a) {
     for (int i = 0; i < ITEM_COUNT; i++)
         if ((int)ITEMS[i].shop == g->shop) {
             float y = p.y + 135 + (row_h + 8) * (float)row++;
-            gfx_rect(f, (SDL_FRect){p.x + 22, y, p.w - 44, row_h}, (SDL_Color){32, 57, 49, 220});
+            gfx_round(f, (SDL_FRect){p.x + 22, y, p.w - 44, row_h}, 14, (SDL_Color){34, 53, 49, 220});
             gfx_text(f, ITEMS[i].name, p.x + 34, y + 9, 18, p.w - 220, PAPER);
             gfx_text(f, ITEMS[i].description, p.x + 34, y + 34, 12, p.w - 225, MUTED);
             const char *error = game_purchase_error(g, (Item)i);
@@ -489,7 +478,7 @@ static void draw_shop(App *a) {
                 snprintf(s, sizeof s, "%s", error);
             else
                 snprintf(s, sizeof s, "%d문 · %s", ITEMS[i].price, i == ITEM_MEAL ? "쉬기" : "구입");
-            button(a, (SDL_FRect){p.x + p.w - 167, y + (row_h - 42) / 2, 132, 42}, s, ACT_BUY, i,
+            button(a, (SDL_FRect){p.x + p.w - 167, y + (row_h - 44) / 2, 132, 44}, s, ACT_BUY, i,
                    error == NULL, true);
         }
 }
@@ -507,11 +496,11 @@ static void draw_bag(App *a) {
     for (int i = 0; i < 2; i++) {
         Item item = i == 0 ? ITEM_TONIC : ITEM_BANDAGE;
         float y = p.y + 132 + (row_h + 8) * (float)i;
-        gfx_rect(f, (SDL_FRect){p.x + 22, y, p.w - 44, row_h}, (SDL_Color){32, 57, 49, 220});
+        gfx_round(f, (SDL_FRect){p.x + 22, y, p.w - 44, row_h}, 14, (SDL_Color){34, 53, 49, 220});
         snprintf(s, sizeof s, "%s × %d", ITEMS[item].name, i == 0 ? g->tonics : g->bandages);
         gfx_text(f, s, p.x + 34, y + 8, 18, p.w - 210, PAPER);
         gfx_text(f, i == 0 ? "체력 45 회복" : "출혈 즉시 해제", p.x + 34, y + 32, 13, p.w - 210, MUTED);
-        button(a, (SDL_FRect){p.x + p.w - 147, y + (row_h - 40) / 2, 112, 40}, "사용", ACT_USE, item,
+        button(a, (SDL_FRect){p.x + p.w - 147, y + (row_h - 44) / 2, 112, 44}, "사용", ACT_USE, item,
                game_can_use(g, item), true);
     }
     snprintf(s, sizeof s, "의뢰 물품 · 약재 꾸러미 %d/3%s", g->herbs,
@@ -554,9 +543,9 @@ static void draw_journal(App *a) {
     gfx_text(f, "휠 / 위·아래로 기록 이동 · 금빛 화살표가 목적지를 가리킵니다.", p.x + 22, p.y + p.h - 26, 12,
              p.w - 44, MUTED);
     if (start > 0)
-        button(a, (SDL_FRect){p.x + p.w - 89, p.y + 127, 58, 38}, "↑", ACT_JOURNAL, -1, true, false);
+        button(a, (SDL_FRect){p.x + p.w - 89, p.y + 125, 58, 44}, "↑", ACT_JOURNAL, -1, true, false);
     if (start + visible < QUEST_COUNT)
-        button(a, (SDL_FRect){p.x + p.w - 89, p.y + p.h - 79, 58, 38}, "↓", ACT_JOURNAL, 1, true, false);
+        button(a, (SDL_FRect){p.x + p.w - 89, p.y + p.h - 79, 58, 44}, "↓", ACT_JOURNAL, 1, true, false);
 }
 static void draw_overlay(App *a) {
     Gfx *f = &a->gfx;
@@ -566,7 +555,7 @@ static void draw_overlay(App *a) {
     if (g->phase == PH_TITLE) {
         gfx_rect(f, (SDL_FRect){0, 0, w, h}, (SDL_Color){6, 21, 27, 178});
         gfx_center(f, "증강", w * .29f, h * .26f, 20, GOLD);
-        gfx_center(f, "팔도야담", w * .29f, h * .35f, fminf(57, h * .16f), PAPER);
+        gfx_heading(f, "팔도야담", (SDL_FRect){w * .06f, h * .33f, w * .46f, h * .22f}, fminf(90, h * .24f), PAPER);
         gfx_center(f, "사람이 짐승이 되는 밤.", w * .29f, h * .59f, 17, PAPER);
         gfx_center(f, "팔도에 남겨진 이야기를 따라.", w * .29f, h * .68f, 15, MUTED);
         float x = w * .58f, bw = fminf(320, w * .36f);
@@ -578,32 +567,30 @@ static void draw_overlay(App *a) {
     if (g->phase == PH_PROLOGUE) {
         if (a->story_index == 4) {
             gfx_rect(f, (SDL_FRect){0, 0, w, h}, (SDL_Color){5, 14, 20, 225});
-            gfx_center(f, "10년 뒤", w / 2, h * .24f, 42, PAPER);
+            gfx_heading(f, "10년 뒤", (SDL_FRect){w / 2 - 140, h * .20f, 280, 60}, 56, PAPER);
             gfx_center(f, "경상도 남부 · 사라진 사람들", w / 2, h * .24f + 64, 17, GOLD);
         }
         float y = h - 120;
         SDL_FRect panel = {16, y, w - 32, 108};
-        gfx_rect(f, panel, INK);
-        gfx_border(f, panel, (SDL_Color){143, 132, 94, 220});
+        surface(f, panel, 20, INK);
         snprintf(s, sizeof s, "서장 %02d / 05", a->story_index + 1);
         gfx_text(f, s, 32, y + 15, 13, 0, MUTED);
         gfx_text(f, STORY_CAPS[a->story_index], 138, y + 12, 17, w - 345, GOLD);
         gfx_text(f, STORY_TEXT[a->story_index], 32, y + 49, 17, w - 64, PAPER);
-        button(a, (SDL_FRect){w - 170, y + 5, 144, 40}, a->story_index == 4 ? "마을로 · Space" : "계속 · Space",
+        button(a, (SDL_FRect){w - 170, y + 5, 144, 44}, a->story_index == 4 ? (a->touch_input ? "마을로" : "마을로 · Space") : (a->touch_input ? "계속" : "계속 · Space"),
                ACT_NEXT, 0, true, true);
-        button(a, (SDL_FRect){w - 145, 12, 129, 40}, "건너뛰기", ACT_SKIP, 0, true, false);
+        button(a, (SDL_FRect){w - 145, 12, 129, 44}, "건너뛰기", ACT_SKIP, 0, true, false);
         return;
     }
     if (g->phase == PH_DIALOGUE) {
-        float pw = fminf(960, w - 40), ph = fminf(180, h * .55f);
+        float pw = fminf(900, w - 32), ph = fminf(184, h * .54f);
         SDL_FRect p = {(w - pw) / 2, h - ph - 17, pw, ph};
-        gfx_rect(f, p, INK);
-        gfx_border(f, p, GOLD);
+        surface(f, p, 22, INK);
         Line line = a->dialogue[a->dialogue_index];
-        gfx_text(f, line.speaker, p.x + 22, p.y + 15, 16, p.w - 44, GOLD);
-        gfx_text(f, line.text, p.x + 22, p.y + 48, 19, p.w - 178, PAPER);
+        gfx_heading(f, line.speaker, (SDL_FRect){p.x + 14, p.y + 12, 144, 32}, 29, GOLD);
+        gfx_text(f, line.text, p.x + 22, p.y + 52, w < 740 ? 17 : 19, p.w - 178, PAPER);
         button(a, (SDL_FRect){p.x + p.w - 154, p.y + p.h - 64, 132, 44},
-               a->dialogue_index == a->dialogue_count - 1 ? "확인 · Space" : "계속 · Space", ACT_NEXT, 0, true, true);
+               a->dialogue_index == a->dialogue_count - 1 ? (a->touch_input ? "확인" : "확인 · Space") : (a->touch_input ? "계속" : "계속 · Space"), ACT_NEXT, 0, true, true);
         return;
     }
     if (g->phase == PH_SHOP) {
@@ -621,16 +608,20 @@ static void draw_overlay(App *a) {
     if (g->phase == PH_AUGMENT) {
         gfx_rect(f, (SDL_FRect){0, 0, w, h}, (SDL_Color){7, 22, 26, 232});
         gfx_center(f, "마을을 구하고 얻은 깨달음", w / 2, 24, 14, GOLD);
-        gfx_center(f, "무엇을 새길 것인가", w / 2, 52, 30, PAPER);
+        gfx_heading(f, "무엇을 새길 것인가", (SDL_FRect){w / 2 - 210, 42, 420, 42}, 38, PAPER);
         float cw = (fminf(w - 52, 1020) - 24) / 3, x = (w - (cw * 3 + 24)) / 2, top = 90, ch = h - top - 18;
         for (int i = 0; i < 3; i++) {
             SDL_FRect r = {x + (cw + 12) * (float)i, top, cw, ch};
-            gfx_rect(f, r, (SDL_Color){25, 51, 47, 250});
-            gfx_border(f, r, (SDL_Color){117, 137, 102, 255});
+            surface(f, r, 20, (SDL_Color){25, 46, 44, 250});
             gfx_text(f, AUGMENTS[i].kind, r.x + 15, r.y + 16, 14, cw - 30, GOLD);
-            gfx_text(f, AUGMENTS[i].name, r.x + 15, r.y + 46, 22, cw - 30, PAPER);
-            gfx_text(f, AUGMENTS[i].description, r.x + 15, r.y + 75, w < 740 ? 12 : 15, cw - 30, MUTED);
-            button(a, (SDL_FRect){r.x + 15, r.y + ch - 58, cw - 30, 42}, "새기기", ACT_CHOOSE, i + 1, true,
+            gfx_heading(f, AUGMENTS[i].name, (SDL_FRect){r.x + 8, r.y + 40, cw - 16, 34}, 30, PAPER);
+            static const char *compact[] = {
+                "넓고 무거운 베기\n공격 범위 +18\n기본 피해 +4",
+                "검 끝의 바람 칼날\n거리 120 안의 적\n바람 피해 6",
+                "베며 앞으로 돌진\n재사용 4초\n스킬 피해 +6"};
+            gfx_text(f, w < 740 || h < 360 ? compact[i] : AUGMENTS[i].description,
+                     r.x + 15, r.y + 80, w < 740 ? 12 : 15, cw - 30, MUTED);
+            button(a, (SDL_FRect){r.x + 15, r.y + ch - 58, cw - 30, 44}, "새기기", ACT_CHOOSE, i + 1, true,
                    true);
         }
         return;
@@ -640,10 +631,10 @@ static void draw_overlay(App *a) {
         const char *title = g->phase == PH_PAUSED ? "잠시 숨 고르기"
                             : g->phase == PH_DEAD ? "다시 칼을 쥐다"
                                                   : "길은 계속된다";
-        gfx_center(f, title, w / 2, 30, 31, PAPER);
+        gfx_heading(f, title, (SDL_FRect){w / 2 - 220, 24, 440, 50}, 42, PAPER);
         if (g->phase == PH_PAUSED) {
             gfx_center(f, "화면을 끌거나 목적지를 탭해 이동 · 가까운 적 자동 공격", w / 2, 84, 16, MUTED);
-            gfx_center(f, "WASD 이동 · Space 대화 / 다음 · F 줍기 · Q 스킬", w / 2, 115, 15, MUTED);
+            gfx_center(f, "WASD 이동 · Space 대화 / 다음 · Q 스킬 · 물품 자동 줍기", w / 2, 115, 15, MUTED);
             gfx_center(f, "I 가방 · J 여정 기록 · 1 탕약 · 2 지혈산 · F11 전체화면", w / 2, 146, 14, MUTED);
         } else if (g->phase == PH_DEAD) {
             gfx_center(f, "마을에서 회복하고 다시 떠납니다.", w / 2, 88, 18, MUTED);
@@ -653,7 +644,7 @@ static void draw_overlay(App *a) {
             gfx_center(f, g->augment > AUG_NONE ? AUGMENTS[g->augment - 1].name : "첫 여정 완료", w / 2, 124,
                        20, GOLD);
         }
-        float top = fmaxf(186, h * .57f), bw = fminf(380, w - 56);
+        float top = fminf(h - 110, fmaxf(186, h * .57f)), bw = fminf(380, w - 56);
         button(a, (SDL_FRect){(w - bw) / 2, top, bw, 46},
                g->phase == PH_PAUSED ? "계속하기"
                : g->phase == PH_DEAD ? (g->replay ? "백정전 다시 도전" : "마을에서 다시 일어나기")
@@ -699,7 +690,7 @@ static void draw(App *a) {
         const int pictures[4] = {0, 1, 1, 2};
         gfx_story(&a->gfx, pictures[a->story_index], a->width, a->height, a->story_elapsed);
     }
-    if (a->game.phase != PH_TITLE && a->game.phase != PH_PROLOGUE)
+    if (a->game.phase == PH_PLAY || a->game.phase == PH_DIALOGUE)
         draw_hud(a);
     draw_overlay(a);
     draw_notification(a);
@@ -791,6 +782,7 @@ static void handle_events(App *a) {
             continue;
         }
         if (e.type == SDL_KEYDOWN && !e.key.repeat) {
+            a->touch_input = false;
             SDL_Keycode key = e.key.keysym.sym;
             if (key == SDLK_ESCAPE || key == SDLK_AC_BACK)
                 dispatch(a, ACT_PAUSE, 0);
@@ -836,6 +828,7 @@ static void handle_events(App *a) {
         if (e.type == SDL_MOUSEBUTTONUP && e.button.which != SDL_TOUCH_MOUSEID &&
             e.button.button == SDL_BUTTON_LEFT)
             pointer_up(a, -1, (Vec2){(float)e.button.x / a->density, (float)e.button.y / a->density});
+        if (e.type == SDL_FINGERDOWN) a->touch_input = true;
         if (e.type == SDL_FINGERDOWN)
             pointer_down(a, e.tfinger.fingerId, (Vec2){e.tfinger.x * a->width, e.tfinger.y * a->height});
         if (e.type == SDL_FINGERMOTION)
@@ -926,8 +919,9 @@ static void smoke_scene(App *a, const char *scene) {
         a->game.quest = Q_RECOVER;
         a->game.hero.pos = a->game.boars[0].pos;
         a->game.boars[0].hp = 0;
-        a->game.drops[0] = (Drop){.pos = {a->game.hero.pos.x + 28, a->game.hero.pos.y + 12}, .exists = true};
-        game_toast(&a->game, "멧돼지 제압 +9문 · 약재 발견");
+        a->game.drops[0] = (Drop){.pos = {a->game.hero.pos.x + 100, a->game.hero.pos.y + 12}, .exists = true};
+        a->touch_input = true;
+        game_toast(&a->game, "가까운 약재는 자동으로 회수합니다");
         a->game.toast_time = 2;
     } else if (!strcmp(scene, "notification")) {
         game_toast(&a->game, "여정 시작 · 마을 이장과 대화");
@@ -1116,7 +1110,7 @@ int main(int argc, char **argv) {
         if (smoke) {
             status = save_frame(a, smoke) ? 0 : 1;
             printf("Native render: %s, %.0fx%.0f, %d Korean/Latin glyphs, %s\n", scene, a->width, a->height,
-                   a->gfx.glyph_count, status ? "FAILED" : "OK");
+                   a->gfx.fonts[0].glyph_count + a->gfx.fonts[1].glyph_count, status ? "FAILED" : "OK");
             a->running = false;
         }
         SDL_RenderPresent(a->renderer);

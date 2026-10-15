@@ -16,11 +16,16 @@
 - stb_image.h SHA-256: `594c2fe35d49488b4382dbfaec8f98366defca819d916ac95becf3e75f4200b3`
 - stb_truetype.h SHA-256: `ecd30b05e0dd4fea3a13c26810dd9e1992dc379049482c393d5a19e6b5090aab`
 
-## 나눔고딕
+## 나눔명조 / 나눔붓글씨
 
-- 원본: https://github.com/google/fonts/tree/main/ofl/nanumgothic
-- 폰트: NanumGothic-Regular.ttf, SHA-256 `76f45ef4a6bcff344c837c95a7dcc26e017e38b5846d5ae0cdcb5b86be2e2d31`
-- SIL Open Font License 1.1. 저작권과 전문은 `assets/fonts/OFL.txt`에 보존했습니다.
+변형하지 않은 원본 TTF를 포함합니다. SIL Open Font License 1.1이며 각 폰트의 저작권과 라이선스 전문을 함께 보존했습니다.
+
+- `NanumMyeongjo-Bold.ttf`: https://github.com/google/fonts/tree/main/ofl/nanummyeongjo
+  - SHA-256 `bc9ed8e60d93fe6db054b8fb988481b625f2eef8cb2317ad0e9834681b8fe3f3`
+  - 라이선스: `assets/fonts/nanummyeongjo-OFL.txt`
+- `NanumBrushScript-Regular.ttf`: https://github.com/google/fonts/tree/main/ofl/nanumbrushscript
+  - SHA-256 `27ceaf578c96f594cdf07fe0181b251790acbb746a164e45c1f6473f89911a31`
+  - 라이선스: `assets/fonts/nanumbrushscript-OFL.txt`
 
 ## 게임 PNG
 

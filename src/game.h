@@ -11,6 +11,8 @@
 #define EFFECT_MAX 48
 #define TOAST_SECONDS 2.8f
 #define PICKUP_RADIUS 70.0f
+#define MAGNET_RADIUS 156.0f
+#define COLLECT_RADIUS 16.0f
 
 typedef struct {
     float x, y;
@@ -67,7 +69,7 @@ typedef struct {
 } Enemy;
 typedef struct {
     Vec2 pos;
-    bool exists, collected;
+    bool exists, collected, attracting;
 } Drop;
 typedef struct {
     Vec2 pos;
