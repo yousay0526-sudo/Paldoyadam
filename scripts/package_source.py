@@ -15,7 +15,7 @@ def source_files():
         parts = rel.parts
         if '__pycache__' in parts:
             continue
-        keep = str(rel) in ROOT_FILES or parts[0] in {'src','assets','docs','tests','scripts','web','.github'}
+        keep = str(rel) in ROOT_FILES or parts[0] in {'src','assets','art','docs','tests','scripts','web','.github'}
         keep |= len(parts)>2 and parts[:2]==('third_party','stb')
         if parts[0]=='android':
             excluded = {'build','.gradle','.cxx','local.properties','gradlew','gradlew.bat','gradle-wrapper.jar'}

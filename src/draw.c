@@ -66,9 +66,10 @@ bool gfx_load(Gfx *g, SDL_Renderer *renderer, const char *root) {
     memset(g, 0, sizeof *g);
     g->renderer = renderer;
     char path[2048];
-    Picture *pictures[] = {&g->map,  &g->hero,        &g->boss,        &g->boar,
+    Picture *pictures[] = {&g->map, &g->hero, &g->messenger, &g->boss, &g->boar,
                            &g->npcs, &g->prologue[0], &g->prologue[1], &g->prologue[2]};
     const char *names[] = {"village.png",
+                           "warrior-v2.png",
                            "warrior.png",
                            "butcher.png",
                            "minion.png",
@@ -76,7 +77,7 @@ bool gfx_load(Gfx *g, SDL_Renderer *renderer, const char *root) {
                            "prologue/01-homeward.png",
                            "prologue/02-hunger.png",
                            "prologue/03-reflection.png"};
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < 9; i++) {
         asset_path(path, sizeof path, root, names[i]);
         *pictures[i] = load_picture(g, path);
         if (!pictures[i]->texture) {
@@ -84,7 +85,9 @@ bool gfx_load(Gfx *g, SDL_Renderer *renderer, const char *root) {
             gfx_free(g);
             return false;
         }
-        if (i >= 5)
+        /* World sprites keep crisp sampling. The hero image is prefiltered
+         * at 3x its logical size; only the story illustrations use linear. */
+        if (i >= 6)
             SDL_SetTextureScaleMode(pictures[i]->texture, SDL_ScaleModeLinear);
     }
     const char *font_names[] = {"fonts/NanumMyeongjo-Bold.ttf", "fonts/NanumBrushScript-Regular.ttf"};
@@ -108,9 +111,9 @@ bool gfx_load(Gfx *g, SDL_Renderer *renderer, const char *root) {
     return true;
 }
 void gfx_free(Gfx *g) {
-    Picture *pictures[] = {&g->map,  &g->hero,        &g->boss,        &g->boar,
+    Picture *pictures[] = {&g->map, &g->hero, &g->messenger, &g->boss, &g->boar,
                            &g->npcs, &g->prologue[0], &g->prologue[1], &g->prologue[2]};
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < 9; i++) {
         if (pictures[i]->texture)
             SDL_DestroyTexture(pictures[i]->texture);
         pictures[i]->texture = NULL;
@@ -565,7 +568,7 @@ void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool walkin
             p = screen_pos(NPCS[i].pos, camera);
             shadow(f, p, 11);
             if (i == MESSENGER)
-                gfx_sprite(f, &f->hero, p, 46, 46, false);
+                gfx_sprite(f, &f->messenger, p, 46, 46, false);
             else {
                 SDL_FRect r = {p.x - 46 * (float)crops[i].w / 724 / 2, p.y - 46, 46 * (float)crops[i].w / 724,
                                46};

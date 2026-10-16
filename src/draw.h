@@ -22,7 +22,7 @@ typedef struct {
 } Typeface;
 typedef struct {
     SDL_Renderer *renderer;
-    Picture map, hero, boss, boar, npcs, prologue[3];
+    Picture map, hero, messenger, boss, boar, npcs, prologue[3];
     Typeface fonts[2];
     int face;
 } Gfx;
