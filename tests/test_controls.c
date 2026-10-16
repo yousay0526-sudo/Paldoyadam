@@ -67,7 +67,7 @@ static void pickup(App *a) {
     CHECK(a->game.phase == PH_PLAY);
     /* Auto-loot uses no button and leaves ongoing movement intact. */
     a->target_set = true;
-    game_tick(&a->game, .016f, (Vec2){0, 0});
+    for (int i = 0; i < 24; i++) game_tick(&a->game, .05f, (Vec2){0, 0});
     CHECK(a->game.herbs == 2 && a->target_set);
     CHECK(a->game.phase == PH_PLAY && a->game.cooldown == 0);
 }

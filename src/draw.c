@@ -273,7 +273,7 @@ float gfx_text(Gfx *g, const char *text, float x, float y, float size, float max
         int cp = next_codepoint(&text);
         if (cp == '\n') {
             x = start;
-            y += size * 1.5f;
+            y += size * 1.32f;
             continue;
         }
         Glyph *v = glyph(g, cp);
@@ -281,7 +281,7 @@ float gfx_text(Gfx *g, const char *text, float x, float y, float size, float max
             continue;
         if (max_width > 0 && x > start && x + v->advance * scale > start + max_width) {
             x = start;
-            y += size * 1.5f;
+            y += size * 1.32f;
             if (cp == ' ')
                 continue;
         }
@@ -294,7 +294,45 @@ float gfx_text(Gfx *g, const char *text, float x, float y, float size, float max
         }
         x += v->advance * scale;
     }
-    return y - top + size * 1.5f;
+    return y - top + size * 1.32f;
+}
+/* Measure exactly the same wrapping as gfx_text before allocating a panel. */
+float gfx_text_height(Gfx *g, const char *text, float size, float max_width) {
+    float x = 0, height = size * 1.32f;
+    while (*text) {
+        int cp = next_codepoint(&text);
+        if (cp == '\n') { x = 0; height += size * 1.32f; continue; }
+        Glyph *v = glyph(g, cp);
+        if (!v) continue;
+        float advance = v->advance * size / 80;
+        if (max_width > 0 && x > 0 && x + advance > max_width) {
+            x = 0;
+            height += size * 1.32f;
+            if (cp == ' ') continue;
+        }
+        x += advance;
+    }
+    return height;
+}
+static bool text_clip(Gfx *g, SDL_FRect r, SDL_Rect *previous) {
+    bool enabled = SDL_RenderIsClipEnabled(g->renderer);
+    SDL_RenderGetClipRect(g->renderer, previous);
+    SDL_Rect clip = {(int)ceilf(r.x), (int)ceilf(r.y),
+        (int)fmaxf(0, floorf(r.x + r.w) - ceilf(r.x)),
+        (int)fmaxf(0, floorf(r.y + r.h) - ceilf(r.y))};
+    if (enabled) SDL_IntersectRect(previous, &clip, &clip);
+    SDL_RenderSetClipRect(g->renderer, &clip);
+    return enabled;
+}
+float gfx_text_box(Gfx *g, const char *text, SDL_FRect r, float size, float min_size, SDL_Color c) {
+    float width = fmaxf(1, r.w - 2);
+    while (size > min_size && gfx_text_height(g, text, size, width) > r.h)
+        size = fmaxf(min_size, size - .5f);
+    SDL_Rect previous;
+    bool enabled = text_clip(g, r, &previous);
+    gfx_text(g, text, r.x + 1, r.y, size, width, c);
+    SDL_RenderSetClipRect(g->renderer, enabled ? &previous : NULL);
+    return size;
 }
 void gfx_center(Gfx *g, const char *text, float x, float y, float size, SDL_Color c) {
     gfx_text(g, text, x - gfx_measure(g, text, size) * .5f, y, size, 0, c);
@@ -318,9 +356,16 @@ void gfx_label(Gfx *g, const char *text, SDL_FRect r, float size, SDL_Color c) {
         pen += v->advance * scale;
     }
     if (left > right) return;
+    float fit_height = fminf(1, fmaxf(1, r.h - 6) / fmaxf(1, bottom - top));
+    size *= fit_height;
+    scale *= fit_height;
+    left *= fit_height; right *= fit_height; top *= fit_height; bottom *= fit_height;
+    SDL_Rect previous;
+    bool enabled = text_clip(g, r, &previous);
     gfx_text(g, text, r.x + (r.w - (right - left)) / 2 - left,
              r.y + (r.h - (bottom - top)) / 2 - top - g->fonts[g->face].ascent * scale,
              size, 0, c);
+    SDL_RenderSetClipRect(g->renderer, enabled ? &previous : NULL);
 }
 void gfx_heading(Gfx *g, const char *text, SDL_FRect r, float size, SDL_Color c) {
     int previous = g->face;
@@ -336,13 +381,13 @@ void gfx_sprite(Gfx *g, Picture *p, Vec2 v, float w, float h, bool flip) {
 }
 /* Preserve the entire illustration above the dialogue. A dimmed copy fills
  * the widescreen background, so even the reflected wolf stays in view. */
-void gfx_story(Gfx *f, int index, float w, float h, float elapsed) {
+void gfx_story(Gfx *f, int index, float w, float h, float elapsed, float footer_height) {
     Picture *p = &f->prologue[index];
     float cover = fmaxf(w / p->w, h / p->h);
     SDL_FRect backdrop = {(w - p->w * cover) / 2, (h - p->h * cover) / 2, p->w * cover, p->h * cover};
     SDL_RenderCopyF(f->renderer, p->texture, NULL, &backdrop);
     gfx_rect(f, (SDL_FRect){0, 0, w, h}, (SDL_Color){12, 18, 20, 213});
-    float available = h - 126;
+    float available = fmaxf(20, h - footer_height - 24);
     float fit = fminf((w - 24) / p->w, available / p->h);
     SDL_FRect art = {(w - p->w * fit) / 2, 6, p->w * fit, p->h * fit};
     SDL_SetTextureAlphaMod(p->texture, (Uint8)(255 * clampf(elapsed / .5f, 0, 1)));
@@ -455,16 +500,22 @@ void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool walkin
     for (int i = 0; i < BOAR_COUNT; i++)
         if (g->drops[i].exists && !g->drops[i].collected) {
             Vec2 p = screen_pos(g->drops[i].pos, camera);
-            marker(f, (Vec2){p.x, p.y - 9});
+            float bounce = g->drops[i].age < .32f ? sinf(g->drops[i].age / .32f * PI) * 18 : 0;
+            shadow(f, p, 8);
+            Vec2 item = {p.x, p.y - 8 - bounce};
+            gfx_sector(f, item, 6, 0, PI, (SDL_Color){189, 155, 94, 255});
+            gfx_round_border(f, (SDL_FRect){item.x - 6, item.y - 6, 12, 12}, 4, GOLD);
+            gfx_line(f, (Vec2){item.x - 4, item.y - 2}, (Vec2){item.x + 4, item.y + 2}, INK);
+            gfx_line(f, (Vec2){item.x, item.y - 6}, (Vec2){item.x, item.y + 5}, INK);
             if (g->drops[i].attracting) {
                 Vec2 tail = {g->drops[i].pos.x - g->hero.pos.x, g->drops[i].pos.y - g->hero.pos.y};
                 float d = fmaxf(1, hypotf(tail.x, tail.y));
                 for (int j = 1; j <= 3; j++) {
-                    Vec2 dot = {p.x + tail.x / d * j * 7, p.y - 9 + tail.y / d * j * 7};
+                    Vec2 dot = {p.x + tail.x / d * j * 7, item.y + tail.y / d * j * 7};
                     gfx_sector(f, dot, 2, 0, PI, (SDL_Color){227, 193, 131, (Uint8)(160 - j * 35)});
                 }
             } else
-                label(f, "약재", (Vec2){p.x, p.y - 36}, GOLD);
+                label(f, "약재", (Vec2){p.x, item.y - 24}, GOLD);
         }
     typedef struct {
         int kind, index;

@@ -13,6 +13,7 @@
 #define PICKUP_RADIUS 70.0f
 #define MAGNET_RADIUS 156.0f
 #define COLLECT_RADIUS 16.0f
+#define DROP_REST_SECONDS .70f
 
 typedef struct {
     float x, y;
@@ -70,6 +71,7 @@ typedef struct {
 typedef struct {
     Vec2 pos;
     bool exists, collected, attracting;
+    float age, magnet_time;
 } Drop;
 typedef struct {
     Vec2 pos;

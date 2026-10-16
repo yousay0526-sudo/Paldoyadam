@@ -282,8 +282,11 @@ static void automatic_magnet(void) {
     Vec2 first = g.drops[0].pos, outside = g.drops[1].pos;
     game_tick(&g, 0, (Vec2){0, 0});
     CHECK(distance(first, g.drops[0].pos) == 0 && g.herbs == 0);
-    game_tick(&g, .05f, (Vec2){0, 0});
+    for (int i = 0; i < 13; i++) game_tick(&g, .05f, (Vec2){0, 0});
+    CHECK(!g.drops[0].attracting && distance(first, g.drops[0].pos) == 0 && g.herbs == 0);
+    for (int i = 0; i < 2; i++) game_tick(&g, .05f, (Vec2){0, 0});
     CHECK(g.drops[0].attracting && distance(first, g.drops[0].pos) > 0);
+    CHECK(distance(first, g.drops[0].pos) < 12); /* Gradual pickup, not the old instant pull. */
     CHECK(g.herbs == 0 && !g.drops[0].collected); /* Travel is visible, not a teleport. */
     CHECK(distance(outside, g.drops[1].pos) == 0 && !g.drops[1].attracting);
     Vec2 traveling = g.drops[0].pos;
@@ -318,6 +321,19 @@ static void automatic_magnet(void) {
     g.quest = Q_TRACES;
     game_tick(&g, .05f, (Vec2){0, 0});
     CHECK(g.herbs == 0); /* Inactive quest items cannot advance the story early. */
+    /* Even a drop directly under the hero must first be visible on the ground. */
+    game_reset(&g); game_start(&g); g.quest = Q_RECOVER;
+    g.drops[0] = (Drop){.pos = g.hero.pos, .exists = true};
+    for (int i = 0; i < 13; i++) game_tick(&g, .05f, (Vec2){0, 0});
+    CHECK(g.herbs == 0 && !g.drops[0].collected);
+    float age = g.drops[0].age;
+    g.phase = PH_BAG;
+    for (int i = 0; i < 20; i++) game_tick(&g, .05f, (Vec2){0, 0});
+    CHECK(g.drops[0].age == age && g.herbs == 0);
+    g.phase = PH_PLAY;
+    for (int i = 0; i < 10; i++) game_tick(&g, .05f, (Vec2){0, 0});
+    CHECK(g.herbs == 1 && g.drops[0].collected);
+
 }
 int main(void) {
     quest_chain();

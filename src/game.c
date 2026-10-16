@@ -198,7 +198,7 @@ void game_quest_text(const Game *g, char *out, size_t size) {
 }
 void game_objective_brief(const Game *g, char *out, size_t size) {
     static const char *brief[QUEST_COUNT] = {
-        "마을 이장과 대화", "동쪽 숲길의 흔적 조사", "멧돼지 제압 · 약재 회수",
+        "마을 이장과 대화", "동쪽 숲길의 흔적 조사", "멧돼지 제압 · 회수",
         "약방에 약재 전달", "이장에게 조사 결과 보고", "동쪽 도축터로 이동",
         "공격을 피하며 백정 제압", "이장에게 소식 전하기", "전령 윤겸과 대화"};
     if (g->quest == Q_TRACES)
@@ -573,17 +573,24 @@ static void tick_loot(Game *g, float dt) {
         drop->attracting = false;
         if (!drop->exists || drop->collected)
             continue;
-        float d = distance(g->hero.pos, drop->pos);
-        if (d > MAGNET_RADIUS || !world_segment(drop->pos, g->hero.pos, 0))
+        drop->age += dt;
+        if (drop->age < DROP_REST_SECONDS)
             continue;
+        float d = distance(g->hero.pos, drop->pos);
+        if (d > MAGNET_RADIUS || !world_segment(drop->pos, g->hero.pos, 0)) {
+            drop->magnet_time = 0;
+            continue;
+        }
         drop->attracting = true;
+        drop->magnet_time += dt;
         if (d > COLLECT_RADIUS) {
-            float step = fminf(d, (180 + (MAGNET_RADIUS - d) * 2.4f) * dt);
+            float speed = 70 + 150 * clampf(drop->magnet_time / .7f, 0, 1);
+            float step = fminf(d, speed * dt);
             drop->pos = world_move(drop->pos,
                 (Vec2){(g->hero.pos.x - drop->pos.x) * step / d,
                        (g->hero.pos.y - drop->pos.y) * step / d}, 0);
         }
-        if (distance(g->hero.pos, drop->pos) <= COLLECT_RADIUS)
+        if (drop->magnet_time >= .25f && distance(g->hero.pos, drop->pos) <= COLLECT_RADIUS)
             game_collect(g, i);
     }
 }
