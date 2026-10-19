@@ -38,6 +38,8 @@ void gfx_round(Gfx *gfx, SDL_FRect r, float radius, SDL_Color c);
 void gfx_round_border(Gfx *gfx, SDL_FRect r, float radius, SDL_Color c);
 void gfx_line(Gfx *gfx, Vec2 a, Vec2 b, SDL_Color c);
 void gfx_circle(Gfx *gfx, Vec2 p, float radius, SDL_Color c);
+/* High-resolution filled disc and matching outline for the attack control. */
+void gfx_disc(Gfx *gfx, Vec2 p, float radius, SDL_Color fill, SDL_Color rim);
 void gfx_sector(Gfx *gfx, Vec2 p, float radius, float angle, float half, SDL_Color c);
 float gfx_measure(Gfx *gfx, const char *text, float size);
 float gfx_text(Gfx *gfx, const char *text, float x, float y, float size, float max_width, SDL_Color c);
