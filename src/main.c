@@ -71,7 +71,8 @@ typedef struct {
     int bag_tab, bag_selected, selected_swipe;
     bool attack_pointer_down, attack_swiping, attack_repeated, attack_key_down;
     Sint64 attack_pointer_id;
-    Vec2 attack_start, attack_last;
+    Vec2 attack_start, attack_anchor;
+    int attack_direction;
     float attack_hold;
     Route route;
     Uint64 previous_frame;
@@ -135,6 +136,8 @@ static void stop_input(App *a) {
     a->target_set = false;
     a->attack_pointer_down = a->attack_key_down = false;
     a->attack_swiping = a->attack_repeated = false;
+    a->attack_direction = -1;
+    a->attack_start = a->attack_anchor = (Vec2){0, 0};
     a->attack_hold = 0;
     a->game.queued_move = MOVE_NONE; a->game.buffer_time = 0;
 }
@@ -497,8 +500,7 @@ static void draw_hud(App *a) {
         else snprintf(text, sizeof text, "%s", a->touch_input ? "탭 / 밀기" : "Z / 밀기");
         gfx_label(f, text, (SDL_FRect){attack.x + 3, attack.y + 48, 82, 20}, 11,
                   a->attack_pointer_down ? INK : GOLD);
-        int direction = a->attack_pointer_down ? combat_direction((Vec2){
-            a->attack_last.x - a->attack_start.x, a->attack_last.y - a->attack_start.y}) : -1;
+        int direction = a->attack_pointer_down ? a->attack_direction : -1;
         if (direction >= 0) {
             Technique tech = g->swipe_bindings[direction];
             float cd = game_technique_cooldown(g, tech);
@@ -995,7 +997,8 @@ static void pointer_down(App *a, Sint64 id, Vec2 p) {
                 if(b.action==ACT_ATTACK && a->game.phase==PH_PLAY) {
                     if(!a->attack_pointer_down) {
                         a->attack_pointer_down=true; a->attack_pointer_id=id;
-                        a->attack_start=a->attack_last=p; a->attack_hold=0;
+                        a->attack_start=a->attack_anchor=p; a->attack_hold=0;
+                        a->attack_direction=-1;
                         a->attack_swiping=a->attack_repeated=false;
                         a->target_set=false;
                     }
@@ -1014,8 +1017,30 @@ static void pointer_down(App *a, Sint64 id, Vec2 p) {
 }
 static void pointer_move(App *a, Sint64 id, Vec2 p) {
     if(a->attack_pointer_down && a->attack_pointer_id==id) {
-        a->attack_last=p;
+        if(a->game.phase!=PH_PLAY || a->width<=a->height) {
+            stop_input(a);
+            return;
+        }
         if(distance(p,a->attack_start)>=32) a->attack_swiping=true;
+        Vec2 delta={p.x-a->attack_anchor.x,p.y-a->attack_anchor.y};
+        int direction=combat_direction(delta);
+        if(direction>=0 && direction!=a->attack_direction) {
+            /* One request per new stroke, even if timing/cooldown rejects it.
+             * The game's existing single-slot buffer owns all combat timing. */
+            a->attack_swiping=true;
+            a->attack_direction=direction;
+            a->attack_anchor=p;
+            dispatch(a,ACT_TECHNIQUE,a->game.swipe_bindings[direction]);
+        } else {
+            /* Follow forward progress, so reversals start at the stroke's tip.
+             * Do not rebase on lateral jitter: a gradual turn must accumulate. */
+            float forward= a->attack_direction==SWIPE_UP ? -delta.y
+                : a->attack_direction==SWIPE_DOWN ? delta.y
+                : a->attack_direction==SWIPE_LEFT ? -delta.x : delta.x;
+            float side= a->attack_direction==SWIPE_UP || a->attack_direction==SWIPE_DOWN
+                ? fabsf(delta.x) : fabsf(delta.y);
+            if(a->attack_direction>=0 && forward>side*1.15f) a->attack_anchor=p;
+        }
         return;
     }
     if (!a->pointer_down || a->pointer_id != id) return;
@@ -1025,15 +1050,14 @@ static void pointer_move(App *a, Sint64 id, Vec2 p) {
 }
 static void pointer_up(App *a, Sint64 id, Vec2 p) {
     if(a->attack_pointer_down && a->attack_pointer_id==id) {
-        Vec2 delta={p.x-a->attack_start.x,p.y-a->attack_start.y};
-        int direction=combat_direction(delta);
-        if(a->game.phase==PH_PLAY && a->width>a->height) {
-            if(a->attack_swiping || distance(p,a->attack_start)>=32) {
-                if(direction>=0) dispatch(a,ACT_TECHNIQUE,a->game.swipe_bindings[direction]);
-            } else if(!a->attack_repeated) dispatch(a,ACT_ATTACK,0);
-        }
+        /* Some platforms coalesce the final motion into the release event. */
+        pointer_move(a,id,p);
+        if(a->attack_pointer_down && !a->attack_swiping && !a->attack_repeated)
+            dispatch(a,ACT_ATTACK,0);
         a->attack_pointer_down=false; a->attack_hold=0;
         a->attack_swiping=a->attack_repeated=false;
+        a->attack_direction=-1;
+        a->attack_start=a->attack_anchor=(Vec2){0,0};
         return;
     }
     if (!a->pointer_down || a->pointer_id != id) return;

@@ -105,7 +105,8 @@ static void combat_inputs(App *a) {
     for(int d=0;d<SWIPE_COUNT;d++) {
         p=attack_fixture(a); Vec2 end={p.x+swipes[d].x,p.y+swipes[d].y};
         pointer_down(a,12,p); pointer_move(a,12,end);
-        CHECK(a->attack_swiping && !a->game.hero.attacking && !a->game.hero.skilling);
+        CHECK(a->attack_swiping && !a->game.hero.attacking && a->game.hero.skilling);
+        CHECK(a->attack_pointer_down && a->game.hero.technique==a->game.swipe_bindings[d]);
         pointer_up(a,12,end);
         CHECK(a->game.hero.skilling && a->game.hero.technique==a->game.swipe_bindings[d]);
         CHECK(!a->game.hero.attacking && a->game.attack_cooldown==0);
@@ -170,19 +171,182 @@ static void bag_actions(App *a) {
     a->game.herbs=2; CHECK(bag_entries(&a->game,3,entries)==1 && entries[0].count==2);
     dispatch(a,ACT_CLOSE,0);
 }
+static void touch(App *a, Uint32 type, Sint64 id, Vec2 p) {
+    SDL_Event e={0}; e.type=type;
+    e.tfinger.touchId=1; e.tfinger.fingerId=id;
+    e.tfinger.x=p.x/a->width; e.tfinger.y=p.y/a->height;
+    CHECK(SDL_PushEvent(&e)==1);
+    handle_events(a);
+}
+static void combat_frames(App *a, int count) {
+    for(int i=0;i<count;i++) {
+        combat_tick(a,.05f);
+        game_tick(&a->game,.05f,input(a,.05f));
+    }
+}
+static void continuous_swipes(App *a) {
+    Vec2 p=attack_fixture(a), move={100,220}, up={p.x,p.y-100};
+    touch(a,SDL_FINGERDOWN,20,move);
+    touch(a,SDL_FINGERMOTION,20,(Vec2){135,220});
+    touch(a,SDL_FINGERDOWN,21,p);
+    touch(a,SDL_FINGERMOTION,21,up);
+    CHECK(a->attack_pointer_down && a->game.hero.skilling && a->game.hero.technique==TECH_CLEAVE);
+    CHECK(a->pointer_down && a->pointer_delta.x>0);
+    Vec2 before=a->game.hero.pos;
+    combat_frames(a,9);
+    CHECK(a->game.hero.pos.x>before.x && world_clear(a->game.hero.pos,HERO_RADIUS));
+    /* Continue upward before reversing: the down stroke stays above the button. */
+    up.y-=40; touch(a,SDL_FINGERMOTION,21,up);
+    touch(a,SDL_FINGERMOTION,99,(Vec2){p.x-90,p.y});
+    touch(a,SDL_FINGERUP,99,p);
+    CHECK(a->attack_pointer_down && a->game.queued_move==MOVE_NONE);
+    Vec2 down={up.x,up.y+40};
+    touch(a,SDL_FINGERMOTION,21,down);
+    CHECK(a->game.queued_move==TECH_RETREAT && a->game.hero.technique==TECH_CLEAVE);
+    combat_frames(a,4);
+    CHECK(a->game.hero.skilling && a->game.hero.technique==TECH_RETREAT && a->game.combo_count==2);
+    combat_frames(a,9);
+    Vec2 left={down.x-40,down.y};
+    touch(a,SDL_FINGERMOTION,21,left);
+    CHECK(a->game.queued_move==TECH_THRUST);
+    combat_frames(a,4);
+    CHECK(a->attack_pointer_down && a->game.hero.technique==TECH_THRUST && a->game.combo_count==3);
+    touch(a,SDL_FINGERUP,20,move);
+    CHECK(!a->pointer_down && a->attack_pointer_down);
+    combat_frames(a,70); /* Cooldowns elapse without held swipe repeating or becoming Z. */
+    touch(a,SDL_FINGERMOTION,21,(Vec2){left.x-40,left.y});
+    touch(a,SDL_FINGERUP,21,(Vec2){left.x-40,left.y});
+    CHECK(!a->game.hero.skilling && !a->game.hero.attacking && a->game.queued_move==MOVE_NONE);
+    CHECK(game_technique_cooldown(&a->game,TECH_THRUST)==0);
+
+    /* Last valid input wins, rejected directions cannot erase it or retry later. */
+    p=attack_fixture(a); up=(Vec2){p.x,p.y-60};
+    touch(a,SDL_FINGERDOWN,21,p); touch(a,SDL_FINGERMOTION,21,up);
+    touch(a,SDL_FINGERMOTION,21,p); /* Too early for down. */
+    CHECK(a->game.queued_move==MOVE_NONE);
+    combat_frames(a,9);
+    touch(a,SDL_FINGERMOTION,21,(Vec2){p.x,p.y+35}); /* Same rejected direction. */
+    CHECK(a->game.queued_move==MOVE_NONE);
+    Vec2 right={p.x+40,p.y+35}, back={p.x,p.y+35};
+    touch(a,SDL_FINGERMOTION,21,right);
+    CHECK(a->game.queued_move==TECH_SWEEP);
+    touch(a,SDL_FINGERMOTION,21,back);
+    CHECK(a->game.queued_move==TECH_THRUST);
+    touch(a,SDL_FINGERMOTION,21,(Vec2){back.x,back.y-40}); /* Cleave still cooling down. */
+    CHECK(a->game.queued_move==TECH_THRUST);
+    touch(a,SDL_FINGERUP,21,(Vec2){back.x,back.y-40});
+    combat_frames(a,4);
+    CHECK(a->game.hero.technique==TECH_THRUST && a->game.combo_count==2);
+    combat_frames(a,120);
+    CHECK(!a->game.hero.skilling && a->game.queued_move==MOVE_NONE);
+}
+static void swipe_thresholds(App *a) {
+    Vec2 p=attack_fixture(a);
+    pointer_down(a,1,p); pointer_move(a,1,(Vec2){p.x,p.y-31});
+    CHECK(!a->game.hero.skilling);
+    pointer_move(a,1,(Vec2){p.x,p.y-32});
+    CHECK(a->game.hero.skilling && a->game.hero.technique==TECH_CLEAVE);
+    combat_frames(a,9);
+    for(int i=0;i<12;i++) {
+        pointer_move(a,1,(Vec2){p.x+(i%2 ? -8 : 8),p.y-32+(i%3)*8});
+    }
+    CHECK(a->game.queued_move==MOVE_NONE);
+    pointer_move(a,1,(Vec2){p.x+40,p.y+8}); /* 40/40 diagonal from tip. */
+    CHECK(a->game.queued_move==MOVE_NONE);
+    pointer_move(a,1,(Vec2){p.x+44,p.y+8}); /* Still ambiguous (1.10 ratio). */
+    CHECK(a->game.queued_move==MOVE_NONE);
+    pointer_move(a,1,(Vec2){p.x,p.y-32});
+    /* Small forward drift cannot continually reset a predominantly lateral turn. */
+    for(int i=1;i<=9;i++) pointer_move(a,1,(Vec2){p.x-i*4,p.y-32-i*.25f});
+    CHECK(a->game.queued_move==TECH_THRUST);
+    pointer_up(a,1,(Vec2){p.x-36,p.y-34.25f});
+    CHECK(a->game.queued_move==TECH_THRUST && !a->game.hero.attacking);
+
+    p=attack_fixture(a); pointer_down(a,1,p);
+    pointer_move(a,1,(Vec2){p.x+50,p.y+50});
+    combat_frames(a,8); pointer_move(a,1,p); pointer_up(a,1,p);
+    CHECK(!a->game.hero.skilling && !a->game.hero.attacking); /* No diagonal-to-tap fallback. */
+    p=attack_fixture(a); pointer_down(a,1,p);
+    pointer_up(a,1,(Vec2){p.x,p.y-60}); /* Coalesced final motion still works. */
+    CHECK(a->game.hero.skilling && a->game.hero.technique==TECH_CLEAVE);
+
+    p=attack_fixture(a); pointer_down(a,1,p); combat_frames(a,10);
+    CHECK(a->game.hero.attacking && a->attack_repeated);
+    pointer_move(a,1,(Vec2){p.x+60,p.y});
+    CHECK(a->game.queued_move==TECH_SWEEP);
+    combat_frames(a,4);
+    CHECK(a->game.hero.skilling && a->game.hero.technique==TECH_SWEEP);
+    combat_frames(a,40);
+    CHECK(!a->game.hero.attacking && !a->game.hero.skilling);
+    pointer_up(a,1,(Vec2){p.x+60,p.y});
+    CHECK(!a->game.hero.attacking);
+
+    p=attack_fixture(a); key(a,SDLK_k,false);
+    dispatch(a,ACT_SWIPE_SELECT,SWIPE_UP); dispatch(a,ACT_TECH_BIND,TECH_THRUST);
+    key(a,SDLK_ESCAPE,false);
+    touch(a,SDL_FINGERDOWN,1,p); touch(a,SDL_FINGERMOTION,1,(Vec2){p.x,p.y-60});
+    CHECK(a->game.hero.technique==TECH_THRUST);
+    touch(a,SDL_FINGERUP,1,(Vec2){p.x,p.y-60});
+}
+static void swipe_cancellation(App *a) {
+    /* Exercise real menu/dialogue, focus/background and resize cancellation paths. */
+    for(int reason=0;reason<8;reason++) {
+        Vec2 p=attack_fixture(a), up={p.x,p.y-60};
+        touch(a,SDL_FINGERDOWN,20,(Vec2){100,220});
+        touch(a,SDL_FINGERMOTION,20,(Vec2){135,220});
+        touch(a,SDL_FINGERDOWN,21,p); touch(a,SDL_FINGERMOTION,21,up);
+        combat_frames(a,9); touch(a,SDL_FINGERMOTION,21,p);
+        CHECK(a->game.queued_move==TECH_RETREAT);
+        if(reason==0) key(a,SDLK_i,false);
+        else if(reason==1) { a->game.hero.pos=NPCS[ELDER].pos; key(a,SDLK_SPACE,false); }
+        else if(reason==2) key(a,SDLK_ESCAPE,false);
+        else if(reason==3) key(a,SDLK_k,false);
+        else if(reason==4) key(a,SDLK_j,false);
+        else {
+            SDL_Event e={0};
+            e.type=reason==6 ? SDL_APP_WILLENTERBACKGROUND : SDL_WINDOWEVENT;
+            e.window.event=reason==7 ? SDL_WINDOWEVENT_SIZE_CHANGED : SDL_WINDOWEVENT_FOCUS_LOST;
+            if(reason==7) SDL_SetWindowSize(a->window,390,844);
+            SDL_PushEvent(&e); handle_events(a);
+        }
+        CHECK(!a->attack_pointer_down && !a->pointer_down && !a->attack_key_down);
+        CHECK(a->attack_direction==-1 && !a->attack_swiping && a->attack_hold==0);
+        CHECK(a->game.queued_move==MOVE_NONE && a->game.buffer_time==0);
+        if(reason==7) {
+            CHECK(a->width<a->height);
+            SDL_SetWindowSize(a->window,844,390); resize(a);
+        }
+        a->game.phase=PH_PLAY;
+        touch(a,SDL_FINGERMOTION,21,(Vec2){p.x-60,p.y});
+        touch(a,SDL_FINGERUP,21,p); touch(a,SDL_FINGERUP,20,(Vec2){135,220});
+        combat_frames(a,20);
+        CHECK(!a->game.hero.skilling && !a->game.hero.attacking && !a->target_set);
+        CHECK(game_technique_cooldown(&a->game,TECH_RETREAT)==0);
+    }
+}
 int main(void) {
     SDL_SetMainReady();
-    if (SDL_Init(SDL_INIT_EVENTS) != 0) return 1;
+    SDL_SetHint(SDL_HINT_VIDEODRIVER,"dummy");
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS) != 0) return 1;
     App *a = calloc(1, sizeof *a);
     if (!a) return 1;
+    a->window=SDL_CreateWindow("controls",0,0,844,390,SDL_WINDOW_HIDDEN | SDL_WINDOW_RESIZABLE);
+    if(!a->window) return 1;
+    a->renderer=SDL_CreateRenderer(a->window,-1,SDL_RENDERER_SOFTWARE);
+    if(!a->renderer) return 1;
     a->width = 844; a->height = 390; a->density = 1;
     conversation(a);
     pickup(a);
     zoomed_destination(a);
     combat_inputs(a);
+    continuous_swipes(a);
+    swipe_thresholds(a);
+    swipe_cancellation(a);
     bag_actions(a);
+    SDL_DestroyRenderer(a->renderer);
+    SDL_DestroyWindow(a->window);
     free(a);
     SDL_Quit();
-    printf("PASS: %d controls checks: dialogue, manual attack, four swipes, holds, multitouch, remapping and inventory.\n", checks);
+    printf("PASS: %d controls checks: dialogue, continuous swipes, timing, jitter, holds, multitouch, cancellation, remapping and inventory.\n", checks);
     return 0;
 }

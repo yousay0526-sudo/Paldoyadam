@@ -542,9 +542,53 @@ static void techniques_and_combos(void) {
     combat_fixture(&g); CHECK(game_attack(&g)); advance(&g,16);
     CHECK(g.combo_time>0 && game_attack(&g) && g.combo_count==1); /* A repeat does not stack. */
 }
+static void continuous_input_buffer(void) {
+    Game g; combat_fixture(&g);
+    CHECK(game_technique(&g,TECH_CLEAVE));
+    advance(&g,8); /* 0.24s remaining: outside the existing 0.22s window. */
+    CHECK(!game_technique(&g,TECH_RETREAT) && g.queued_move==MOVE_NONE);
+    advance(&g,1);
+    CHECK(game_technique(&g,TECH_RETREAT) && g.queued_move==TECH_RETREAT);
+    CHECK(game_technique_cooldown(&g,TECH_RETREAT)==0); /* Queuing is not execution. */
+    CHECK(game_technique(&g,TECH_THRUST) && g.queued_move==TECH_THRUST);
+    float lifetime=g.buffer_time;
+    CHECK(!game_technique(&g,TECH_CLEAVE));
+    CHECK(g.queued_move==TECH_THRUST && g.buffer_time==lifetime);
+    advance(&g,4);
+    CHECK(g.hero.skilling && g.hero.technique==TECH_THRUST && g.hero.skill_elapsed==0);
+    CHECK(g.queued_move==MOVE_NONE && g.buffer_time==0 && g.combo_count==2);
+    CHECK(game_technique_cooldown(&g,TECH_RETREAT)==0);
+    int hp=g.boss.hp;
+    advance(&g,4); CHECK(g.boss.hp==hp); /* Buffered move still has full windup. */
+    advance(&g,1); CHECK(g.boss.hp<hp);
+    hp=g.boss.hp; advance(&g,10); CHECK(g.boss.hp==hp);
+    advance(&g,110);
+    CHECK(!g.hero.skilling && !g.hero.attacking && g.queued_move==MOVE_NONE);
+
+    /* Keyboard/basic and directional requests share one buffer; no hidden queue. */
+    combat_fixture(&g); CHECK(game_technique(&g,TECH_CLEAVE)); advance(&g,9);
+    CHECK(game_technique(&g,TECH_SWEEP));
+    CHECK(game_attack(&g) && g.queued_move==MOVE_ATTACK);
+    CHECK(game_technique(&g,TECH_RETREAT) && g.queued_move==TECH_RETREAT);
+    CHECK(game_attack(&g) && g.queued_move==MOVE_ATTACK);
+    advance(&g,4);
+    CHECK(g.hero.attacking && !g.hero.skilling && g.combo_count==2);
+    CHECK(game_technique_cooldown(&g,TECH_RETREAT)==0 && game_technique_cooldown(&g,TECH_SWEEP)==0);
+
+    const Phase panels[]={PH_BAG,PH_DIALOGUE,PH_PAUSED,PH_TECHNIQUES,PH_JOURNAL};
+    for(size_t i=0;i<sizeof panels/sizeof *panels;i++) {
+        combat_fixture(&g); CHECK(game_technique(&g,TECH_CLEAVE)); advance(&g,9);
+        CHECK(game_technique(&g,TECH_RETREAT));
+        g.phase=panels[i]; advance(&g,1);
+        CHECK(g.queued_move==MOVE_NONE && g.buffer_time==0);
+        g.phase=PH_PLAY; advance(&g,20);
+        CHECK(!g.hero.skilling && game_technique_cooldown(&g,TECH_RETREAT)==0);
+    }
+}
 int main(void) {
     equipment_and_manual_combat();
     techniques_and_combos();
+    continuous_input_buffer();
     quest_chain();
     shops();
     supplies();
