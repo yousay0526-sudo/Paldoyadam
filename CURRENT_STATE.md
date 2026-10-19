@@ -10,6 +10,7 @@
 ## 이번 작업: 승인된 마을 배경 원화 리메이크 1차 · 리뷰 대기
 - 최신 원격 `main` 확인 기준: `3accab5b8a4024421a01082ef31cd2f558d55a38` (PR #6 포함).
 - 별도 브랜치: `graphics/village-hires-remake-pass1-20261019-review`.
+- 리뷰 PR: [#10](https://github.com/yousay0526-sudo/Paldoyadam/pull/10). 코드 커밋 `f3b37b6`의 [CI 39244411655](https://github.com/yousay0526-sudo/Paldoyadam/actions/runs/39244411655)에서 Linux 전체 네이티브 CTest와 Emscripten 웹/단일 HTML 빌드 성공, deploy 작업은 skipped. 병합하지 않았다.
 - 내장 ImageGen으로 기존 배경과 승인된 주인공 원화를 참조해 기와·초가·석축·수목의 재질 묘사를 다시 제작했다. 생성 원본과 전체 프롬프트는 `art/village/`에 보존하고 `assets/village.png`에 동일 파일을 적용했다.
 - 실제 생성 결과는 1536×1024 RGB 불투명 이미지다. 프롬프트의 3072×2048 요청과 달리 원본과 같은 크기이며, 확대·샤픈으로 고해상도라고 표현하지 않는다. 원화 묘사 개선을 검토하는 1차 후보다.
 - `src/draw.c`에서 이전 PR #4의 로딩 시 언샵 처리를 제거했다. 최근접 샘플링, 2304×1536 월드, 1.20배 줌, 충돌·가림 좌표, 카메라·퀘스트·전투·입력은 유지했다.

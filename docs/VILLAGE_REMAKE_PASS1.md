@@ -2,6 +2,7 @@
 
 작업일: 2026-10-19. 기준: 원격 `main`의 `3accab5b8a4024421a01082ef31cd2f558d55a38`.
 브랜치: `graphics/village-hires-remake-pass1-20261019-review`.
+리뷰: [PR #10](https://github.com/yousay0526-sudo/Paldoyadam/pull/10).
 
 ## 변경과 원본
 
@@ -44,6 +45,8 @@ Windows x86-64, Zig 0.14.1의 Clang 19.1.7, C11, 공식 SDL 2.32.10 배포본. C
 | `tests/test_hero_render.c` | 109,272개 통과: 정지·이동·공격·기술 1/2/3배 및 배경 원본 픽셀 |
 | 네이티브 장면 스모크 | 전후 각각 8장, 총 16장 모두 정상 종료 |
 | 원화/배치 QA | 불투명 1536×1024, master 일치, 보호 파일 10개, 주요 지점 16개 통과 |
+
+추가 원격 검증: 코드 커밋 `f3b37b6`의 [GitHub Actions 39244411655](https://github.com/yousay0526-sudo/Paldoyadam/actions/runs/39244411655)가 성공했다. Linux에서 CMake 전체 빌드·CTest를 통과했고 Emscripten 3.1.74의 웹 파일과 단일 HTML 빌드를 완료했다. 배포 작업은 PR 조건에 의해 skipped였다. 이는 브라우저 상호작용이나 실제 휴대폰 실행 검증을 의미하지 않는다.
 
 스모크 장면: `village` 432×270 / 844×390 / 1100×650, `roof`·`canopy`·`shop`·`npc`·`skill2` 844×390. 게임 화면 보드에는 마을·지붕·나뭇가지·상점 네 장면을 보존했다.
 

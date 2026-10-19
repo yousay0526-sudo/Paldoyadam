@@ -6,6 +6,7 @@
 - 동일 장면/크기의 전후 SDL 스모크 총 16장 정상 종료. 원화·게임·충돌/가림 오버레이 비교를 보존하고 시각 검토했다. 지도 치수와 샘플링, 월드 좌표, `world.c`, 게임·입력 소스는 유지했다.
 - `python scripts/review_village_asset.py`: master/실행 PNG 일치, 불투명 캔버스, 보호 파일 10개, 주요 지점 16개 정합 검사 통과. 15개 이동량 0px, 대장간 지붕 수직 -1px. 이는 국소 정합 보조 검사로 전체 실루엣 동일성을 보장하지 않는다.
 - 실제 생성 결과는 1536×1024다. 2배 해상도 요청과 실제 결과를 구분하며, 단순 확대·샤픈을 적용하지 않았다. 이전 언샵 처리는 제거했다.
+- [PR #10](https://github.com/yousay0526-sudo/Paldoyadam/pull/10)의 코드 커밋 `f3b37b6`: [CI 39244411655](https://github.com/yousay0526-sudo/Paldoyadam/actions/runs/39244411655) 성공. Linux 전체 CTest와 Emscripten 3.1.74 웹/단일 HTML 빌드가 통과했고 배포 job은 skipped. 브라우저/휴대폰에서 실행한 결과는 아니다.
 - [전후 이미지 및 상세 재현/환경 기록](VILLAGE_REMAKE_PASS1.md). 실제 iPhone/Android 품질·성능, 로컬 WebAssembly/브라우저 실행과 APK 실행은 미검증. PR CI는 별도 확인 대상이다.
 - 이번 작업에서 병합·배포·버전 변경 없음. 사용자 시각 검토와 병합·배포 각각의 승인 대기.
 
