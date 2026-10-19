@@ -1,0 +1,156 @@
+{
+  "baseline": "3accab5b8a4024421a01082ef31cd2f558d55a38",
+  "dimensions": [
+    1536,
+    1024
+  ],
+  "mode": "RGB",
+  "sha256_before": "484653908e4ab7e87431ac4588da85cff9dd56b0aeb81145080871ddc8ccb6a2",
+  "sha256_after": "3bce631ee550f6d7b84b3419e5a4f627919685d3c12da3b562eaaf470f939b52",
+  "runtime_equals_generated_master": true,
+  "protected_files": {
+    "src/world.c": "7cf75631d913fbf8e2d9405501874e52ad659530ec5754aecf4bf48b993b28d1",
+    "src/world.h": "a1dd064d2649f86f4a73a69552b45a6420ff1ba6c30c5fa1151c767407ed284c",
+    "src/game.c": "381364401112456676df450e8b8de1f0aad4b1dcaa26f983934eb22fd3ede3d8",
+    "src/game.h": "09c82d80912be87496d21429f3b5305b4022a948fd52eebc0adadd0f37aa78ab",
+    "src/main.c": "bac37e7dbdfd89921c12cb9bf25b22c6260c3a0af9372c7085b5cacce0edf4f6",
+    "src/draw.h": "6f02d36ee50f8f9b289a9df9cbfd9acd64ddd1b35670d26f78949a784a4673b7",
+    "web/shell.html": "8f86a7083982fd17c5961843714487e9af3984eef726b62d663052aa0fa14c6b",
+    "assets/warrior-v2.png": "83b0952c3de6f2855415048e950b1b0519c7d7e0aa764488b214f4a0f484bad4",
+    "assets/warrior-walk-v1.png": "8e5f489b5851455a3993f7a70f64f53e13336894ddf84472f97b0044f46efffb",
+    "assets/warrior-attack-v1.png": "7da9d4f54bd6576bf1ebc09c5d31492b016fdb25ebb7776acb13a47a59aa3c9b"
+  },
+  "method": "56x56 patches; Gaussian sigma 1; gradient magnitude NCC; +/-10px search",
+  "acceptance": "Each axis <=2px; NCC >=0.55; supplemental to visual review",
+  "limitation": "Local texture alignment does not prove every silhouette or passable gap.",
+  "landmarks": [
+    {
+      "name": "smith roof",
+      "x": 210,
+      "y": 125,
+      "dx": 0,
+      "dy": -1,
+      "edge_ncc": 0.8065
+    },
+    {
+      "name": "chimney",
+      "x": 343,
+      "y": 102,
+      "dx": 0,
+      "dy": 0,
+      "edge_ncc": 0.729
+    },
+    {
+      "name": "smith gate",
+      "x": 295,
+      "y": 278,
+      "dx": 0,
+      "dy": 0,
+      "edge_ncc": 0.6927
+    },
+    {
+      "name": "herbalist roof",
+      "x": 600,
+      "y": 156,
+      "dx": 0,
+      "dy": 0,
+      "edge_ncc": 0.6618
+    },
+    {
+      "name": "herbalist gate",
+      "x": 515,
+      "y": 253,
+      "dx": 0,
+      "dy": 0,
+      "edge_ncc": 0.6955
+    },
+    {
+      "name": "shrine",
+      "x": 400,
+      "y": 348,
+      "dx": 0,
+      "dy": 0,
+      "edge_ncc": 0.8538
+    },
+    {
+      "name": "lantern",
+      "x": 455,
+      "y": 330,
+      "dx": 0,
+      "dy": 0,
+      "edge_ncc": 0.871
+    },
+    {
+      "name": "well roof",
+      "x": 566,
+      "y": 426,
+      "dx": 0,
+      "dy": 0,
+      "edge_ncc": 0.6553
+    },
+    {
+      "name": "well wall",
+      "x": 570,
+      "y": 482,
+      "dx": 0,
+      "dy": 0,
+      "edge_ncc": 0.7859
+    },
+    {
+      "name": "tavern roof",
+      "x": 182,
+      "y": 455,
+      "dx": 0,
+      "dy": 0,
+      "edge_ncc": 0.6963
+    },
+    {
+      "name": "tavern gate",
+      "x": 416,
+      "y": 532,
+      "dx": 0,
+      "dy": 0,
+      "edge_ncc": 0.7638
+    },
+    {
+      "name": "central pine",
+      "x": 846,
+      "y": 303,
+      "dx": 0,
+      "dy": 0,
+      "edge_ncc": 0.6973
+    },
+    {
+      "name": "cart",
+      "x": 816,
+      "y": 502,
+      "dx": 0,
+      "dy": 0,
+      "edge_ncc": 0.839
+    },
+    {
+      "name": "slaughter rack",
+      "x": 1410,
+      "y": 308,
+      "dx": 0,
+      "dy": 0,
+      "edge_ncc": 0.8143
+    },
+    {
+      "name": "south canopy",
+      "x": 525,
+      "y": 624,
+      "dx": 0,
+      "dy": 0,
+      "edge_ncc": 0.7405
+    },
+    {
+      "name": "bare tree",
+      "x": 775,
+      "y": 848,
+      "dx": 0,
+      "dy": 0,
+      "edge_ncc": 0.6644
+    }
+  ]
+}

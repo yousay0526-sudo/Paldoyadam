@@ -1,6 +1,7 @@
 /* Exercise the same atlas renderer used by the native and WebAssembly game. */
 #define SDL_MAIN_HANDLED
 #include "draw.h"
+#include "stb_image.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -9,6 +10,32 @@
 static int checks;
 #define CHECK(c) do { checks++; if (!(c)) { \
     fprintf(stderr, "FAIL %s:%d: %s\n", __FILE__, __LINE__, #c); exit(1); } } while (0)
+
+/* The map loader must preserve authored pixels, including roofs and canopy
+ * fragments later used for occlusion. Catch accidental runtime filtering. */
+static void check_map_pixels(Gfx *gfx, SDL_Surface *surface, const char *root) {
+    char path[2048];
+    snprintf(path, sizeof path, "%s/village.png", root);
+    int w, h, channels;
+    unsigned char *source = stbi_load(path, &w, &h, &channels, 4);
+    CHECK(source != NULL);
+    CHECK(w == 1536 && h == 1024);
+    unsigned char *pixels = malloc((size_t)surface->w * surface->h * 4);
+    CHECK(pixels != NULL);
+    const SDL_Rect crops[] = {{100, 50, 288, 288}, {380, 290, 288, 288},
+                              {650, 730, 288, 288}};
+    for (size_t i = 0; i < sizeof crops / sizeof *crops; i++) {
+        CHECK(SDL_RenderCopy(gfx->renderer, gfx->map.texture, &crops[i], NULL) == 0);
+        CHECK(SDL_RenderReadPixels(gfx->renderer, NULL, SDL_PIXELFORMAT_RGBA32,
+                                  pixels, surface->w * 4) == 0);
+        for (int y = 0; y < surface->h; y++)
+            CHECK(memcmp(pixels + y * surface->w * 4,
+                         source + ((crops[i].y + y) * w + crops[i].x) * 4,
+                         (size_t)surface->w * 4) == 0);
+    }
+    free(pixels);
+    stbi_image_free(source);
+}
 
 static void capture(Gfx *gfx, const Game *game, SDL_Surface *surface, Uint32 *pixels) {
     SDL_SetRenderDrawColor(gfx->renderer, 11, 15, 19, 255);
@@ -27,12 +54,12 @@ int main(int argc, char **argv) {
     if (!surface || !gfx) return 1;
     SDL_Renderer *renderer = SDL_CreateSoftwareRenderer(surface);
     if (!renderer || !gfx_load(gfx, renderer, argc > 1 ? argv[1] : "assets")) return 1;
-    /* The village remains at its original source size; only its color detail
-     * changes. Nearest sampling preserves the established pixel-RPG style. */
+    /* Repaint keeps the source-to-world registration and existing sampling. */
     CHECK(gfx->map.w == 1536 && gfx->map.h == 1024);
     SDL_ScaleMode village_mode;
     CHECK(SDL_GetTextureScaleMode(gfx->map.texture, &village_mode) == 0);
     CHECK(village_mode == SDL_ScaleModeNearest);
+    check_map_pixels(gfx, surface, argc > 1 ? argv[1] : "assets");
     size_t bytes = (size_t)surface->pitch * surface->h;
     Uint32 *pixels = malloc(bytes), *previous = malloc(bytes), *idle = malloc(bytes);
     if (!pixels || !previous || !idle) return 1;
