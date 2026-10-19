@@ -674,8 +674,11 @@ static bool request_move(Game *g, int move) {
     float remaining = g->hero.skilling ? HERO_SKILL_SECONDS - g->hero.skill_elapsed
         : g->hero.attacking ? HERO_ATTACK_SECONDS - g->hero.attack_elapsed : 0;
     if (remaining > 0) {
-        if (remaining > .22f) return false;
-        g->queued_move = move; g->buffer_time = .28f;
+        /* Keep one intentional follow-up across the entire active animation.
+         * The last valid input replaces it; no held direction auto-repeats.
+         * Its lifetime covers the remaining animation, not just 0.28 s. */
+        g->queued_move = move;
+        g->buffer_time = remaining + .10f;
         return true;
     }
     if (move == MOVE_ATTACK) {
