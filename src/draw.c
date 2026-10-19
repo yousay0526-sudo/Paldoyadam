@@ -247,6 +247,29 @@ void gfx_circle(Gfx *g, Vec2 p, float radius, SDL_Color c) {
     color(g, c);
     SDL_RenderDrawLinesF(g->renderer, points, 33);
 }
+/* One centered circle, shared by fill and outline. More segments than the
+ * generic in-world effect circles prevent a visibly faceted attack button. */
+void gfx_disc(Gfx *g, Vec2 p, float radius, SDL_Color fill, SDL_Color rim) {
+    enum { SEGMENTS = 128 };
+    SDL_Vertex vertices[SEGMENTS + 2];
+    SDL_FPoint outline[SEGMENTS + 1];
+    int indices[SEGMENTS * 3];
+    vertices[0] = (SDL_Vertex){{p.x, p.y}, fill, {0, 0}};
+    for (int i = 0; i <= SEGMENTS; i++) {
+        float angle = 2.0f * PI * (float)i / SEGMENTS;
+        SDL_FPoint point = {p.x + radius * cosf(angle), p.y + radius * sinf(angle)};
+        vertices[i + 1] = (SDL_Vertex){point, fill, {0, 0}};
+        outline[i] = point;
+        if (i < SEGMENTS) {
+            indices[i * 3] = 0;
+            indices[i * 3 + 1] = i + 1;
+            indices[i * 3 + 2] = i + 2;
+        }
+    }
+    SDL_RenderGeometry(g->renderer, NULL, vertices, SEGMENTS + 2, indices, SEGMENTS * 3);
+    color(g, rim);
+    SDL_RenderDrawLinesF(g->renderer, outline, SEGMENTS + 1);
+}
 void gfx_sector(Gfx *g, Vec2 p, float radius, float angle, float half, SDL_Color c) {
     SDL_Vertex vertices[34];
     int indices[96];
