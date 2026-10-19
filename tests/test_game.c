@@ -523,8 +523,9 @@ static void techniques_and_combos(void) {
     CHECK(!game_technique(&g,(Technique)-1));
     CHECK(!game_technique(&g,(Technique)TECH_COUNT));
     combat_fixture(&g); CHECK(game_attack(&g));
-    CHECK(!game_technique(&g,TECH_SWEEP)); /* Early inputs cannot bypass windup. */
-    advance(&g,5); CHECK(g.boss.hp==231);
+    CHECK(game_technique(&g,TECH_SWEEP) && g.queued_move==TECH_SWEEP);
+    /* Early input waits for the previous attack's impact and recovery. */
+    advance(&g,5); CHECK(g.boss.hp==231 && g.hero.attacking);
     CHECK(game_technique(&g,TECH_SWEEP) && g.queued_move==TECH_SWEEP);
     advance(&g,4); CHECK(g.hero.skilling && g.hero.technique==TECH_SWEEP && g.combo_count==2);
     advance(&g,9); CHECK(g.boss.hp==218); /* 12 * 1.1 rounds to 13. */
@@ -542,13 +543,34 @@ static void techniques_and_combos(void) {
     combat_fixture(&g); CHECK(game_attack(&g)); advance(&g,16);
     CHECK(g.combo_time>0 && game_attack(&g) && g.combo_count==1); /* A repeat does not stack. */
 }
+/* All twelve ordered transitions between the four directions must chain.
+ * An early second stroke must not depend on the old last-0.22s window. */
+static void all_directional_pair_combos(void) {
+    Game g;
+    for (int first = 0; first < TECH_COUNT; first++) {
+        for (int next = 0; next < TECH_COUNT; next++) {
+            if (first == next) continue;
+            combat_fixture(&g);
+            CHECK(game_technique(&g, (Technique)first));
+            advance(&g, 1);
+            CHECK(game_technique(&g, (Technique)next));
+            CHECK(g.queued_move == next && g.buffer_time > .50f);
+            advance(&g, 13);
+            CHECK(g.hero.skilling && g.hero.technique == (Technique)next);
+            CHECK(g.combo_count == 2 && g.queued_move == MOVE_NONE);
+            advance(&g, 5);
+            CHECK(g.hero.skill_hit); /* Only the second move's timed impact. */
+        }
+    }
+}
 static void continuous_input_buffer(void) {
     Game g; combat_fixture(&g);
     CHECK(game_technique(&g,TECH_CLEAVE));
-    advance(&g,8); /* 0.24s remaining: outside the existing 0.22s window. */
-    CHECK(!game_technique(&g,TECH_RETREAT) && g.queued_move==MOVE_NONE);
-    advance(&g,1);
+    advance(&g,8); /* An early next direction is deliberately buffered. */
     CHECK(game_technique(&g,TECH_RETREAT) && g.queued_move==TECH_RETREAT);
+    CHECK(g.buffer_time>.24f);
+    advance(&g,1);
+    CHECK(g.queued_move==TECH_RETREAT);
     CHECK(game_technique_cooldown(&g,TECH_RETREAT)==0); /* Queuing is not execution. */
     CHECK(game_technique(&g,TECH_THRUST) && g.queued_move==TECH_THRUST);
     float lifetime=g.buffer_time;
@@ -588,6 +610,7 @@ static void continuous_input_buffer(void) {
 int main(void) {
     equipment_and_manual_combat();
     techniques_and_combos();
+    all_directional_pair_combos();
     continuous_input_buffer();
     quest_chain();
     shops();
