@@ -4,7 +4,7 @@
 - `src/main.c`에서 현재 `#canvas`의 CSS 영역을 매 렌더링 프레임의 크기 계산에 반영하고, 실제 SDL 픽셀 버퍼 크기를 다시 동기화한다.
 - `web/shell.html`에 `object-fit: contain`과 `ResizeObserver` 기반 브라우저 크기 변경 감지를 추가했다.
 - `tests/browser_smoke.cjs`에서 가로 844×390 ↔ 844×320 크기 변경 시 캔버스 버퍼와 CSS 영역의 종횡비 일치 여부를 검사한다.
-- **검증 상태:** GitHub 브랜치에 코드·회귀 테스트 추가 완료. 네이티브 빌드, WebAssembly 브라우저 자동화, iPhone Safari 실기기 확인은 아직 수행/확인하지 못했다. PR 검증 후 기본 브랜치 병합 및 배포 여부 결정.
+- **검증 상태 (2026-10-19):** PR #3 네이티브 CTest와 Emscripten WebAssembly 빌드가 GitHub Actions에서 성공했고, `main` 병합 및 GitHub Pages 배포까지 성공했다. `tests/browser_smoke.cjs`의 새 비율 검사는 CI에서 실행되지 않았다. iPhone Safari 실기기 화면·회전·노치 확인은 아직 필요하다.
 
 # 검증 기록
 
