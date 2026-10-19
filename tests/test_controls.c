@@ -349,6 +349,92 @@ static void swipe_cancellation(App *a) {
         CHECK(game_technique_cooldown(&a->game,TECH_RETREAT)==0);
     }
 }
+static void training_entry_and_inputs(App *a) {
+    game_reset(&a->game); stop_input(a);
+    key(a, SDLK_F8, false);
+    CHECK(!a->game.training.active);
+    game_start(&a->game);
+    key(a, SDLK_F8, true);
+    CHECK(!a->game.training.active);
+    Vec2 title = {60, 18};
+    for (int tap = 0; tap < 6; tap++) {
+        touch(a, SDL_FINGERDOWN, 71, title);
+        touch(a, SDL_FINGERUP, 71, title);
+    }
+    CHECK(!a->game.training.active && !a->target_set);
+    a->secret_last = SDL_GetTicks64() - 401;
+    touch(a, SDL_FINGERDOWN, 71, title); touch(a, SDL_FINGERUP, 71, title);
+    CHECK(a->secret_taps == 1 && !a->game.training.active);
+    touch(a, SDL_FINGERDOWN, 71, title);
+    touch(a, SDL_FINGERMOTION, 71, (Vec2){80, 18}); touch(a, SDL_FINGERUP, 71, title);
+    CHECK(a->secret_taps == 0);
+    for (int tap = 0; tap < 7; tap++) {
+        touch(a, SDL_FINGERDOWN, 71, title); touch(a, SDL_FINGERUP, 71, title);
+    }
+    CHECK(a->game.training.active && !a->pointer_down && !a->attack_pointer_down);
+    touch(a, SDL_FINGERDOWN, 72, (Vec2){60, 90}); touch(a, SDL_FINGERUP, 72, (Vec2){60, 90});
+    CHECK(!a->target_set && !a->pointer_down);
+    key(a, SDLK_i, false); key(a, SDLK_j, false); key(a, SDLK_SPACE, false); key(a, SDLK_f, false);
+    CHECK(a->game.phase == PH_PLAY && a->game.quest == Q_MEET && a->game.herbs == 0);
+    key(a, SDLK_z, false); key_up(a, SDLK_z);
+    combat_frames(a, 4);
+    CHECK(a->game.training.hits == 1 && a->game.training.last_damage == 9);
+    key(a, SDLK_ESCAPE, false);
+    CHECK(a->game.phase == PH_PAUSED);
+    key(a, SDLK_F8, false);
+    CHECK(!a->game.training.active && a->game.phase == PH_PLAY);
+    CHECK(!a->attack_key_down && !a->pointer_down && a->game.queued_move == MOVE_NONE);
+
+    const Vec2 strokes[] = {{0, -40}, {40, 0}, {0, 40}, {-40, 0}};
+    for (int first = 0; first < SWIPE_COUNT; first++) {
+        for (int second = 0; second < SWIPE_COUNT; second++) {
+            if (first == second) continue;
+            for (int third = 0; third < SWIPE_COUNT; third++) {
+                if (third == first || third == second) continue;
+                key(a, SDLK_F8, false);
+                CHECK(a->game.training.active);
+                a->button_count = 1;
+                a->buttons[0] = (Button){{684, 230, 88, 88}, ACT_ATTACK, 0, true};
+                Vec2 point = {728, 274};
+                touch(a, SDL_FINGERDOWN, 81, point);
+                point.x += strokes[first].x; point.y += strokes[first].y;
+                touch(a, SDL_FINGERMOTION, 81, point);
+                combat_frames(a, 2);
+                point.x += strokes[second].x; point.y += strokes[second].y;
+                touch(a, SDL_FINGERMOTION, 81, point);
+                CHECK(a->game.queued_move == (int)a->game.swipe_bindings[second]);
+                combat_frames(a, 14);
+                point.x += strokes[third].x; point.y += strokes[third].y;
+                touch(a, SDL_FINGERMOTION, 81, point);
+                combat_frames(a, 28);
+                touch(a, SDL_FINGERUP, 81, point);
+                CHECK(a->game.training.hits == 3 && a->game.training.misses == 0);
+                CHECK(a->game.combo_count == 3 && !a->game.hero.attacking);
+                key(a, SDLK_F8, false);
+                CHECK(!a->game.training.active && !a->attack_pointer_down);
+            }
+        }
+    }
+    for (int reason = 0; reason < 5; reason++) {
+        key(a, SDLK_F8, false);
+        key(a, SDLK_q, false); key(a, SDLK_r, false);
+        CHECK(a->game.queued_move == TECH_SWEEP);
+        if (reason == 0) key(a, SDLK_k, false);
+        else if (reason == 1) key(a, SDLK_ESCAPE, false);
+        else {
+            SDL_Event event = {0};
+            event.type = reason == 3 ? SDL_APP_WILLENTERBACKGROUND : SDL_WINDOWEVENT;
+            event.window.event = reason == 4 ? SDL_WINDOWEVENT_SIZE_CHANGED : SDL_WINDOWEVENT_FOCUS_LOST;
+            if (reason == 4) SDL_SetWindowSize(a->window, 390, 844);
+            SDL_PushEvent(&event); handle_events(a);
+        }
+        CHECK(a->game.queued_move == MOVE_NONE && a->game.buffer_time == 0);
+        CHECK(!a->attack_key_down && !a->attack_pointer_down && !a->pointer_down && a->secret_taps == 0);
+        if (reason == 4) { SDL_SetWindowSize(a->window, 844, 390); resize(a); }
+        dispatch(a, ACT_TITLE, 0);
+        CHECK(!a->game.training.active && a->game.phase == PH_PLAY);
+    }
+}
 int main(void) {
     SDL_SetMainReady();
     SDL_SetHint(SDL_HINT_VIDEODRIVER,"dummy");
@@ -369,6 +455,7 @@ int main(void) {
     swipe_thresholds(a);
     swipe_cancellation(a);
     bag_actions(a);
+    training_entry_and_inputs(a);
     SDL_DestroyRenderer(a->renderer);
     SDL_DestroyWindow(a->window);
     free(a);

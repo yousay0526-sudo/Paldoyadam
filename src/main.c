@@ -32,7 +32,8 @@ typedef enum {
     ACT_USE,
     ACT_CHOOSE,
     ACT_PICKUP, ACT_ATTACK, ACT_TECHNIQUE, ACT_TECHNIQUES, ACT_SWIPE_SELECT,
-    ACT_TECH_BIND, ACT_BIND_RESET, ACT_BAG_TAB, ACT_BAG_SELECT, ACT_EQUIP, ACT_GEAR_SELECT
+    ACT_TECH_BIND, ACT_BIND_RESET, ACT_BAG_TAB, ACT_BAG_SELECT, ACT_EQUIP, ACT_GEAR_SELECT,
+    ACT_TRAINING_EXIT
 } Action;
 typedef enum {
     DONE_NONE,
@@ -54,6 +55,7 @@ typedef struct {
 } Button;
 typedef struct {
     Game game;
+    Game training_return;
     Gfx gfx;
     SDL_Window *window;
     SDL_Renderer *renderer;
@@ -74,6 +76,11 @@ typedef struct {
     Vec2 attack_start, attack_anchor;
     int attack_direction;
     float attack_hold;
+    bool secret_down, secret_moved, movement_blocked;
+    Sint64 secret_id;
+    Vec2 secret_start;
+    Uint64 secret_started, secret_last;
+    int secret_taps;
     Route route;
     Uint64 previous_frame;
     double timer_frequency;
@@ -83,7 +90,7 @@ static void combat_tick(App *a, float dt);
 #if defined(__EMSCRIPTEN__) && defined(PALDO_WEB_TESTING)
 static App *web_test_app;
 EMSCRIPTEN_KEEPALIVE const char *paldo_test_state(void) {
-    static char state[512];
+    static char state[1024];
     App *a = web_test_app;
     if (!a)
         return "{}";
@@ -91,12 +98,19 @@ EMSCRIPTEN_KEEPALIVE const char *paldo_test_state(void) {
              "{\"phase\":%d,\"quest\":%d,\"story\":%d,\"x\":%.3f,\"y\":%.3f,"
              "\"width\":%.3f,\"height\":%.3f,\"density\":%.3f,\"clear\":%s,"
              "\"dialogue\":%d,\"pickups\":%d,\"herbs\":%d,\"cooldown\":%.3f,"
-             "\"heroFrame\":%d,\"walkCycle\":%.6f,\"face\":%d}",
+             "\"heroFrame\":%d,\"walkCycle\":%.6f,\"face\":%d,"
+             "\"training\":%s,\"hits\":%u,\"misses\":%u,\"damage\":%d,\"combo\":%d,"
+             "\"queued\":%d,\"hp\":%d,\"coins\":%d,\"dummyHp\":%d,\"attackDown\":%s,"
+             "\"secretTaps\":%d,\"pointerX\":%.2f,\"pointerY\":%.2f,\"secretDown\":%s}",
              a->game.phase, a->game.quest, a->story_index, a->game.hero.pos.x, a->game.hero.pos.y,
              a->width, a->height, a->density,
              world_clear(a->game.hero.pos, HERO_RADIUS) ? "true" : "false",
              a->dialogue_index, game_pickup_count(&a->game), a->game.herbs, a->game.cooldown,
-             game_hero_frame(&a->game), a->game.hero.walk_cycle, a->game.hero.face);
+             game_hero_frame(&a->game), a->game.hero.walk_cycle, a->game.hero.face,
+             a->game.training.active ? "true" : "false", a->game.training.hits, a->game.training.misses,
+             a->game.training.last_damage, a->game.combo_count, a->game.queued_move, a->game.hero.hp,
+             a->game.coins, a->game.boss.hp, a->attack_pointer_down ? "true" : "false",
+             a->secret_taps, a->pointer_start.x, a->pointer_start.y, a->secret_down ? "true" : "false");
     return state;
 }
 #endif
@@ -131,6 +145,9 @@ static const Line MESSENGER_LINES[] = {
     {"윤겸 · 금위영 종사관", "사람의 모습을 잃은 자들이 밤마다 고을을 헤집는다고 합니다."},
     {"장군", "말을 준비하게.\n다음 고을로 간다."}};
 static void stop_input(App *a) {
+    a->secret_down = a->secret_moved = false;
+    a->secret_taps = 0;
+    a->secret_last = 0;
     a->pointer_down = false;
     a->pointer_delta = (Vec2){0, 0};
     a->target_set = false;
@@ -140,6 +157,16 @@ static void stop_input(App *a) {
     a->attack_start = a->attack_anchor = (Vec2){0, 0};
     a->attack_hold = 0;
     a->game.queued_move = MOVE_NONE; a->game.buffer_time = 0;
+}
+static void toggle_training(App *a) {
+    if (a->width <= a->height) return;
+    bool changed = a->game.training.active
+        ? game_leave_training(&a->game, &a->training_return)
+        : game_enter_training(&a->game, &a->training_return);
+    if (!changed) return;
+    stop_input(a);
+    a->movement_blocked = true;
+    a->button_count = 0;
 }
 static void say(App *a, const Line *lines, int count, DialogueDone done) {
     if (count > 5)
@@ -331,6 +358,7 @@ static void dispatch(App *a, Action action, int value) {
             game_close_panel(g);
         break;
     case ACT_BAG:
+        if (g->training.active) break;
         if (g->phase == PH_PLAY) {
             g->phase = PH_BAG;
             a->bag_tab = 0; a->bag_selected = 100;
@@ -339,6 +367,7 @@ static void dispatch(App *a, Action action, int value) {
             game_close_panel(g);
         break;
     case ACT_JOURNAL:
+        if (g->training.active) break;
         if (g->phase == PH_PLAY) {
             g->phase = PH_JOURNAL;
             a->journal_scroll = 0;
@@ -351,6 +380,10 @@ static void dispatch(App *a, Action action, int value) {
         stop_input(a);
         break;
     case ACT_TITLE:
+        if (g->training.active) {
+            toggle_training(a);
+            break;
+        }
         game_reset(g);
         stop_input(a);
         break;
@@ -378,6 +411,9 @@ static void dispatch(App *a, Action action, int value) {
         break;
     case ACT_CHOOSE:
         game_choose(g, (Augment)value);
+        break;
+    case ACT_TRAINING_EXIT:
+        if (g->training.active) toggle_training(a);
         break;
     }
 }
@@ -411,6 +447,30 @@ static SDL_FRect panel(App *a, const char *kicker, const char *title, float desi
 }
 static void hud_card(Gfx *f, SDL_FRect r, Uint8 alpha) {
     gfx_round(f, r, 11, (SDL_Color){12, 28, 31, alpha});
+}
+static const char *move_name(int move) {
+    return move == MOVE_ATTACK ? "기본 공격"
+        : move >= 0 && move < TECH_COUNT ? TECHNIQUES[move].name : "없음";
+}
+static void draw_training_status(App *a) {
+    Game *g = &a->game;
+    char lines[10][96];
+    const char *requests[] = {"준비", "발동", "예약", "재사용 중"};
+    snprintf(lines[0], sizeof lines[0], "타격 %u · 미스 %u", g->training.hits, g->training.misses);
+    snprintf(lines[1], sizeof lines[1], "최근 피해 %d · 무적", g->training.last_damage);
+    snprintf(lines[2], sizeof lines[2], "연계 %d/3 · %.1f초", g->combo_time > 0 ? g->combo_count : 0, g->combo_time);
+    snprintf(lines[3], sizeof lines[3], "예약: %s", move_name(g->queued_move));
+    snprintf(lines[4], sizeof lines[4], "%s · %s", move_name(g->training.input_move), requests[g->training.request]);
+    snprintf(lines[5], sizeof lines[5], "기본 공격 %.1f초", g->attack_cooldown);
+    const char *directions[] = {"상", "우", "하", "좌"};
+    for (int direction = 0; direction < SWIPE_COUNT; direction++) {
+        Technique technique = g->swipe_bindings[direction];
+        snprintf(lines[6 + direction], sizeof lines[6 + direction], "%s %s %.1f초", directions[direction],
+                 TECHNIQUES[technique].name, game_technique_cooldown(g, technique));
+    }
+    hud_card(&a->gfx, (SDL_FRect){12, 58, 148, 146}, 225);
+    for (int line = 0; line < 10; line++)
+        gfx_text(&a->gfx, lines[line], 18, 61 + line * 14, 12, 134, line < 5 ? PAPER : GOLD);
 }
 static void draw_quest_tracker(App *a) {
     Game *g = &a->game;
@@ -453,7 +513,7 @@ static void draw_hud(App *a) {
     float w = a->width, h = a->height;
     char text[512];
     hud_card(f, (SDL_FRect){12, 8, 190, 44}, 214);
-    gfx_text(f, "제1장 · 경상도 남부", 24, 13, 11, 0, GOLD);
+    gfx_text(f, g->training.active ? "비밀 수련장 · 격리된 빈터" : "제1장 · 경상도 남부", 24, 13, 11, 0, GOLD);
     gfx_round(f, (SDL_FRect){53, 38, 85, 4}, 2.5f, (SDL_Color){25, 18, 19, 255});
     gfx_round(f, (SDL_FRect){53, 38, 85 * (float)g->hero.hp / 100, 4}, 2.5f, RED);
     gfx_text(f, "체력", 24, 32, 10, 0, MUTED);
@@ -464,32 +524,43 @@ static void draw_hud(App *a) {
 #ifndef __ANDROID__
         button(a, (SDL_FRect){w - 100, 4, 44, 44}, "화면", ACT_FULLSCREEN, 0, true, false);
 #endif
-        snprintf(text, sizeof text, "가방 · %d문", g->coins);
-        button(a, (SDL_FRect){w - 196, 4, 92, 44}, text, ACT_BAG, 0, true, false);
-        draw_quest_tracker(a);
+        if (g->training.active) {
+            button(a, (SDL_FRect){w - 196, 4, 92, 44}, "훈련 종료", ACT_TRAINING_EXIT, 0, true, false);
+            draw_training_status(a);
+        } else {
+            snprintf(text, sizeof text, "가방 · %d문", g->coins);
+            button(a, (SDL_FRect){w - 196, 4, 92, 44}, text, ACT_BAG, 0, true, false);
+            draw_quest_tracker(a);
+        }
         const char *weapon = g->augment == AUG_STEEL  ? "강철 대검"
                              : g->augment == AUG_WIND ? "환도 · 바람의 깃"
                              : g->sword               ? "단련한 환도"
                                                       : "환도";
         SDL_FRect weapon_card = {12, h - 44, w < 800 ? 104 : 218, 32};
-        hud_card(f, weapon_card, 205);
-        if (w < 800)
-            gfx_label(f, weapon, weapon_card, 13, GOLD);
+        if (g->training.active)
+            button(a, (SDL_FRect){12, h - 54, 104, 44}, "무공 배치", ACT_TECHNIQUES, 0, true, false);
         else {
-            gfx_text(f, weapon, 24, h - 43, 13, 0, GOLD);
-            gfx_text(f, "Z 공격 · Q/R/G/T 무공", 24, h - 26, 10, 0, MUTED);
+            hud_card(f, weapon_card, 205);
+            if (w < 800)
+                gfx_label(f, weapon, weapon_card, 13, GOLD);
+            else {
+                gfx_text(f, weapon, 24, h - 43, 13, 0, GOLD);
+                gfx_text(f, "Z 공격 · Q/R/G/T 무공", 24, h - 26, 10, 0, MUTED);
+            }
         }
         /* Keep the mobile attack disc far enough from both edges for a
          * 32-pixel down/right swipe, and shift quick items out of its way. */
         float item_x = a->touch_input ? w - 260 : w - 198;
-        snprintf(text, sizeof text, "탕약 %d", g->tonics);
-        button(a, (SDL_FRect){item_x, a->touch_input ? h - 115 : h - 98, 78, 44},
-               text, ACT_USE, ITEM_TONIC, game_can_use(g, ITEM_TONIC), false);
-        snprintf(text, sizeof text, "지혈산 %d", g->bandages);
-        button(a, (SDL_FRect){item_x, a->touch_input ? h - 66 : h - 54, 78, 44},
-               text, ACT_USE, ITEM_BANDAGE, game_can_use(g, ITEM_BANDAGE), false);
-        button(a, (SDL_FRect){item_x, a->touch_input ? h - 164 : h - 142, 78, 44},
-               a->touch_input ? "무공" : "무공 K", ACT_TECHNIQUES, 0, true, false);
+        if (!g->training.active) {
+            snprintf(text, sizeof text, "탕약 %d", g->tonics);
+            button(a, (SDL_FRect){item_x, a->touch_input ? h - 115 : h - 98, 78, 44},
+                   text, ACT_USE, ITEM_TONIC, game_can_use(g, ITEM_TONIC), false);
+            snprintf(text, sizeof text, "지혈산 %d", g->bandages);
+            button(a, (SDL_FRect){item_x, a->touch_input ? h - 66 : h - 54, 78, 44},
+                   text, ACT_USE, ITEM_BANDAGE, game_can_use(g, ITEM_BANDAGE), false);
+            button(a, (SDL_FRect){item_x, a->touch_input ? h - 164 : h - 142, 78, 44},
+                   a->touch_input ? "무공" : "무공 K", ACT_TECHNIQUES, 0, true, false);
+        }
         SDL_FRect attack = a->touch_input ? (SDL_FRect){w - 160, h - 160, 88, 88}
                                            : (SDL_FRect){w - 116, h - 116, 88, 88};
         if (a->button_count < BUTTON_MAX)
@@ -896,9 +967,12 @@ static void draw_overlay(App *a) {
                                                   : "길은 계속된다";
         gfx_heading(f, title, (SDL_FRect){w / 2 - 220, 24, 440, 50}, 42, PAPER);
         if (g->phase == PH_PAUSED) {
-            gfx_center(f, "끌기 / WASD 이동 · 공격 버튼 탭 또는 Z · 누르면 연속 공격", w / 2, 84, 16, MUTED);
-            gfx_center(f, "공격 버튼 밀기: ↑ Q · → R · ↓ G · ← T · K 무공 배치", w / 2, 115, 15, MUTED);
-            gfx_center(f, "I 가방 · J 여정 기록 · 1 탕약 · 2 지혈산 · F11 전체화면", w / 2, 146, 14, MUTED);
+            gfx_center(f, g->training.active ? "공격 버튼 탭 / 연속 밀기 · Z 기본 공격"
+                       : "끌기 / WASD 이동 · 공격 버튼 탭 또는 Z · 누르면 연속 공격", w / 2, 84, 16, MUTED);
+            gfx_center(f, g->training.active ? "Q/R/G/T 무공 · K 방향별 배치"
+                       : "공격 버튼 밀기: ↑ Q · → R · ↓ G · ← T · K 무공 배치", w / 2, 115, 15, MUTED);
+            gfx_center(f, g->training.active ? "훈련 보상 없음 · F8 또는 아래 버튼으로 복귀"
+                       : "I 가방 · J 여정 기록 · 1 탕약 · 2 지혈산 · F11 전체화면", w / 2, 146, 14, MUTED);
         } else if (g->phase == PH_DEAD) {
             gfx_center(f, "마을에서 회복하고 다시 떠납니다.", w / 2, 88, 18, MUTED);
             gfx_center(f, "조사한 흔적, 장비와 회수한 물품은 유지됩니다.", w / 2, 122, 16, MUTED);
@@ -916,11 +990,13 @@ static void draw_overlay(App *a) {
                : g->phase == PH_DEAD ? ACT_RECOVER
                                      : ACT_REPLAY,
                0, true, true);
-        button(a, (SDL_FRect){(w - bw) / 2, top + 57, bw, 42}, "처음으로", ACT_TITLE, 0, true, false);
+        button(a, (SDL_FRect){(w - bw) / 2, top + 57, bw, 42},
+               g->training.active ? "훈련 종료 · 원래 여정으로" : "처음으로", ACT_TITLE, 0, true, false);
         return;
     }
 }
 static void resize(App *a) {
+    float previous_width = a->width, previous_height = a->height;
     int ww, wh, ow, oh;
     SDL_GetWindowSize(a->window, &ww, &wh);
     SDL_GetRendererOutputSize(a->renderer, &ow, &oh);
@@ -951,12 +1027,18 @@ static void resize(App *a) {
 #endif
     a->width = (float)ww / a->density;
     a->height = (float)wh / a->density;
+    if (fabsf(previous_width - a->width) > .5f || fabsf(previous_height - a->height) > .5f)
+        stop_input(a);
     SDL_RenderSetScale(a->renderer, (float)ow / a->width, (float)oh / a->height);
 }
 static void draw(App *a) {
     resize(a);
     a->button_count = 0;
     Vec2 focus = a->game.phase == PH_TITLE || a->game.phase == PH_PROLOGUE ? HOME : a->game.hero.pos;
+    if (a->game.training.active) {
+        focus.x += a->width * .02f / WORLD_ZOOM;
+        focus.y -= a->height * (a->width < 680 ? .30f : .12f) / WORLD_ZOOM;
+    }
     float scale_x, scale_y;
     SDL_RenderGetScale(a->renderer, &scale_x, &scale_y);
     SDL_RenderSetScale(a->renderer, scale_x * WORLD_ZOOM, scale_y * WORLD_ZOOM);
@@ -1017,6 +1099,17 @@ static void combat_tick(App *a, float dt) {
 }
 static void pointer_down(App *a, Sint64 id, Vec2 p) {
     if(a->width<=a->height) return;
+    if (a->secret_down && a->secret_id == id) return;
+    if (!a->game.training.active && a->game.phase == PH_PLAY && !a->pointer_down &&
+        !a->attack_pointer_down && !a->secret_down && inside((SDL_FRect){12, 8, 190, 22}, p)) {
+        a->secret_down = true;
+        a->secret_moved = false;
+        a->secret_id = id;
+        a->secret_start = p;
+        a->secret_started = SDL_GetTicks64();
+        return;
+    }
+    a->secret_taps = 0;
     for (int i = a->button_count - 1; i >= 0; i--) {
         Button b = a->buttons[i];
         if (inside(b.rect, p)) {
@@ -1036,6 +1129,8 @@ static void pointer_down(App *a, Sint64 id, Vec2 p) {
             return;
         }
     }
+    if (a->game.training.active && (inside((SDL_FRect){12, 58, 148, 146}, p) ||
+        inside((SDL_FRect){12, 8, 190, 44}, p))) return;
     if (a->game.phase != PH_PLAY || a->pointer_down ||
         (a->attack_pointer_down && a->attack_pointer_id==id)) return;
     a->pointer_down = true; a->pointer_id = id;
@@ -1043,6 +1138,10 @@ static void pointer_down(App *a, Sint64 id, Vec2 p) {
     a->pointer_moved = false; a->target_set = false;
 }
 static void pointer_move(App *a, Sint64 id, Vec2 p) {
+    if (a->secret_down && a->secret_id == id) {
+        if (distance(p, a->secret_start) > 8) a->secret_moved = true;
+        return;
+    }
     if(a->attack_pointer_down && a->attack_pointer_id==id) {
         if(a->game.phase!=PH_PLAY || a->width<=a->height) {
             stop_input(a);
@@ -1076,6 +1175,19 @@ static void pointer_move(App *a, Sint64 id, Vec2 p) {
     if (d > 8) a->pointer_moved = true;
 }
 static void pointer_up(App *a, Sint64 id, Vec2 p) {
+    if (a->secret_down && a->secret_id == id) {
+        pointer_move(a, id, p);
+        Uint64 now = SDL_GetTicks64();
+        a->secret_down = false;
+        if (a->game.phase != PH_PLAY || a->secret_moved || now - a->secret_started > 300) {
+            a->secret_taps = 0;
+            return;
+        }
+        a->secret_taps = a->secret_taps > 0 && now - a->secret_last <= 400 ? a->secret_taps + 1 : 1;
+        a->secret_last = now;
+        if (a->secret_taps == 7) toggle_training(a);
+        return;
+    }
     if(a->attack_pointer_down && a->attack_pointer_id==id) {
         /* Some platforms coalesce the final motion into the release event. */
         pointer_move(a,id,p);
@@ -1132,6 +1244,8 @@ static void handle_events(App *a) {
                 dispatch(a, ACT_FULLSCREEN, 0);
             else if (key == SDLK_F3)
                 a->debug_collision = !a->debug_collision;
+            else if (key == SDLK_F8)
+                toggle_training(a);
             else if (key == SDLK_SPACE || key == SDLK_RETURN) {
                 if (a->game.phase == PH_TITLE)
                     dispatch(a, ACT_START, 0);
@@ -1193,6 +1307,12 @@ static void handle_events(App *a) {
 }
 static Vec2 input(App *a, float dt) {
     const Uint8 *keys = SDL_GetKeyboardState(NULL);
+    if (a->movement_blocked) {
+        if (keys[SDL_SCANCODE_D] || keys[SDL_SCANCODE_RIGHT] || keys[SDL_SCANCODE_A] || keys[SDL_SCANCODE_LEFT] ||
+            keys[SDL_SCANCODE_S] || keys[SDL_SCANCODE_DOWN] || keys[SDL_SCANCODE_W] || keys[SDL_SCANCODE_UP])
+            return (Vec2){0, 0};
+        a->movement_blocked = false;
+    }
     Vec2 v = a->pointer_delta;
     v.x += (float)(keys[SDL_SCANCODE_D] || keys[SDL_SCANCODE_RIGHT]) -
            (float)(keys[SDL_SCANCODE_A] || keys[SDL_SCANCODE_LEFT]);
@@ -1236,6 +1356,9 @@ static void smoke_scene(App *a, const char *scene) {
         a->game.phase = PH_PROLOGUE;
         a->story_index = (int)clampf((float)atoi(scene + 8) - 1, 0, 4);
         a->story_elapsed = 1;
+    } else if (!strcmp(scene, "training")) {
+        toggle_training(a);
+        a->touch_input = true;
     } else if (!strcmp(scene, "collision")) {
         a->debug_collision = true;
     } else if (!strcmp(scene, "canopy")) {
@@ -1381,7 +1504,7 @@ int main(int argc, char **argv) {
         } else if (!strcmp(argv[i], "--help")) {
             puts("paldo-yadam [--assets PATH] [--smoke frame.bmp] [--scene "
                  "title|village|shop|bag|dialogue|augment|journal|boss|recover|prologue1..5|roof|canopy|"
-                 "collision|loot|notification|npc] "
+                 "collision|loot|notification|npc|training] "
                  "[--size 844x390]");
             return 0;
         } else {

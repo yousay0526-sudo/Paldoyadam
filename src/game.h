@@ -151,6 +151,13 @@ typedef struct {
     char toast[384];
     Effect effects[EFFECT_MAX];
     int effect_count;
+    struct {
+        bool active;
+        unsigned hits, misses;
+        int last_damage, impact_damage, input_move;
+        float hit_time;
+        enum { TRAIN_READY, TRAIN_STARTED, TRAIN_QUEUED, TRAIN_COOLDOWN } request;
+    } training;
 } Game;
 
 extern const Vec2 HOME, BOSS_HOME;
@@ -165,6 +172,8 @@ float distance(Vec2 a, Vec2 b);
 float clampf(float value, float min, float max);
 void game_reset(Game *g);
 void game_start(Game *g);
+bool game_enter_training(Game *g, Game *saved);
+bool game_leave_training(Game *g, const Game *saved);
 void game_tick(Game *g, float dt, Vec2 movement);
 /* -1 means the approved standing pose; 0..7 select walking atlas cells. */
 int game_hero_frame(const Game *g);
