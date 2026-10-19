@@ -8,7 +8,7 @@
 - 수련장 9개 퀘스트 단계의 전체 스냅샷 보존 검사에 입력/명중/최근 결과 상태를 추가했다. 복귀는 공격·콤보·예약·입력 진단을 비우며 원래 재화·퀘스트·월드·장비·배치·남은 쿨타임을 보존한다. 무보상·무피해·출혈/아이템·퀘스트 차단 검사 유지.
 - 실제 SDL 게임의 훈련 432×270/844×390/1100×650, 4무공·기본 공격·상점 844×390 렌더링 성공. 432×270 수련장과 무공 이미지를 직접 확인했다. UI 문구 폭과 5종 해상도 버튼 겹침 검사 통과. 5공격×8방향의 실제 검 궤적 픽셀을 검사해 판정 각도·사거리 밖으로 향하지 않음과 물러베기의 후퇴 전 위치 고정을 확인했다. 기존 좌우 캐릭터 원화는 유지하고 방향·범위는 절차적 검 궤적으로 표시한다.
 - 빌드 환경 문제/복구: 제한 환경에서 Zig가 종료되어 승인된 제한 밖 실행으로 검증. SDL 라이브러리 자동 탐색 실패는 설치된 `libSDL2.dll.a` 직접 지정으로 해결했다. 해당 로컬 SDL 패키지에 시작 라이브러리가 없어 게임 링크가 실패한 것은 임시 `SDL_MAIN_HANDLED`/`SDL_SetMainReady` 진입 래퍼로 해결했다. 래퍼는 무시되는 `build-combat/`의 검증 도구이며 제품 소스나 CMake를 변경하지 않았다. 제품 소스 경고 없음; 기존 `test_controls.c` signed/unsigned 비교 경고 1개 유지.
-- CI native/WebAssembly: PR 생성 후 확인 예정. CMake는 `cmake -S . -B build-native -DCMAKE_BUILD_TYPE=Release`, 빌드, `ctest --test-dir build-native --output-on-failure`로 8종 검사한다. 웹은 기존 워크플로의 Emscripten 3.1.74 일반/단일 HTML 빌드를 사용한다. PR CI의 Pages 준비와 deploy는 실행하지 않는다.
+- [PR #12](https://github.com/yousay0526-sudo/Paldoyadam/pull/12), 코드/문서 커밋 `36482d4`의 [CI 39340247387](https://github.com/yousay0526-sudo/Paldoyadam/actions/runs/39340247387)에서 **native 8종과 WebAssembly 일반/단일 HTML 빌드 모두 성공**. Linux CMake Release 빌드 및 CTest, Emscripten 3.1.74 웹 빌드와 다운로드 아티팩트 생성 통과. Pages 준비·deploy는 skipped. 이 결과를 기록하는 문서 후속 커밋의 최종 CI는 PR 설명에 별도 기록한다. 로컬 Git 업로드 인증이 없어 연결된 GitHub 도구로 동일한 세 커밋 단위를 생성했고, 원격 파일 트리와 로컬 검증본의 차이가 없음을 확인했다.
 - 미검증: 이번 코드의 로컬 WebAssembly 브라우저 스모크·iPhone Safari/Android 실제 조작감·APK. 이전 전체화면 브라우저 검사 타임아웃은 이번 범위에서 수정하지 않았다. 기존 모션 원화의 방향별 자세 고도화, 피격·히트스톱·경직·넉백은 후속 승인 대상이다. `GAME_BIBLE.md` 없음. main 병합·배포·버전 변경 없음.
 
 ## 2026-10-19 · 숨겨진 허수아비 콤보 수련장

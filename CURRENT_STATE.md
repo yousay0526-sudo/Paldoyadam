@@ -12,7 +12,7 @@
 - `src/game.c/h`: 기본 공격·4무공의 고정 공격 방향, 각도·거리·LOS 판정. 전진 검 궤적의 접촉과 후퇴 전 타격 위치 유지. 입력 연결과 명중 콤보를 분리해 미스는 보너스를 초기화하고, 명중 타격 사이 1.05초·직전 동작 중복·최대 3연계를 검사한다. 마지막 유효 입력 한 칸, 쿨타임·기존 피해·장비·증강·이동/충돌은 유지.
 - `src/main.c`, `src/draw.c/h`: 수련장에 입력/명중 수를 구분 표시하고 기존 공격 안내에 예약·재사용·방향 불명·미스 표시. 기존 절차적 검 궤적을 실제 판정 방향·각도·사거리·타격 위치에 맞춤. 새로운 모션 원화나 조작법은 추가하지 않음.
 - `tests/test_combat.c`와 기존 게임·수련장·입력·UI·렌더링 검사 보완. Windows Zig 0.14.1 / SDL 2.32.10에서 7개 검사 프로그램 총 **206,987개 조건 통과**. 실제 게임 훈련 3종 해상도, 기본 공격·4무공·상점 렌더링도 통과. 상세 범위와 환경 문제 복구는 `docs/VALIDATION.md` 참고.
-- PR 및 최종 CI: 생성·확인 중. Linux CMake/CTest와 WebAssembly 결과는 확인 후 기록한다. 로컬 CMake·웹 브라우저 및 실제 iPhone/Android/APK 실행은 이번 단계에서 미검증.
+- 리뷰 PR [#12](https://github.com/yousay0526-sudo/Paldoyadam/pull/12). 코드/문서 커밋 `36482d4`의 [CI 39340247387](https://github.com/yousay0526-sudo/Paldoyadam/actions/runs/39340247387) 성공: Linux CMake/CTest 8종 및 Emscripten 일반/단일 HTML 빌드 통과, Pages 준비·deploy skipped. 결과 기록만 추가한 후속 문서 커밋의 최종 CI는 PR에서 확인한다. 로컬 CMake·웹 브라우저 및 실제 iPhone/Android/APK 실행은 이번 단계에서 미검증.
 - `GAME_BIBLE.md` 없음. 세계관·정식 버전 0.8.0·배포 워크플로·에셋 변경 없음. main 병합·배포·버전 변경은 수행하지 않음.
 - 다음 단계(피격·히트스톱), 경직/넉백·새 스킬·회전 무공·활 차지는 미구현이며 사용자 승인 대기.
 
