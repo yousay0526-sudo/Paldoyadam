@@ -78,7 +78,8 @@ typedef struct {
     float walk_cycle;
     bool walking;
     /* The swing keeps its own target/facing while movement remains responsive. */
-    float attack_elapsed;
+    float attack_elapsed, attack_angle;
+    Vec2 impact_origin, impact_start;
     int attack_target, attack_face;
     bool attacking, attack_hit;
     float skill_elapsed, skill_angle;
@@ -145,8 +146,14 @@ typedef struct {
     Augment augment;
     float cooldown, technique_cooldowns[TECH_COUNT], item_cooldown, attack_cooldown, time, toast_time;
     Technique swipe_bindings[SWIPE_COUNT];
-    int combo_count, last_move, queued_move;
-    float combo_time, buffer_time;
+    /* Input links never award damage. Confirmed hits advance once per impact. */
+    int input_count, last_move, combo_count, last_hit_move, queued_move;
+    float input_time, combo_time, buffer_time;
+    enum { IMPACT_NONE, IMPACT_HIT, IMPACT_MISS } last_impact;
+    enum { TRAIN_READY, TRAIN_STARTED, TRAIN_QUEUED, TRAIN_COOLDOWN,
+           TRAIN_INVALID, TRAIN_BLOCKED } combat_request;
+    int input_move;
+    float request_time;
     unsigned notices;
     char toast[384];
     Effect effects[EFFECT_MAX];
@@ -154,9 +161,8 @@ typedef struct {
     struct {
         bool active;
         unsigned hits, misses;
-        int last_damage, impact_damage, input_move;
+        int last_damage, impact_damage;
         float hit_time;
-        enum { TRAIN_READY, TRAIN_STARTED, TRAIN_QUEUED, TRAIN_COOLDOWN } request;
     } training;
 } Game;
 
@@ -180,6 +186,13 @@ int game_hero_frame(const Game *g);
 int game_hero_attack_frame(const Game *g);
 int game_hero_skill_frame(const Game *g);
 bool game_attack(Game *g);
+/* Shared geometry for simulation and the existing procedural sword trail.
+ * Radius is exclusive, angle inclusive; targets use their existing centers. */
+float game_attack_range(const Game *g, int move);
+float game_attack_half_angle(int move);
+bool game_attack_contains(Vec2 origin, float angle, float range, int move, Vec2 target);
+bool game_attack_path_contains(Vec2 start, Vec2 end, float angle, float range, int move, Vec2 target);
+void game_invalid_direction(Game *g);
 bool game_technique(Game *g, Technique technique);
 float game_technique_cooldown(const Game *g, Technique technique);
 bool game_bind_swipe(Game *g, Swipe direction, Technique technique);

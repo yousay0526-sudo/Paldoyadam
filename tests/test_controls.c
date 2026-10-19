@@ -204,13 +204,13 @@ static void continuous_swipes(App *a) {
     touch(a,SDL_FINGERMOTION,21,down);
     CHECK(a->game.queued_move==TECH_RETREAT && a->game.hero.technique==TECH_CLEAVE);
     combat_frames(a,4);
-    CHECK(a->game.hero.skilling && a->game.hero.technique==TECH_RETREAT && a->game.combo_count==2);
+    CHECK(a->game.hero.skilling && a->game.hero.technique==TECH_RETREAT && a->game.input_count==2);
     combat_frames(a,9);
     Vec2 left={down.x-40,down.y};
     touch(a,SDL_FINGERMOTION,21,left);
     CHECK(a->game.queued_move==TECH_THRUST);
     combat_frames(a,4);
-    CHECK(a->attack_pointer_down && a->game.hero.technique==TECH_THRUST && a->game.combo_count==3);
+    CHECK(a->attack_pointer_down && a->game.hero.technique==TECH_THRUST && a->game.input_count==3);
     touch(a,SDL_FINGERUP,20,move);
     CHECK(!a->pointer_down && a->attack_pointer_down);
     combat_frames(a,70); /* Cooldowns elapse without held swipe repeating or becoming Z. */
@@ -236,7 +236,7 @@ static void continuous_swipes(App *a) {
     CHECK(a->game.queued_move==TECH_THRUST);
     touch(a,SDL_FINGERUP,21,(Vec2){back.x,back.y-40});
     combat_frames(a,4);
-    CHECK(a->game.hero.technique==TECH_THRUST && a->game.combo_count==2);
+    CHECK(a->game.hero.technique==TECH_THRUST && a->game.input_count==2);
     combat_frames(a,120);
     CHECK(!a->game.hero.skilling && a->game.queued_move==MOVE_NONE);
 }
@@ -259,7 +259,7 @@ static void all_direction_pairs(App *a) {
             CHECK(a->game.queued_move==a->game.swipe_bindings[next]);
             combat_frames(a,13);
             CHECK(a->game.hero.skilling && a->game.hero.technique==a->game.swipe_bindings[next]);
-            CHECK(a->game.combo_count==2 && a->game.queued_move==MOVE_NONE);
+            CHECK(a->game.input_count==2 && a->game.queued_move==MOVE_NONE);
             pointer_up(a,1,second_point);
             CHECK(!a->attack_pointer_down && a->game.queued_move==MOVE_NONE);
         }
@@ -278,6 +278,7 @@ static void swipe_thresholds(App *a) {
     CHECK(a->game.queued_move==MOVE_NONE);
     pointer_move(a,1,(Vec2){p.x+40,p.y+8}); /* 40/40 diagonal from tip. */
     CHECK(a->game.queued_move==MOVE_NONE);
+    CHECK(a->game.combat_request==TRAIN_INVALID);
     pointer_move(a,1,(Vec2){p.x+44,p.y+8}); /* Still ambiguous (1.10 ratio). */
     CHECK(a->game.queued_move==MOVE_NONE);
     pointer_move(a,1,(Vec2){p.x,p.y-32});

@@ -426,6 +426,42 @@ void gfx_sprite(Gfx *g, Picture *p, Vec2 v, float w, float h, bool flip) {
                    (float)p->h * scale};
     SDL_RenderCopyExF(g->renderer, p->texture, NULL, &r, 0, NULL, flip ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE);
 }
+/* The upright atlas is unchanged. The directional sword trail uses exactly
+ * the simulation heading, sector and collision-resolved impact positions. */
+void gfx_attack_trace(Gfx *f, const Game *g, Vec2 feet) {
+    if (g->phase != PH_PLAY || (!g->hero.attacking && !g->hero.skilling)) return;
+    const Hero *h = &g->hero;
+    int move = h->skilling ? (int)h->technique : MOVE_ATTACK;
+    float elapsed = h->skilling ? h->skill_elapsed : h->attack_elapsed;
+    float impact = h->skilling ? HERO_SKILL_IMPACT : HERO_ATTACK_IMPACT;
+    float angle = h->skilling ? h->skill_angle : h->attack_angle;
+    bool struck = h->skilling ? h->skill_hit : h->attack_hit;
+    float fade = struck ? 1 - clampf((elapsed - impact) / .20f, 0, 1) : .23f;
+    if (fade <= 0) return;
+    float radius = game_attack_range(g, move), half = game_attack_half_angle(move);
+    Vec2 origin = struck ? h->impact_origin : h->pos;
+    Vec2 start = struck ? h->impact_start : origin;
+    Vec2 centers[] = {{feet.x + origin.x - h->pos.x, feet.y + origin.y - h->pos.y - 22},
+                      {feet.x + start.x - h->pos.x, feet.y + start.y - h->pos.y - 22}};
+    SDL_Color ink = {183, 222, 237, (Uint8)(205 * fade)};
+    int count = distance(origin, start) > .01f ? 2 : 1;
+    for (int k = 0; k < count; k++) {
+        Vec2 center = centers[k];
+        for (int j = 0; j < 48; j++) {
+            float a = angle - half + 2 * half * j / 48;
+            float b = angle - half + 2 * half * (j + 1) / 48;
+            gfx_line(f, (Vec2){center.x + cosf(a) * radius, center.y + sinf(a) * radius},
+                        (Vec2){center.x + cosf(b) * radius, center.y + sinf(b) * radius}, ink);
+        }
+        for (int side = -1; side <= 1; side += 2) {
+            float a = angle + side * half;
+            gfx_line(f, center, (Vec2){center.x + cosf(a) * radius, center.y + sinf(a) * radius}, ink);
+        }
+        if (move == TECH_THRUST)
+            gfx_line(f, center, (Vec2){center.x + cosf(angle) * radius, center.y + sinf(angle) * radius}, ink);
+    }
+    if (count == 2) gfx_line(f, centers[0], centers[1], ink);
+}
 void gfx_hero(Gfx *f, const Game *g, Vec2 feet) {
     int frame = game_hero_frame(g);
     int skill = game_hero_skill_frame(g);
@@ -469,33 +505,7 @@ void gfx_hero(Gfx *f, const Game *g, Vec2 feet) {
     SDL_RenderCopyExF(f->renderer, p->texture, &source, &dest, body_angle,
                      body_angle == 0 ? NULL : &pivot, flip ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE);
     SDL_SetTextureAlphaMod(p->texture, 255);
-    if (skill >= 0) {
-        float elapsed = g->hero.skill_elapsed;
-        Vec2 center = {feet.x, feet.y - 22};
-        if (elapsed < HERO_SKILL_IMPACT) {
-            gfx_circle(f, center, 14 + elapsed * 52,
-                       (SDL_Color){170, 213, 230, (Uint8)(55 + elapsed * 500)});
-        } else {
-            float progress = clampf((elapsed - HERO_SKILL_IMPACT) / .26f, 0, 1);
-            float radius = g->hero.technique == TECH_SWEEP ? 70 : 53;
-            float angle = g->hero.skill_angle;
-            Uint8 alpha = (Uint8)(205 * (1 - progress));
-            if (g->hero.technique == TECH_THRUST) {
-                for (int j = -1; j <= 1; j++)
-                    gfx_line(f, (Vec2){center.x + cosf(angle) * 10, center.y + sinf(angle) * 10 + j},
-                        (Vec2){center.x + cosf(angle) * 72, center.y + sinf(angle) * 72 + j},
-                        (SDL_Color){211, 238, 244, alpha});
-            } else {
-                for (int j = 0; j < 18; j++) {
-                    float a = angle - 1.8f + progress * 3.6f - j * .055f;
-                    float b = a + .065f;
-                    gfx_line(f, (Vec2){center.x + cosf(a) * radius, center.y + sinf(a) * radius},
-                        (Vec2){center.x + cosf(b) * radius, center.y + sinf(b) * radius},
-                        (SDL_Color){183, 222, 237, (Uint8)(alpha * (18 - j) / 18)});
-                }
-            }
-        }
-    }
+    gfx_attack_trace(f, g, feet);
 }
 /* Preserve the entire illustration above the dialogue. A dimmed copy fills
  * the widescreen background, so even the reflected wolf stays in view. */

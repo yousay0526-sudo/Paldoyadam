@@ -44,6 +44,47 @@ static void capture(Gfx *gfx, const Game *game, SDL_Surface *surface, Uint32 *pi
     CHECK(SDL_RenderReadPixels(gfx->renderer, NULL, surface->format->format,
                               pixels, surface->pitch) == 0);
 }
+/* Inspect actual rendered trail pixels, independent of the upright atlas.
+ * A coordinate offset must not move the retreat trail with the hero. */
+static void directional_trails(Gfx *gfx, SDL_Surface *surface, Uint32 *pixels) {
+    SDL_RenderSetScale(gfx->renderer, 1, 1);
+    Uint32 background = SDL_MapRGBA(surface->format, 11, 15, 19, 255);
+    for (int move = MOVE_ATTACK; move < TECH_COUNT; move++) {
+        for (int direction = 0; direction < 8; direction++) {
+            Game game; game_reset(&game); game_start(&game);
+            Hero *h = &game.hero;
+            h->attacking = move == MOVE_ATTACK; h->skilling = !h->attacking;
+            h->technique = move >= 0 ? (Technique)move : TECH_CLEAVE;
+            h->attack_angle = h->skill_angle = direction * .785398163f;
+            h->attack_elapsed = HERO_ATTACK_IMPACT;
+            h->skill_elapsed = HERO_SKILL_IMPACT;
+            h->attack_hit = h->skill_hit = true;
+            h->impact_start = h->impact_origin = h->pos;
+            if (move == TECH_RETREAT) h->pos.x -= 36;
+            SDL_SetRenderDrawColor(gfx->renderer, 11, 15, 19, 255); SDL_RenderClear(gfx->renderer);
+            gfx_attack_trace(gfx, &game, (Vec2){144,166});
+            CHECK(SDL_RenderReadPixels(gfx->renderer, NULL, surface->format->format, pixels, surface->pitch) == 0);
+            float cx = 144 + h->impact_origin.x - h->pos.x, cy = 144;
+            float radius = game_attack_range(&game, move), half = game_attack_half_angle(move);
+            int visible = 0, wrong = 0;
+            for (int y = 0; y < surface->h; y++) for (int x = 0; x < surface->w; x++) {
+                if (pixels[y * surface->w + x] == background) continue;
+                visible++;
+                float dx = x - cx, dy = y - cy, r = hypotf(dx,dy);
+                float a = atan2f(dy,dx) - h->skill_angle;
+                float delta = fabsf(atan2f(sinf(a),cosf(a)));
+                if (r > radius + 2 || (r > 5 && delta > half + .25f)) wrong++;
+            }
+            CHECK(visible > 80 && wrong == 0);
+        }
+    }
+    /* No world-space trail while a menu pauses the attack. */
+    Game paused; game_reset(&paused); paused.hero.attacking = true; paused.phase = PH_BAG;
+    SDL_SetRenderDrawColor(gfx->renderer, 11, 15, 19, 255); SDL_RenderClear(gfx->renderer);
+    gfx_attack_trace(gfx, &paused, (Vec2){144,166});
+    CHECK(SDL_RenderReadPixels(gfx->renderer, NULL, surface->format->format, pixels, surface->pitch) == 0);
+    for (int i = 0; i < surface->w * surface->h; i++) CHECK(pixels[i] == background);
+}
 
 int main(int argc, char **argv) {
     SDL_SetMainReady();
@@ -63,6 +104,7 @@ int main(int argc, char **argv) {
     size_t bytes = (size_t)surface->pitch * surface->h;
     Uint32 *pixels = malloc(bytes), *previous = malloc(bytes), *idle = malloc(bytes);
     if (!pixels || !previous || !idle) return 1;
+    directional_trails(gfx, surface, pixels);
     Uint32 background = SDL_MapRGBA(surface->format, 11, 15, 19, 255);
     for (int scale = 1; scale <= 3; scale++) {
         SDL_RenderSetScale(renderer, (float)scale, (float)scale);
@@ -118,7 +160,7 @@ int main(int argc, char **argv) {
                 for (int x = 0; x < surface->w; x++)
                     if (pixels[y * surface->w + x] != background) {
                         visible++;
-                        CHECK(x < 96 * scale && y < 80 * scale);
+                        CHECK(x < 120 * scale && y < 120 * scale);
                     }
             CHECK(visible > 100);
             game.hero.attack_face = -1;

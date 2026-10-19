@@ -110,7 +110,7 @@ void game_reset(Game *g) {
     g->bandages = 1;
     g->shop = -1;
     g->attack_cooldown = 0;
-    g->queued_move = g->last_move = MOVE_NONE;
+    g->queued_move = g->last_move = g->last_hit_move = g->input_move = MOVE_NONE;
     g->swipe_bindings[SWIPE_UP] = TECH_CLEAVE;
     g->swipe_bindings[SWIPE_RIGHT] = TECH_SWEEP;
     g->swipe_bindings[SWIPE_DOWN] = TECH_RETREAT;
@@ -130,7 +130,6 @@ bool game_enter_training(Game *game, Game *saved) {
     game_reset(game);
     game->phase = PH_PLAY;
     game->training.active = true;
-    game->training.input_move = MOVE_NONE;
     game->hero.pos = (Vec2){BOSS_HOME.x, BOSS_HOME.y + 45};
     game->hero.dir = (Vec2){0, -1};
     game->sword = saved->sword;
@@ -143,9 +142,11 @@ bool game_leave_training(Game *game, const Game *saved) {
     if (game == saved || !game->training.active || saved->training.active || saved->phase != PH_PLAY)
         return false;
     *game = *saved;
-    game->queued_move = game->last_move = MOVE_NONE;
-    game->buffer_time = game->combo_time = 0;
-    game->combo_count = 0;
+    game->queued_move = game->last_move = game->last_hit_move = game->input_move = MOVE_NONE;
+    game->buffer_time = game->combo_time = game->input_time = game->request_time = 0;
+    game->combo_count = game->input_count = 0;
+    game->last_impact = IMPACT_NONE;
+    game->combat_request = TRAIN_READY;
     game->hero.attacking = game->hero.skilling = game->hero.walking = false;
     game->hero.attack_elapsed = game->hero.skill_elapsed = game->hero.walk_cycle = 0;
     return true;
@@ -481,7 +482,8 @@ bool game_bind_swipe(Game *g, Swipe direction, Technique technique) {
 }
 bool game_attack(Game *g) { return request_move(g, MOVE_ATTACK); }
 bool game_technique(Game *g, Technique technique) {
-    return technique >= 0 && technique < TECH_COUNT && request_move(g, technique);
+    if (technique < 0 || technique >= TECH_COUNT) { game_invalid_direction(g); return false; }
+    return request_move(g, technique);
 }
 bool game_skill(Game *g) { return game_technique(g, TECH_CLEAVE); }
 bool game_begin_boss(Game *g) {
@@ -502,8 +504,10 @@ void game_recover(Game *g) {
     g->hero.attacking = false;
     g->hero.attack_elapsed = 0;
     g->hero.skilling = false; g->hero.skill_elapsed = 0;
-    g->combo_count = 0; g->combo_time = g->buffer_time = 0;
-    g->queued_move = g->last_move = MOVE_NONE;
+    g->combo_count = g->input_count = 0;
+    g->combo_time = g->input_time = g->buffer_time = g->request_time = 0;
+    g->queued_move = g->last_move = g->last_hit_move = g->input_move = MOVE_NONE;
+    g->last_impact = IMPACT_NONE; g->combat_request = TRAIN_READY;
     memset(g->technique_cooldowns, 0, sizeof g->technique_cooldowns);
     g->hero.hp = g->hero.max_hp;
     g->hero.bleed = g->hero.invul = 0;
@@ -528,8 +532,10 @@ void game_retry(Game *g) {
     g->hero.attacking = false;
     g->hero.attack_elapsed = 0;
     g->hero.skilling = false; g->hero.skill_elapsed = 0;
-    g->combo_count = 0; g->combo_time = g->buffer_time = 0;
-    g->queued_move = g->last_move = MOVE_NONE;
+    g->combo_count = g->input_count = 0;
+    g->combo_time = g->input_time = g->buffer_time = g->request_time = 0;
+    g->queued_move = g->last_move = g->last_hit_move = g->input_move = MOVE_NONE;
+    g->last_impact = IMPACT_NONE; g->combat_request = TRAIN_READY;
     memset(g->technique_cooldowns, 0, sizeof g->technique_cooldowns);
     g->hero.hp = 100;
     g->hero.bleed = g->hero.invul = 0;
@@ -666,18 +672,84 @@ static void tick_loot(Game *g, float dt) {
     }
 }
 static void chain_move(Game *g, int move) {
-    g->combo_count = g->combo_time > 0 && g->last_move != move
-        ? (int)fminf(3, g->combo_count + 1) : 1;
+    g->input_count = g->input_time > 0 && g->last_move != move
+        ? (int)fminf(3, g->input_count + 1) : 1;
     g->last_move = move;
-    g->combo_time = COMBO_SECONDS;
+    g->input_time = COMBO_SECONDS;
 }
-static int combo_damage(const Game *g, int damage) {
-    return (damage * (100 + 10 * (g->combo_count - 1)) + 50) / 100;
+static int next_combo(const Game *g, int move) {
+    return g->combo_time > 0 && g->last_hit_move != move
+        ? (int)fminf(3, g->combo_count + 1) : 1;
+}
+static int combo_damage(const Game *g, int move, int damage) {
+    return (damage * (100 + 10 * (next_combo(g, move) - 1)) + 50) / 100;
+}
+float game_attack_range(const Game *g, int move) {
+    if (move == MOVE_ATTACK)
+        return g->augment == AUG_WIND ? 120 : g->augment == AUG_STEEL ? 76 : 58;
+    return move >= 0 && move < TECH_COUNT ? TECHNIQUES[move].range : 0;
+}
+float game_attack_half_angle(int move) {
+    /* Radians: basic 103deg, cleave 63deg, sweep 201deg,
+     * thrust 32deg, retreat 120deg total opening. */
+    switch (move) {
+    case MOVE_ATTACK: return .90f;
+    case TECH_CLEAVE: return .55f;
+    case TECH_SWEEP: return 1.75f;
+    case TECH_THRUST: return .28f;
+    case TECH_RETREAT: return 1.05f;
+    default: return 0;
+    }
+}
+bool game_attack_contains(Vec2 origin, float angle, float range, int move, Vec2 target) {
+    float dx = target.x - origin.x, dy = target.y - origin.y;
+    float d = hypotf(dx, dy), half = game_attack_half_angle(move);
+    if (half <= 0 || !isfinite(angle) || !(d < range)) return false;
+    /* Coincident centers count as contact; never normalize a zero vector. */
+    if (d > .0001f && (dx * cosf(angle) + dy * sinf(angle)) / d < cosf(half) - .000001f)
+        return false;
+    return world_segment(origin, target, 0);
+}
+/* Sweep the forward sector along the collision-resolved advance. This includes
+ * contact passed during a thrust without granting a radial hit behind it.
+ * Clip the origin segment against the two cone planes, then find its nearest
+ * point to the target. Forward moves have half angles strictly below pi/2. */
+bool game_attack_path_contains(Vec2 start, Vec2 end, float angle, float range, int move, Vec2 target) {
+    float half = game_attack_half_angle(move);
+    Vec2 step = {end.x - start.x, end.y - start.y};
+    float length2 = step.x * step.x + step.y * step.y;
+    if (length2 < .000001f || half >= 1.5707963f)
+        return game_attack_contains(end, angle, range, move, target);
+    float c = cosf(angle), s = sinf(angle), tangent = tanf(half);
+    Vec2 delta = {target.x - start.x, target.y - start.y};
+    float x = delta.x * c + delta.y * s, y = -delta.x * s + delta.y * c;
+    float vx = step.x * c + step.y * s, vy = -step.x * s + step.y * c;
+    float low = 0, high = 1;
+    for (int side = -1; side <= 1; side += 2) {
+        float a = x * tangent + side * y, b = vx * tangent + side * vy;
+        if (fabsf(b) < .000001f) { if (a < 0) return false; }
+        else if (b > 0) high = fminf(high, a / b);
+        else low = fmaxf(low, a / b);
+    }
+    if (low > high) return false;
+    float t = clampf((delta.x * step.x + delta.y * step.y) / length2, low, high);
+    Vec2 origin = {start.x + step.x * t, start.y + step.y * t};
+    return game_attack_contains(origin, angle, range, move, target);
+}
+static void combat_feedback(Game *g, int move, int result) {
+    g->input_move = move;
+    g->combat_request = result;
+    g->request_time = .8f;
+}
+void game_invalid_direction(Game *g) {
+    combat_feedback(g, MOVE_NONE, TRAIN_INVALID);
 }
 static void begin_attack(Game *g, Enemy *enemy) {
     Hero *h = &g->hero;
     h->attacking = true; h->attack_hit = false; h->attack_elapsed = 0;
     h->attack_target = enemy ? (enemy == &g->boss ? -1 : (int)(enemy - g->boars)) : -2;
+    h->attack_angle = enemy ? atan2f(enemy->pos.y - h->pos.y, enemy->pos.x - h->pos.x)
+        : atan2f(h->dir.y, h->dir.x);
     if (enemy && fabsf(enemy->pos.x - h->pos.x) > .1f)
         h->face = enemy->pos.x > h->pos.x ? 1 : -1;
     h->attack_face = h->face;
@@ -704,12 +776,17 @@ static void begin_technique(Game *g, Technique technique) {
     chain_move(g, technique);
 }
 static bool request_move(Game *g, int move) {
-    if (g->phase != PH_PLAY || g->hero.hp <= 0 ||
-        (move != MOVE_ATTACK && (move < 0 || move >= TECH_COUNT))) return false;
-    if (g->training.active) g->training.input_move = move;
+    if (move != MOVE_ATTACK && (move < 0 || move >= TECH_COUNT)) {
+        game_invalid_direction(g);
+        return false;
+    }
+    if (g->phase != PH_PLAY || g->hero.hp <= 0) {
+        combat_feedback(g, move, TRAIN_BLOCKED);
+        return false;
+    }
     if (move == MOVE_ATTACK ? g->attack_cooldown > 0
                             : game_technique_cooldown(g, (Technique)move) > 0) {
-        if (g->training.active) g->training.request = TRAIN_COOLDOWN;
+        combat_feedback(g, move, TRAIN_COOLDOWN);
         return false;
     }
     float remaining = g->hero.skilling ? HERO_SKILL_SECONDS - g->hero.skill_elapsed
@@ -720,7 +797,7 @@ static bool request_move(Game *g, int move) {
          * Its lifetime covers the remaining animation, not just 0.28 s. */
         g->queued_move = move;
         g->buffer_time = remaining + .10f;
-        if (g->training.active) g->training.request = TRAIN_QUEUED;
+        combat_feedback(g, move, TRAIN_QUEUED);
         return true;
     }
     if (move == MOVE_ATTACK) {
@@ -729,69 +806,97 @@ static bool request_move(Game *g, int move) {
         if (e && distance(e->pos, g->hero.pos) >= range + 22) e = NULL;
         begin_attack(g, e);
     } else begin_technique(g, (Technique)move);
-    if (g->training.active) g->training.request = TRAIN_STARTED;
+    combat_feedback(g, move, TRAIN_STARTED);
     return true;
 }
-static void training_impact(Game *game) {
+static void finish_impact(Game *game, int move, bool hit) {
+    game->input_time = COMBO_SECONDS;
+    game->last_impact = hit ? IMPACT_HIT : IMPACT_MISS;
+    game->combo_count = hit ? next_combo(game, move) : 0;
+    game->last_hit_move = hit ? move : MOVE_NONE;
+    game->combo_time = hit ? COMBO_SECONDS : 0;
     if (!game->training.active) return;
     game->training.last_damage = game->training.impact_damage;
-    if (game->training.last_damage > 0) game->training.hits++;
+    if (hit) game->training.hits++;
     else game->training.misses++;
     game->training.impact_damage = 0;
+}
+static Enemy *unlocked_attack_target(Game *g) {
+    Enemy *best = NULL;
+    float nearest = game_attack_range(g, MOVE_ATTACK);
+    Enemy *enemies[] = {&g->boss, &g->boars[0], &g->boars[1], &g->boars[2]};
+    for (size_t i = 0; i < sizeof enemies / sizeof *enemies; i++) {
+        Enemy *e = enemies[i];
+        if (active_enemy(g, e) && e->hp > 0 &&
+            game_attack_contains(g->hero.pos, g->hero.attack_angle, nearest, MOVE_ATTACK, e->pos)) {
+            best = e;
+            nearest = distance(g->hero.pos, e->pos);
+        }
+    }
+    return best;
 }
 static void tick_attack(Game *g, float dt) {
     Hero *h = &g->hero;
     if (!h->attacking) return;
     h->attack_elapsed += dt;
     if (!h->attack_hit && h->attack_elapsed >= HERO_ATTACK_IMPACT) {
-        h->attack_hit = true; g->combo_time = COMBO_SECONDS;
+        h->attack_hit = true;
+        h->impact_start = h->impact_origin = h->pos;
+        bool hit = false;
+        g->training.impact_damage = 0;
         Enemy *e = h->attack_target == -1 ? &g->boss
             : h->attack_target >= 0 && h->attack_target < BOAR_COUNT
-                ? &g->boars[h->attack_target] : nearest_enemy(g);
-        if (e && active_enemy(g, e) && e->hp > 0 && world_segment(h->pos, e->pos, 0)) {
+                ? &g->boars[h->attack_target] : unlocked_attack_target(g);
+        if (e && active_enemy(g, e) && e->hp > 0 &&
+            game_attack_contains(h->pos, h->attack_angle, game_attack_range(g, MOVE_ATTACK), MOVE_ATTACK, e->pos)) {
             float d = distance(h->pos, e->pos);
             float range = g->augment == AUG_STEEL ? 76 : 58;
             if (d < range)
-                game_damage(g, e, combo_damage(g, (g->augment == AUG_STEEL ? 13 : 9) + (g->sword ? 5 : 0)), FX_HIT);
+                hit |= game_damage(g, e, combo_damage(g, MOVE_ATTACK, (g->augment == AUG_STEEL ? 13 : 9) + (g->sword ? 5 : 0)), FX_HIT);
             if (g->augment == AUG_WIND && d < 120)
-                game_damage(g, e, 6, FX_WIND);
+                hit |= game_damage(g, e, 6, FX_WIND);
         }
-        training_impact(g);
+        finish_impact(g, MOVE_ATTACK, hit);
     }
     if (h->attack_elapsed >= HERO_ATTACK_SECONDS) {
         h->attacking = false; h->attack_elapsed = 0;
     }
 }
-static void technique_area(Game *g, float range, int damage) {
+static bool technique_area(Game *g, float range, int damage) {
+    bool hit = false;
     if (g->training.active || g->quest == Q_COMBAT) {
-        if (distance(g->hero.pos, g->boss.pos) < range &&
-            world_segment(g->hero.pos, g->boss.pos, 0))
-            game_damage(g, &g->boss, damage, FX_HIT);
+        if (game_attack_path_contains(g->hero.impact_start, g->hero.impact_origin,
+                g->hero.skill_angle, range, g->hero.technique, g->boss.pos))
+            hit |= game_damage(g, &g->boss, damage, FX_HIT);
     } else if (game_boars_active(g)) {
         for (int i = 0; i < BOAR_COUNT; i++)
-            if (distance(g->hero.pos, g->boars[i].pos) < range &&
-                world_segment(g->hero.pos, g->boars[i].pos, 0))
-                game_damage(g, &g->boars[i], damage, FX_HIT);
+            if (game_attack_path_contains(g->hero.impact_start, g->hero.impact_origin,
+                    g->hero.skill_angle, range, g->hero.technique, g->boars[i].pos))
+                hit |= game_damage(g, &g->boars[i], damage, FX_HIT);
     }
+    return hit;
 }
 static void tick_technique(Game *g, float dt) {
     Hero *h = &g->hero;
     if (!h->skilling) return;
     h->skill_elapsed += dt;
     if (!h->skill_hit && h->skill_elapsed >= HERO_SKILL_IMPACT) {
-        h->skill_hit = true; g->combo_time = COMBO_SECONDS;
+        h->skill_hit = true;
+        g->training.impact_damage = 0;
         const TechniqueInfo *info = &TECHNIQUES[h->technique];
+        h->impact_start = h->pos;
         float step = h->technique == TECH_CLEAVE && g->augment == AUG_FLOW ? 45 : info->step;
         if (step > 0)
             h->pos = world_move(h->pos, (Vec2){cosf(h->skill_angle) * step,
                                              sinf(h->skill_angle) * step}, HERO_RADIUS);
         int base = h->technique == TECH_CLEAVE && g->augment == AUG_FLOW ? 32 : info->damage;
-        technique_area(g, info->range, combo_damage(g, base + (g->sword ? 5 : 0)));
-        training_impact(g);
+        h->impact_origin = h->pos;
+        bool hit = technique_area(g, info->range, combo_damage(g, h->technique, base + (g->sword ? 5 : 0)));
+        finish_impact(g, h->technique, hit);
         if (step < 0)
             h->pos = world_move(h->pos, (Vec2){cosf(h->skill_angle) * step,
                                              sinf(h->skill_angle) * step}, HERO_RADIUS);
-        effect(g, (Effect){.kind = FX_SKILL, .pos = h->pos,
+        effect(g, (Effect){.kind = FX_SKILL, .pos = h->impact_origin,
                             .angle = h->skill_angle, .life = .30f});
     }
     if (h->skill_elapsed >= HERO_SKILL_SECONDS) {
@@ -853,6 +958,10 @@ void game_tick(Game *g, float dt, Vec2 input) {
         g->technique_cooldowns[i] = fmaxf(0, g->technique_cooldowns[i] - dt);
     g->attack_cooldown = fmaxf(0, g->attack_cooldown - dt);
     g->combo_time = fmaxf(0, g->combo_time - dt);
+    g->input_time = fmaxf(0, g->input_time - dt);
+    g->request_time = fmaxf(0, g->request_time - dt);
+    if (g->combo_time <= 0) { g->combo_count = 0; g->last_hit_move = MOVE_NONE; }
+    if (g->input_time <= 0) { g->input_count = 0; g->last_move = MOVE_NONE; }
     g->buffer_time = fmaxf(0, g->buffer_time - dt);
     if (g->buffer_time <= 0) g->queued_move = MOVE_NONE;
     g->item_cooldown = fmaxf(0, g->item_cooldown - dt);

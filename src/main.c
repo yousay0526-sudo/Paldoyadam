@@ -157,6 +157,7 @@ static void stop_input(App *a) {
     a->attack_start = a->attack_anchor = (Vec2){0, 0};
     a->attack_hold = 0;
     a->game.queued_move = MOVE_NONE; a->game.buffer_time = 0;
+    a->game.request_time = 0;
 }
 static void toggle_training(App *app) {
     if (app->width <= app->height) return;
@@ -452,15 +453,18 @@ static const char *move_name(int move) {
     return move == MOVE_ATTACK ? "기본 공격"
         : move >= 0 && move < TECH_COUNT ? TECHNIQUES[move].name : "없음";
 }
+static const char *request_name(const Game *game) {
+    const char *names[] = {"준비", "발동", "예약", "재사용 중", "방향 불명", "입력 불가"};
+    return names[game->combat_request];
+}
 static void draw_training_status(App *app) {
     Game *game = &app->game;
     char lines[10][96];
-    const char *requests[] = {"준비", "발동", "예약", "재사용 중"};
     snprintf(lines[0], sizeof lines[0], "타격 %u · 미스 %u", game->training.hits, game->training.misses);
-    snprintf(lines[1], sizeof lines[1], "최근 피해 %d · 무적", game->training.last_damage);
-    snprintf(lines[2], sizeof lines[2], "연계 %d/3 · %.1f초", game->combo_time > 0 ? game->combo_count : 0, game->combo_time);
+    snprintf(lines[1], sizeof lines[1], "피해 %d · 입력 %d/3", game->training.last_damage, game->input_count);
+    snprintf(lines[2], sizeof lines[2], "명중 %d/3 · %.1f초", game->combo_count, game->combo_time);
     snprintf(lines[3], sizeof lines[3], "예약: %s", move_name(game->queued_move));
-    snprintf(lines[4], sizeof lines[4], "%s · %s", move_name(game->training.input_move), requests[game->training.request]);
+    snprintf(lines[4], sizeof lines[4], "%s · %s", move_name(game->input_move), request_name(game));
     snprintf(lines[5], sizeof lines[5], "기본 공격 %.1f초", game->attack_cooldown);
     const char *directions[] = {"상", "우", "하", "좌"};
     for (int direction = 0; direction < SWIPE_COUNT; direction++) {
@@ -575,12 +579,16 @@ static void draw_hud(App *a) {
         gfx_label(f, text, (SDL_FRect){attack.x + 3, attack.y + 48, 82, 20}, 11,
                   a->attack_pointer_down ? INK : GOLD);
         int direction = a->attack_pointer_down ? a->attack_direction : -1;
-        if (direction >= 0) {
+        if (g->request_time > 0 && g->combat_request >= TRAIN_QUEUED) {
+            snprintf(text, sizeof text, "%s", request_name(g));
+        } else if (g->last_impact == IMPACT_MISS && g->input_time > 0) {
+            snprintf(text, sizeof text, "미스 · 명중 0/3");
+        } else if (direction >= 0) {
             Technique tech = g->swipe_bindings[direction];
             float cd = game_technique_cooldown(g, tech);
             snprintf(text, sizeof text, cd > 0 ? "%s · %.1f초" : "%s", TECHNIQUES[tech].name, cd);
         } else if (g->combo_count > 1 && g->combo_time > 0)
-            snprintf(text, sizeof text, "%d연계 +%d%%", g->combo_count, 10 * (g->combo_count - 1));
+            snprintf(text, sizeof text, "명중 %d연계", g->combo_count);
         else snprintf(text, sizeof text, "밀어서 무공");
         SDL_FRect attack_hint = {center.x - 54, attack.y - 37, 108, 26};
         hud_card(f, attack_hint, 205);
@@ -1150,6 +1158,8 @@ static void pointer_move(App *a, Sint64 id, Vec2 p) {
         if(distance(p,a->attack_start)>=32) a->attack_swiping=true;
         Vec2 delta={p.x-a->attack_anchor.x,p.y-a->attack_anchor.y};
         int direction=combat_direction(delta);
+        if (direction < 0 && hypotf(delta.x, delta.y) >= 32)
+            game_invalid_direction(&a->game);
         if(direction>=0 && direction!=a->attack_direction) {
             /* One request per new stroke, even if timing/cooldown rejects it.
              * The game's existing single-slot buffer owns all combat timing. */
@@ -1382,6 +1392,7 @@ static void smoke_scene(App *a, const char *scene) {
         a->game.hero.skilling = true; a->game.hero.skill_hit = true;
         a->game.hero.technique = (Technique)(int)clampf((float)atoi(scene+5)-1,0,TECH_COUNT-1);
         a->game.hero.skill_elapsed = .30f; a->game.hero.skill_angle = 0;
+        a->game.hero.impact_start = a->game.hero.impact_origin = a->game.hero.pos;
         a->game.hero.attack_face = a->game.hero.face = 1;
     } else if (!strcmp(scene, "dialogue")) {
         say(a, MEET_LINES, 3, DONE_ACCEPT);
