@@ -12,7 +12,7 @@
     #canvas { position: fixed; top: env(safe-area-inset-top, 0px); left: env(safe-area-inset-left, 0px);
       width: calc(100% - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)) !important;
       height: calc(100% - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) !important;
-      display: block; outline: none; touch-action: none; user-select: none; -webkit-user-select: none; }
+      display: block; object-fit: contain; outline: none; touch-action: none; user-select: none; -webkit-user-select: none; }
     #loading { position: fixed; inset: 0; display: grid; place-items: center;
       background: radial-gradient(ellipse at center, #293b32, #0b171b); z-index: 2; }
     #loading[hidden] { display: none; }
@@ -111,6 +111,20 @@
     document.addEventListener('fullscreenchange', () => window.dispatchEvent(new Event('resize')));
     if (window.visualViewport)
       window.visualViewport.addEventListener('resize', () => window.dispatchEvent(new Event('resize')));
+    // iOS browser bars may resize the canvas without a window resize event.
+    // SDL picks up its current CSS dimensions; object-fit prevents a stretched
+    // frame while the backing buffer catches up.
+    if (window.ResizeObserver) {
+      let lastWidth = 0, lastHeight = 0;
+      new ResizeObserver(entries => {
+        const rect = entries[0].contentRect;
+        if (Math.abs(rect.width - lastWidth) > 1 || Math.abs(rect.height - lastHeight) > 1) {
+          lastWidth = rect.width;
+          lastHeight = rect.height;
+          window.dispatchEvent(new Event('resize'));
+        }
+      }).observe(canvas);
+    }
   </script>
   {{{ SCRIPT }}}
 </body>

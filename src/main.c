@@ -922,6 +922,22 @@ static void resize(App *a) {
     if (SDL_GetDisplayDPI(SDL_GetWindowDisplayIndex(a->window), &dpi, NULL, NULL) == 0 && dpi > 120)
         a->density = clampf(dpi / 160, 1, 4);
 #endif
+#ifdef __EMSCRIPTEN__
+    /* Safari browser bars can change the CSS viewport without a window
+     * resize event. Keep the SDL backing buffer at the canvas' real size
+     * every frame, so CSS never stretches an old frame non-uniformly. */
+    double css_w = 0, css_h = 0;
+    if (emscripten_get_element_css_size("#canvas", &css_w, &css_h) == EMSCRIPTEN_RESULT_SUCCESS &&
+        css_w > 0 && css_h > 0) {
+        int desired_w = (int)lround(css_w * a->density);
+        int desired_h = (int)lround(css_h * a->density);
+        if (abs(ww - desired_w) > 1 || abs(wh - desired_h) > 1) {
+            SDL_SetWindowSize(a->window, desired_w, desired_h);
+            SDL_GetWindowSize(a->window, &ww, &wh);
+            SDL_GetRendererOutputSize(a->renderer, &ow, &oh);
+        }
+    }
+#endif
     a->width = (float)ww / a->density;
     a->height = (float)wh / a->density;
     SDL_RenderSetScale(a->renderer, (float)ow / a->width, (float)oh / a->height);
@@ -1317,11 +1333,7 @@ static EM_BOOL browser_resize(int event, const EmscriptenUiEvent *info, void *us
     (void)event;
     (void)info;
     App *a = user;
-    double w = 0, h = 0;
-    emscripten_get_element_css_size("#canvas", &w, &h);
-    float density = clampf((float)emscripten_get_device_pixel_ratio(), 1, 3);
-    if (w > 0 && h > 0)
-        SDL_SetWindowSize(a->window, (int)lround(w * density), (int)lround(h * density));
+    /* resize() also reconciles CSS dimensions after browser chrome changes. */
     resize(a);
     stop_input(a);
     return EM_FALSE;

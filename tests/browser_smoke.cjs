@@ -49,6 +49,35 @@ async function shot(page, name) {
       let s=await state(page);
       assert.equal(s.phase,0); assert.equal(Math.round(s.width),width); assert.equal(Math.round(s.height),height);
       assert.equal(s.density,mobile?2:1);
+      // The backing canvas and the CSS viewport must agree on both axes.
+      // An old back buffer stretched to Safari's new viewport distorted art/text.
+      async function canvasAspectMatches() {
+        return page.evaluate(() => {
+          const canvas = document.querySelector('#canvas');
+          const box = canvas.getBoundingClientRect();
+          if (!canvas.width || !canvas.height || !box.width || !box.height) return false;
+          return Math.abs(canvas.width / canvas.height - box.width / box.height) < 0.015;
+        });
+      }
+      await page.waitForFunction(() => {
+        const canvas = document.querySelector('#canvas'), box = canvas.getBoundingClientRect();
+        return canvas.width > 0 && canvas.height > 0 &&
+          Math.abs(canvas.width / canvas.height - box.width / box.height) < 0.015;
+      });
+      if (mobile) {
+        // Mimic iPhone browser chrome reducing available height while in landscape.
+        await page.setViewportSize({width:844,height:320});
+        await page.waitForFunction(() => {
+          const canvas = document.querySelector('#canvas'), box = canvas.getBoundingClientRect();
+          return Math.abs(canvas.width / canvas.height - box.width / box.height) < 0.015;
+        });
+        assert(await canvasAspectMatches(),'Mobile canvas must preserve aspect after viewport height changes');
+        await page.setViewportSize({width:844,height:390});
+        await page.waitForFunction(() => {
+          const canvas = document.querySelector('#canvas'), box = canvas.getBoundingClientRect();
+          return Math.abs(canvas.width / canvas.height - box.width / box.height) < 0.015;
+        });
+      }
       await shot(page,mobile?'mobile-title':'desktop-title');
       if (mobile) await page.touchscreen.tap(width*.75,height*.35+25);
       else await page.keyboard.press('Space');
