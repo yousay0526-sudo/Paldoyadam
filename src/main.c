@@ -158,15 +158,15 @@ static void stop_input(App *a) {
     a->attack_hold = 0;
     a->game.queued_move = MOVE_NONE; a->game.buffer_time = 0;
 }
-static void toggle_training(App *a) {
-    if (a->width <= a->height) return;
-    bool changed = a->game.training.active
-        ? game_leave_training(&a->game, &a->training_return)
-        : game_enter_training(&a->game, &a->training_return);
+static void toggle_training(App *app) {
+    if (app->width <= app->height) return;
+    bool changed = app->game.training.active
+        ? game_leave_training(&app->game, &app->training_return)
+        : game_enter_training(&app->game, &app->training_return);
     if (!changed) return;
-    stop_input(a);
-    a->movement_blocked = true;
-    a->button_count = 0;
+    stop_input(app);
+    app->movement_blocked = true;
+    app->button_count = 0;
 }
 static void say(App *a, const Line *lines, int count, DialogueDone done) {
     if (count > 5)
@@ -452,25 +452,25 @@ static const char *move_name(int move) {
     return move == MOVE_ATTACK ? "기본 공격"
         : move >= 0 && move < TECH_COUNT ? TECHNIQUES[move].name : "없음";
 }
-static void draw_training_status(App *a) {
-    Game *g = &a->game;
+static void draw_training_status(App *app) {
+    Game *game = &app->game;
     char lines[10][96];
     const char *requests[] = {"준비", "발동", "예약", "재사용 중"};
-    snprintf(lines[0], sizeof lines[0], "타격 %u · 미스 %u", g->training.hits, g->training.misses);
-    snprintf(lines[1], sizeof lines[1], "최근 피해 %d · 무적", g->training.last_damage);
-    snprintf(lines[2], sizeof lines[2], "연계 %d/3 · %.1f초", g->combo_time > 0 ? g->combo_count : 0, g->combo_time);
-    snprintf(lines[3], sizeof lines[3], "예약: %s", move_name(g->queued_move));
-    snprintf(lines[4], sizeof lines[4], "%s · %s", move_name(g->training.input_move), requests[g->training.request]);
-    snprintf(lines[5], sizeof lines[5], "기본 공격 %.1f초", g->attack_cooldown);
+    snprintf(lines[0], sizeof lines[0], "타격 %u · 미스 %u", game->training.hits, game->training.misses);
+    snprintf(lines[1], sizeof lines[1], "최근 피해 %d · 무적", game->training.last_damage);
+    snprintf(lines[2], sizeof lines[2], "연계 %d/3 · %.1f초", game->combo_time > 0 ? game->combo_count : 0, game->combo_time);
+    snprintf(lines[3], sizeof lines[3], "예약: %s", move_name(game->queued_move));
+    snprintf(lines[4], sizeof lines[4], "%s · %s", move_name(game->training.input_move), requests[game->training.request]);
+    snprintf(lines[5], sizeof lines[5], "기본 공격 %.1f초", game->attack_cooldown);
     const char *directions[] = {"상", "우", "하", "좌"};
     for (int direction = 0; direction < SWIPE_COUNT; direction++) {
-        Technique technique = g->swipe_bindings[direction];
+        Technique technique = game->swipe_bindings[direction];
         snprintf(lines[6 + direction], sizeof lines[6 + direction], "%s %s %.1f초", directions[direction],
-                 TECHNIQUES[technique].name, game_technique_cooldown(g, technique));
+                 TECHNIQUES[technique].name, game_technique_cooldown(game, technique));
     }
-    hud_card(&a->gfx, (SDL_FRect){12, 58, 148, 146}, 225);
+    hud_card(&app->gfx, (SDL_FRect){12, 58, 148, 146}, 225);
     for (int line = 0; line < 10; line++)
-        gfx_text(&a->gfx, lines[line], 18, 61 + line * 14, 12, 134, line < 5 ? PAPER : GOLD);
+        gfx_text(&app->gfx, lines[line], 18, 61 + line * 14, 12, 134, line < 5 ? PAPER : GOLD);
 }
 static void draw_quest_tracker(App *a) {
     Game *g = &a->game;

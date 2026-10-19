@@ -18,6 +18,16 @@ async function phase(page, value) {
 async function shot(page, name) {
   if (shots) { fs.mkdirSync(shots, {recursive:true}); await page.screenshot({path:path.join(shots,name+'.png')}); }
 }
+async function hiddenTaps(context, page) {
+  const entry=await context.newCDPSession(page), taps=[];
+  for(let tap=0;tap<7;tap++) {
+    taps.push(entry.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:60,y:18}]}));
+    taps.push(entry.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]}));
+  }
+  await Promise.all(taps);
+  await entry.detach();
+  await page.waitForFunction(()=>JSON.parse(Module.UTF8ToString(Module._paldo_test_state())).training);
+}
 
 (async () => {
   const server = http.createServer((req,res) => {
@@ -160,14 +170,8 @@ async function shot(page, name) {
       assert.equal((await state(page)).clear,true);
       await shot(page,mobile?'mobile-village':'desktop-village');
       const original=await state(page);
-      if(mobile) {
-        const entry=await context.newCDPSession(page), taps=[];
-        for(let tap=0;tap<7;tap++) {
-          taps.push(entry.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:60,y:18}]}));
-          taps.push(entry.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]}));
-        }
-        await Promise.all(taps);
-      } else await page.keyboard.press('F8');
+      if(mobile) await hiddenTaps(context,page);
+      else await page.keyboard.press('F8');
       await page.waitForFunction(()=>JSON.parse(Module.UTF8ToString(Module._paldo_test_state())).training);
       assert.equal((await state(page)).dummyHp,240);
       if(mobile) {
@@ -206,8 +210,18 @@ async function shot(page, name) {
       assert.equal(practice.combo,3); assert.equal(practice.misses,0); assert.equal(practice.dummyHp,240);
       assert.equal(practice.hp,100); assert.equal(practice.quest,0);
       await shot(page,mobile?'mobile-training':'desktop-training');
-      await page.keyboard.press('Escape'); await phase(page,10);
-      await page.keyboard.press('F8'); await phase(page,2);
+      if(mobile) {
+        await page.touchscreen.tap(694,26);
+        await page.waitForFunction(()=>!JSON.parse(Module.UTF8ToString(Module._paldo_test_state())).training);
+        let returned=await state(page);
+        for(const field of ['quest','x','y','hp','coins','herbs']) assert.equal(returned[field],original[field],field+' restored by exit button');
+        await hiddenTaps(context,page);
+        await page.touchscreen.tap(818,26); await phase(page,10);
+        await page.touchscreen.tap(422,300); await phase(page,2);
+      } else {
+        await page.keyboard.press('Escape'); await phase(page,10);
+        await page.keyboard.press('F8'); await phase(page,2);
+      }
       const restored=await state(page);
       assert.equal(restored.training,false); assert.equal(restored.queued,-2); assert.equal(restored.attackDown,false);
       for(const field of ['quest','x','y','hp','coins','herbs']) assert.equal(restored[field],original[field],field+' restored');

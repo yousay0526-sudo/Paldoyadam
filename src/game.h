@@ -172,8 +172,8 @@ float distance(Vec2 a, Vec2 b);
 float clampf(float value, float min, float max);
 void game_reset(Game *g);
 void game_start(Game *g);
-bool game_enter_training(Game *g, Game *saved);
-bool game_leave_training(Game *g, const Game *saved);
+bool game_enter_training(Game *game, Game *saved);
+bool game_leave_training(Game *game, const Game *saved);
 void game_tick(Game *g, float dt, Vec2 movement);
 /* -1 means the approved standing pose; 0..7 select walking atlas cells. */
 int game_hero_frame(const Game *g);

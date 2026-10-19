@@ -123,31 +123,31 @@ void game_start(Game *g) {
 bool game_boars_active(const Game *g) {
     return !g->training.active && g->traces[0] && g->traces[1];
 }
-bool game_enter_training(Game *g, Game *saved) {
-    if (g == saved || g->training.active || g->phase != PH_PLAY || g->hero.hp <= 0)
+bool game_enter_training(Game *game, Game *saved) {
+    if (game == saved || game->training.active || game->phase != PH_PLAY || game->hero.hp <= 0)
         return false;
-    *saved = *g;
-    game_reset(g);
-    g->phase = PH_PLAY;
-    g->training.active = true;
-    g->training.input_move = MOVE_NONE;
-    g->hero.pos = (Vec2){BOSS_HOME.x, BOSS_HOME.y + 45};
-    g->hero.dir = (Vec2){0, -1};
-    g->sword = saved->sword;
-    g->armor = saved->armor;
-    g->augment = saved->augment;
-    memcpy(g->swipe_bindings, saved->swipe_bindings, sizeof g->swipe_bindings);
+    *saved = *game;
+    game_reset(game);
+    game->phase = PH_PLAY;
+    game->training.active = true;
+    game->training.input_move = MOVE_NONE;
+    game->hero.pos = (Vec2){BOSS_HOME.x, BOSS_HOME.y + 45};
+    game->hero.dir = (Vec2){0, -1};
+    game->sword = saved->sword;
+    game->armor = saved->armor;
+    game->augment = saved->augment;
+    memcpy(game->swipe_bindings, saved->swipe_bindings, sizeof game->swipe_bindings);
     return true;
 }
-bool game_leave_training(Game *g, const Game *saved) {
-    if (g == saved || !g->training.active || saved->training.active || saved->phase != PH_PLAY)
+bool game_leave_training(Game *game, const Game *saved) {
+    if (game == saved || !game->training.active || saved->training.active || saved->phase != PH_PLAY)
         return false;
-    *g = *saved;
-    g->queued_move = g->last_move = MOVE_NONE;
-    g->buffer_time = g->combo_time = 0;
-    g->combo_count = 0;
-    g->hero.attacking = g->hero.skilling = g->hero.walking = false;
-    g->hero.attack_elapsed = g->hero.skill_elapsed = g->hero.walk_cycle = 0;
+    *game = *saved;
+    game->queued_move = game->last_move = MOVE_NONE;
+    game->buffer_time = game->combo_time = 0;
+    game->combo_count = 0;
+    game->hero.attacking = game->hero.skilling = game->hero.walking = false;
+    game->hero.attack_elapsed = game->hero.skill_elapsed = game->hero.walk_cycle = 0;
     return true;
 }
 Nearby game_nearby(const Game *g) {
@@ -732,12 +732,12 @@ static bool request_move(Game *g, int move) {
     if (g->training.active) g->training.request = TRAIN_STARTED;
     return true;
 }
-static void training_impact(Game *g) {
-    if (!g->training.active) return;
-    g->training.last_damage = g->training.impact_damage;
-    if (g->training.last_damage > 0) g->training.hits++;
-    else g->training.misses++;
-    g->training.impact_damage = 0;
+static void training_impact(Game *game) {
+    if (!game->training.active) return;
+    game->training.last_damage = game->training.impact_damage;
+    if (game->training.last_damage > 0) game->training.hits++;
+    else game->training.misses++;
+    game->training.impact_damage = 0;
 }
 static void tick_attack(Game *g, float dt) {
     Hero *h = &g->hero;
