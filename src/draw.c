@@ -40,46 +40,8 @@ static unsigned char *read_asset(const char *path, size_t *length) {
 static void asset_path(char *out, size_t n, const char *root, const char *name) {
     snprintf(out, n, "%s%s%s", root, root[0] ? "/" : "", name);
 }
-/* A restrained luma-only unsharp pass for the painted village texture.
- * It changes RGB detail, not the image dimensions, alpha, or world geometry. */
-static int map_luma(const unsigned char *p) {
-    return (77 * p[0] + 150 * p[1] + 29 * p[2]) >> 8;
-}
-static void clarify_village(unsigned char *pixels, int w, int h) {
-    if (w < 3 || h < 3)
-        return;
-    size_t stride = (size_t)w * 4, bytes = stride * (size_t)h;
-    unsigned char *original = malloc(bytes);
-    if (!original)
-        return; /* Leave the original texture intact if memory is limited. */
-    memcpy(original, pixels, bytes);
-    for (int y = 1; y < h - 1; y++) {
-        for (int x = 1; x < w - 1; x++) {
-            size_t p = (size_t)y * stride + (size_t)x * 4;
-            /* Avoid introducing color fringes around partially transparent art. */
-            if (original[p + 3] != 255 || original[p - 4 + 3] != 255 ||
-                original[p + 4 + 3] != 255 ||
-                original[p - stride + 3] != 255 || original[p + stride + 3] != 255)
-                continue;
-            int center = map_luma(original + p);
-            int neighbors = map_luma(original + p - 4) +
-                            map_luma(original + p + 4) +
-                            map_luma(original + p - stride) +
-                            map_luma(original + p + stride);
-            int delta = (center * 4 - neighbors) / 12;
-            if (delta > -3 && delta < 3)
-                continue; /* Preserve broad painted color gradients and fine noise. */
-            if (delta > 24) delta = 24;
-            if (delta < -24) delta = -24;
-            for (int c = 0; c < 3; c++) {
-                int value = original[p + c] + delta;
-                pixels[p + c] = (unsigned char)(value < 0 ? 0 : value > 255 ? 255 : value);
-            }
-        }
-    }
-    free(original);
-}
-static Picture load_picture(Gfx *g, const char *path, bool clarify_map) {
+/* Load authored pixels directly; the village repaint needs no sharpening pass. */
+static Picture load_picture(Gfx *g, const char *path) {
     Picture p = {0};
     size_t size = 0;
     unsigned char *data = read_asset(path, &size);
@@ -90,8 +52,6 @@ static Picture load_picture(Gfx *g, const char *path, bool clarify_map) {
     free(data);
     if (!pixels)
         return p;
-    if (clarify_map)
-        clarify_village(pixels, p.w, p.h);
     SDL_Surface *surface =
         SDL_CreateRGBSurfaceWithFormatFrom(pixels, p.w, p.h, 32, p.w * 4, SDL_PIXELFORMAT_RGBA32);
     if (surface) {
@@ -122,7 +82,7 @@ bool gfx_load(Gfx *g, SDL_Renderer *renderer, const char *root) {
                            "prologue/03-reflection.png"};
     for (size_t i = 0; i < sizeof pictures / sizeof *pictures; i++) {
         asset_path(path, sizeof path, root, names[i]);
-        *pictures[i] = load_picture(g, path, i == 0);
+        *pictures[i] = load_picture(g, path);
         if (!pictures[i]->texture) {
             SDL_Log("Cannot load %s: %s", path, SDL_GetError());
             gfx_free(g);
