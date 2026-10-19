@@ -479,21 +479,24 @@ static void draw_hud(App *a) {
             gfx_text(f, weapon, 24, h - 43, 13, 0, GOLD);
             gfx_text(f, "Z 공격 · Q/R/G/T 무공", 24, h - 26, 10, 0, MUTED);
         }
+        /* Keep the mobile attack disc far enough from both edges for a
+         * 32-pixel down/right swipe, and shift quick items out of its way. */
+        float item_x = a->touch_input ? w - 260 : w - 198;
         snprintf(text, sizeof text, "탕약 %d", g->tonics);
-        button(a, (SDL_FRect){w - 198, h - 98, 78, 44}, text, ACT_USE, ITEM_TONIC,
-               game_can_use(g, ITEM_TONIC), false);
+        button(a, (SDL_FRect){item_x, a->touch_input ? h - 115 : h - 98, 78, 44},
+               text, ACT_USE, ITEM_TONIC, game_can_use(g, ITEM_TONIC), false);
         snprintf(text, sizeof text, "지혈산 %d", g->bandages);
-        button(a, (SDL_FRect){w - 198, h - 54, 78, 44}, text, ACT_USE, ITEM_BANDAGE,
-               game_can_use(g, ITEM_BANDAGE), false);
-        button(a, (SDL_FRect){w - 198, h - 142, 78, 44},
+        button(a, (SDL_FRect){item_x, a->touch_input ? h - 66 : h - 54, 78, 44},
+               text, ACT_USE, ITEM_BANDAGE, game_can_use(g, ITEM_BANDAGE), false);
+        button(a, (SDL_FRect){item_x, a->touch_input ? h - 164 : h - 142, 78, 44},
                a->touch_input ? "무공" : "무공 K", ACT_TECHNIQUES, 0, true, false);
-        SDL_FRect attack = {w - 116, h - 116, 88, 88};
+        SDL_FRect attack = a->touch_input ? (SDL_FRect){w - 160, h - 160, 88, 88}
+                                           : (SDL_FRect){w - 116, h - 116, 88, 88};
         if (a->button_count < BUTTON_MAX)
             a->buttons[a->button_count++] = (Button){attack, ACT_ATTACK, 0, true};
         Vec2 center = {attack.x + 44, attack.y + 44};
-        gfx_sector(f, center, 42, 0, PI, a->attack_pointer_down
-            ? (SDL_Color){217, 191, 139, 245} : (SDL_Color){30, 49, 48, 240});
-        gfx_circle(f, center, 42, GOLD);
+        gfx_disc(f, center, 42, a->attack_pointer_down
+            ? (SDL_Color){217, 191, 139, 245} : (SDL_Color){30, 49, 48, 240}, GOLD);
         gfx_label(f, "공격", (SDL_FRect){attack.x + 3, attack.y + 16, 82, 30}, 21,
                   a->attack_pointer_down ? INK : PAPER);
         if (g->attack_cooldown > 0) snprintf(text, sizeof text, "%.1f", g->attack_cooldown);
@@ -508,8 +511,9 @@ static void draw_hud(App *a) {
         } else if (g->combo_count > 1 && g->combo_time > 0)
             snprintf(text, sizeof text, "%d연계 +%d%%", g->combo_count, 10 * (g->combo_count - 1));
         else snprintf(text, sizeof text, "밀어서 무공");
-        hud_card(f, (SDL_FRect){w - 116, h - 153, 108, 26}, 205);
-        gfx_label(f, text, (SDL_FRect){w - 116, h - 153, 108, 26}, 11, GOLD);
+        SDL_FRect attack_hint = {center.x - 54, attack.y - 37, 108, 26};
+        hud_card(f, attack_hint, 205);
+        gfx_label(f, text, attack_hint, 11, GOLD);
         if (a->attack_pointer_down) {
             const Vec2 vectors[] = {{0,-1},{1,0},{0,1},{-1,0}};
             for (int i = 0; i < SWIPE_COUNT; i++) {
@@ -534,9 +538,16 @@ static void draw_hud(App *a) {
                 char *hint = strstr(text, " · Space");
                 if (hint) *hint = '\0';
             }
-            float left = w < 800 ? 122 : 242, right = w - 210;
-            float bw = fminf(178, right - left);
-            button(a, (SDL_FRect){left + (right - left - bw) / 2, h - 54, bw, 44}, text, ACT_INTERACT, 0, true, false);
+            if (a->touch_input && w < 680) {
+                /* Compact landscape: avoid the potion column entirely. */
+                button(a, (SDL_FRect){12, h - 100, 104, 44}, text, ACT_INTERACT, 0, true, false);
+            } else {
+                float left = w < 800 ? 122 : 242;
+                float right = w - (a->touch_input ? 280 : 210);
+                float bw = fminf(178, right - left);
+                button(a, (SDL_FRect){left + (right - left - bw) / 2, h - 54, bw, 44},
+                       text, ACT_INTERACT, 0, true, false);
+            }
         }
     }
     if (g->quest == Q_COMBAT) {
