@@ -69,11 +69,15 @@ async function shot(page, name) {
         const before=await state(page);
         await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:120,y:240}]});
         await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:190,y:240}]});
-        await page.waitForTimeout(500);
+        await page.waitForTimeout(120);
+        assert((await state(page)).heroFrame >= 0,'Touch movement must animate the C hero');
+        await page.waitForTimeout(380);
         await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+        await page.waitForTimeout(80);
         const after=await state(page);
         assert(after.x>before.x+20,'Touch drag must move the C player to the right');
         assert.equal(after.clear,true);
+        assert.equal(after.heroFrame,-1,'Releasing touch must restore the standing pose');
         await page.setViewportSize({width:390,height:844});
         await page.waitForTimeout(150);
         const portrait=await state(page);
@@ -85,8 +89,12 @@ async function shot(page, name) {
         await page.waitForTimeout(150);
       } else {
         const before=await state(page);
-        await page.keyboard.down('w'); await page.waitForTimeout(450); await page.keyboard.up('w');
+        await page.keyboard.down('w'); await page.waitForTimeout(120);
+        assert((await state(page)).heroFrame >= 0,'Keyboard movement must animate the C hero');
+        await page.waitForTimeout(330); await page.keyboard.up('w');
+        await page.waitForTimeout(80);
         assert((await state(page)).y<before.y-20,'Keyboard movement must reach the C game');
+        assert.equal((await state(page)).heroFrame,-1,'Releasing a movement key must restore the standing pose');
         await page.keyboard.press('i'); await phase(page,5);
         await shot(page,'bag');
         await page.keyboard.press('Escape'); await phase(page,2);

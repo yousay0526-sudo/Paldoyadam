@@ -335,6 +335,76 @@ static void automatic_magnet(void) {
     CHECK(g.herbs == 1 && g.drops[0].collected);
 
 }
+static void walking_motion(void) {
+    Game g, slow;
+    game_reset(&g);
+    CHECK(game_hero_frame(&g) == -1);
+    game_start(&g);
+    game_tick(&g, .05f, (Vec2){0, 0});
+    CHECK(game_hero_frame(&g) == -1 && g.hero.walk_cycle == 0);
+    Vec2 start = g.hero.pos;
+    game_tick(&g, .05f, (Vec2){1, 0});
+    CHECK(g.hero.pos.x > start.x && game_hero_frame(&g) >= 0);
+    CHECK(g.hero.face == 1);
+    float first = g.hero.walk_cycle;
+    game_tick(&g, .05f, (Vec2){-1, 0});
+    CHECK(g.hero.face == -1 && g.hero.walk_cycle > first);
+    game_tick(&g, .05f, (Vec2){0, -1});
+    CHECK(g.hero.face == -1 && game_hero_frame(&g) >= 0);
+    game_tick(&g, .05f, (Vec2){0, 0});
+    CHECK(game_hero_frame(&g) == -1 && g.hero.walk_cycle == 0);
+
+    /* Same travel at different render rates and joystick strengths. */
+    game_reset(&g); game_start(&g); slow = g;
+    g.hero.pos = slow.hero.pos = (Vec2){345, 510};
+    for (int i = 0; i < 10; i++) game_tick(&g, .05f, (Vec2){1, 0});
+    for (int i = 0; i < 50; i++) game_tick(&slow, .01f, (Vec2){1, 0});
+    CHECK(distance(g.hero.pos, slow.hero.pos) < .01f);
+    CHECK(fabsf(g.hero.walk_cycle-slow.hero.walk_cycle) < .0001f);
+    game_reset(&g); game_start(&g); slow = g;
+    game_tick(&g, .05f, (Vec2){1, 0});
+    game_tick(&slow, .05f, (Vec2){.25f, 0});
+    CHECK(fabsf(g.hero.walk_cycle-4*slow.hero.walk_cycle) < .0001f);
+
+    /* All eight poses occur while moving through an unobstructed street. */
+    game_reset(&g); game_start(&g); g.hero.pos = (Vec2){345, 510};
+    unsigned seen = 0;
+    for (int i = 0; i < 100; i++) {
+        game_tick(&g, 1.0f/120, (Vec2){i < 50 ? 1 : -1, 0});
+        int frame = game_hero_frame(&g);
+        CHECK(frame >= 0 && frame < HERO_WALK_FRAMES);
+        seen |= 1u << frame;
+    }
+    CHECK(seen == (1u << HERO_WALK_FRAMES)-1);
+
+    /* Collision must stop the feet even with input still held. */
+    game_reset(&g); game_start(&g); g.hero.pos = (Vec2){270, 525};
+    for (int i = 0; i < 150; i++) game_tick(&g, .05f, (Vec2){0, -1});
+    CHECK(world_clear(g.hero.pos, HERO_RADIUS));
+    CHECK(game_hero_frame(&g) == -1 && g.hero.walk_cycle == 0);
+    start = g.hero.pos;
+    game_tick(&g, .05f, (Vec2){1, -1});
+    CHECK(g.hero.pos.x > start.x && game_hero_frame(&g) >= 0);
+
+    const Phase panels[] = {PH_TITLE, PH_PROLOGUE, PH_DIALOGUE, PH_SHOP, PH_BAG,
+                            PH_JOURNAL, PH_AUGMENT, PH_COMPLETE, PH_DEAD, PH_PAUSED};
+    for (size_t i = 0; i < sizeof panels/sizeof *panels; i++) {
+        game_reset(&g); game_start(&g);
+        game_tick(&g, .05f, (Vec2){1, 0});
+        g.phase = panels[i];
+        CHECK(game_hero_frame(&g) == -1);
+        start = g.hero.pos;
+        game_tick(&g, .05f, (Vec2){1, 0});
+        CHECK(distance(start, g.hero.pos) == 0 && g.hero.walk_cycle == 0);
+    }
+    g.phase = PH_PLAY;
+    game_tick(&g, .05f, (Vec2){1, 0});
+    game_recover(&g);
+    CHECK(game_hero_frame(&g) == -1 && distance(g.hero.pos, HOME) == 0);
+    game_tick(&g, .05f, (Vec2){1, 0});
+    game_retry(&g);
+    CHECK(game_hero_frame(&g) == -1 && g.hero.walk_cycle == 0);
+}
 int main(void) {
     quest_chain();
     shops();
@@ -343,6 +413,7 @@ int main(void) {
     augments_and_bounds();
     dedicated_pickup();
     automatic_magnet();
+    walking_motion();
     printf(
         "PASS: %d checks across quests, transactions, consumables, recovery, pause, augments and bounds.\n",
         checks);

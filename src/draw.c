@@ -66,10 +66,11 @@ bool gfx_load(Gfx *g, SDL_Renderer *renderer, const char *root) {
     memset(g, 0, sizeof *g);
     g->renderer = renderer;
     char path[2048];
-    Picture *pictures[] = {&g->map, &g->hero, &g->messenger, &g->boss, &g->boar,
+    Picture *pictures[] = {&g->map, &g->hero, &g->hero_walk, &g->messenger, &g->boss, &g->boar,
                            &g->npcs, &g->prologue[0], &g->prologue[1], &g->prologue[2]};
     const char *names[] = {"village.png",
                            "warrior-v2.png",
+                           "warrior-walk-v1.png",
                            "warrior.png",
                            "butcher.png",
                            "minion.png",
@@ -77,7 +78,7 @@ bool gfx_load(Gfx *g, SDL_Renderer *renderer, const char *root) {
                            "prologue/01-homeward.png",
                            "prologue/02-hunger.png",
                            "prologue/03-reflection.png"};
-    for (int i = 0; i < 9; i++) {
+    for (size_t i = 0; i < sizeof pictures / sizeof *pictures; i++) {
         asset_path(path, sizeof path, root, names[i]);
         *pictures[i] = load_picture(g, path);
         if (!pictures[i]->texture) {
@@ -87,8 +88,16 @@ bool gfx_load(Gfx *g, SDL_Renderer *renderer, const char *root) {
         }
         /* World sprites keep crisp sampling. The hero image is prefiltered
          * at 3x its logical size; only the story illustrations use linear. */
-        if (i >= 6)
+        if (i >= 7)
             SDL_SetTextureScaleMode(pictures[i]->texture, SDL_ScaleModeLinear);
+    }
+    if (g->hero_walk.w % HERO_WALK_COLUMNS ||
+        g->hero_walk.h % (HERO_WALK_FRAMES / HERO_WALK_COLUMNS) ||
+        g->hero_walk.w / HERO_WALK_COLUMNS !=
+        g->hero_walk.h / (HERO_WALK_FRAMES / HERO_WALK_COLUMNS)) {
+        SDL_Log("Hero walking atlas must contain eight square cells in a 4x2 grid");
+        gfx_free(g);
+        return false;
     }
     const char *font_names[] = {"fonts/NanumMyeongjo-Bold.ttf", "fonts/NanumBrushScript-Regular.ttf"};
     for (int i = 0; i < 2; i++) {
@@ -111,9 +120,9 @@ bool gfx_load(Gfx *g, SDL_Renderer *renderer, const char *root) {
     return true;
 }
 void gfx_free(Gfx *g) {
-    Picture *pictures[] = {&g->map, &g->hero, &g->messenger, &g->boss, &g->boar,
+    Picture *pictures[] = {&g->map, &g->hero, &g->hero_walk, &g->messenger, &g->boss, &g->boar,
                            &g->npcs, &g->prologue[0], &g->prologue[1], &g->prologue[2]};
-    for (int i = 0; i < 9; i++) {
+    for (size_t i = 0; i < sizeof pictures / sizeof *pictures; i++) {
         if (pictures[i]->texture)
             SDL_DestroyTexture(pictures[i]->texture);
         pictures[i]->texture = NULL;
@@ -382,6 +391,23 @@ void gfx_sprite(Gfx *g, Picture *p, Vec2 v, float w, float h, bool flip) {
                    (float)p->h * scale};
     SDL_RenderCopyExF(g->renderer, p->texture, NULL, &r, 0, NULL, flip ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE);
 }
+void gfx_hero(Gfx *f, const Game *g, Vec2 feet) {
+    int frame = game_hero_frame(g);
+    Picture *p = frame < 0 ? &f->hero : &f->hero_walk;
+    SDL_Rect source = {0, 0, p->w, p->h};
+    if (frame >= 0) {
+        source.w = p->w / HERO_WALK_COLUMNS;
+        source.h = p->h / (HERO_WALK_FRAMES / HERO_WALK_COLUMNS);
+        source.x = frame % HERO_WALK_COLUMNS * source.w;
+        source.y = frame / HERO_WALK_COLUMNS * source.h;
+    }
+    SDL_FRect dest = {feet.x - 23, feet.y - 46, 46, 46};
+    SDL_SetTextureAlphaMod(p->texture,
+        g->hero.invul > 0 && ((int)(g->time * 18) % 2) ? 110 : 255);
+    SDL_RenderCopyExF(f->renderer, p->texture, &source, &dest, 0, NULL,
+                     g->hero.face < 0 ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE);
+    SDL_SetTextureAlphaMod(p->texture, 255);
+}
 /* Preserve the entire illustration above the dialogue. A dimmed copy fills
  * the widescreen background, so even the reflected wolf stays in view. */
 void gfx_story(Gfx *f, int index, float w, float h, float elapsed, float footer_height) {
@@ -484,7 +510,7 @@ void gfx_collision(Gfx *f, Vec2 camera) {
                      (SDL_Color){255, 95, 84, 235});
     }
 }
-void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool walking, bool has_target,
+void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool has_target,
                Vec2 target) {
     gfx_rect(f, (SDL_FRect){0, 0, w, h}, (SDL_Color){16, 32, 30, 255});
     SDL_FRect map = {-camera.x, -camera.y, WORLD_W, WORLD_H};
@@ -601,11 +627,7 @@ void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool walkin
         } else {
             p = screen_pos(g->hero.pos, camera);
             shadow(f, p, 10);
-            SDL_SetTextureAlphaMod(f->hero.texture,
-                                   g->hero.invul > 0 && ((int)(g->time * 18) % 2) ? 110 : 255);
-            gfx_sprite(f, &f->hero, (Vec2){p.x, p.y + (walking ? sinf(g->time * 14) * 1.5f : 0)}, 46, 46,
-                       g->hero.face < 0);
-            SDL_SetTextureAlphaMod(f->hero.texture, 255);
+            gfx_hero(f, g, p);
             /* A faint silhouette keeps the player readable behind tall scenery. */
             SDL_SetTextureAlphaMod(f->map.texture, 205);
             cover_actor(f, g->hero.pos, camera, 46, 48);

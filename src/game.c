@@ -442,6 +442,8 @@ bool game_begin_boss(Game *g) {
 }
 void game_recover(Game *g) {
     g->hero.pos = HOME;
+    g->hero.walking = false;
+    g->hero.walk_cycle = 0;
     g->hero.hp = g->hero.max_hp;
     g->hero.bleed = g->hero.invul = 0;
     if (g->quest == Q_COMBAT) {
@@ -460,6 +462,8 @@ void game_recover(Game *g) {
 }
 void game_retry(Game *g) {
     g->hero.pos = add(BOSS_HOME, (Vec2){-145, 0});
+    g->hero.walking = false;
+    g->hero.walk_cycle = 0;
     g->hero.hp = 100;
     g->hero.bleed = g->hero.invul = 0;
     g->boss = make_enemy(BOSS_HOME, 240);
@@ -594,15 +598,24 @@ static void tick_loot(Game *g, float dt) {
             game_collect(g, i);
     }
 }
+int game_hero_frame(const Game *g) {
+    if (g->phase != PH_PLAY || !g->hero.walking)
+        return -1;
+    return (int)(g->hero.walk_cycle * HERO_WALK_FRAMES) % HERO_WALK_FRAMES;
+}
 void game_tick(Game *g, float dt, Vec2 input) {
     if (!isfinite(dt) || !isfinite(input.x) || !isfinite(input.y))
         return;
     dt = clampf(dt, 0, .05f);
-    if (g->phase != PH_PLAY)
+    if (g->phase != PH_PLAY) {
+        g->hero.walking = false;
+        g->hero.walk_cycle = 0;
         return;
+    }
     g->time += dt;
     g->toast_time = fmaxf(0, g->toast_time - dt);
     float length = hypotf(input.x, input.y);
+    Vec2 before = g->hero.pos;
     if (length > .05f) {
         float strength = fminf(1, length);
         input.x /= length;
@@ -613,6 +626,12 @@ void game_tick(Game *g, float dt, Vec2 input) {
         if (fabsf(input.x) > .1f)
             g->hero.face = input.x > 0 ? 1 : -1;
     }
+    /* Collision-resolved displacement drives the feet, including wall slides.
+     * Holding a key into a wall must not make the hero march on the spot. */
+    float travelled = distance(before, g->hero.pos);
+    g->hero.walking = travelled > .0001f;
+    g->hero.walk_cycle = g->hero.walking
+        ? fmodf(g->hero.walk_cycle + travelled / HERO_WALK_DISTANCE, 1.0f) : 0;
     g->cooldown = fmaxf(0, g->cooldown - dt);
     g->item_cooldown = fmaxf(0, g->item_cooldown - dt);
     g->hero.invul = fmaxf(0, g->hero.invul - dt);

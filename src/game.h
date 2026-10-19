@@ -14,6 +14,10 @@
 #define MAGNET_RADIUS 156.0f
 #define COLLECT_RADIUS 16.0f
 #define DROP_REST_SECONDS .70f
+#define HERO_WALK_FRAMES 8
+#define HERO_WALK_COLUMNS 4
+/* One full left/right stride in world units, independent of frame rate. */
+#define HERO_WALK_DISTANCE 112.0f
 
 typedef struct {
     float x, y;
@@ -59,6 +63,8 @@ typedef struct {
     Vec2 pos, dir;
     int hp, max_hp, face;
     float bleed, bleed_tick, invul;
+    float walk_cycle;
+    bool walking;
 } Hero;
 typedef struct {
     Vec2 pos, home;
@@ -131,6 +137,8 @@ float clampf(float value, float min, float max);
 void game_reset(Game *g);
 void game_start(Game *g);
 void game_tick(Game *g, float dt, Vec2 movement);
+/* -1 means the approved standing pose; 0..7 select walking atlas cells. */
+int game_hero_frame(const Game *g);
 void game_toast(Game *g, const char *text);
 Nearby game_nearby(const Game *g);
 int game_pickup_count(const Game *g);

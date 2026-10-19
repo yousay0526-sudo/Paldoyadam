@@ -81,11 +81,13 @@ EMSCRIPTEN_KEEPALIVE const char *paldo_test_state(void) {
     snprintf(state, sizeof state,
              "{\"phase\":%d,\"quest\":%d,\"story\":%d,\"x\":%.3f,\"y\":%.3f,"
              "\"width\":%.3f,\"height\":%.3f,\"density\":%.3f,\"clear\":%s,"
-             "\"dialogue\":%d,\"pickups\":%d,\"herbs\":%d,\"cooldown\":%.3f}",
+             "\"dialogue\":%d,\"pickups\":%d,\"herbs\":%d,\"cooldown\":%.3f,"
+             "\"heroFrame\":%d,\"walkCycle\":%.6f,\"face\":%d}",
              a->game.phase, a->game.quest, a->story_index, a->game.hero.pos.x, a->game.hero.pos.y,
              a->width, a->height, a->density,
              world_clear(a->game.hero.pos, HERO_RADIUS) ? "true" : "false",
-             a->dialogue_index, game_pickup_count(&a->game), a->game.herbs, a->game.cooldown);
+             a->dialogue_index, game_pickup_count(&a->game), a->game.herbs, a->game.cooldown,
+             game_hero_frame(&a->game), a->game.hero.walk_cycle, a->game.hero.face);
     return state;
 }
 #endif
@@ -690,8 +692,7 @@ static void draw(App *a) {
     a->button_count = 0;
     Vec2 focus = a->game.phase == PH_TITLE || a->game.phase == PH_PROLOGUE ? HOME : a->game.hero.pos;
     a->camera = world_camera(a->width, a->height, focus);
-    gfx_world(&a->gfx, &a->game, a->width, a->height, a->camera, a->pointer_down || a->target_set,
-              a->target_set, a->target);
+    gfx_world(&a->gfx, &a->game, a->width, a->height, a->camera, a->target_set, a->target);
     if (a->debug_collision) {
         gfx_collision(&a->gfx, a->camera);
         gfx_circle(&a->gfx, (Vec2){a->game.hero.pos.x - a->camera.x, a->game.hero.pos.y - a->camera.y},

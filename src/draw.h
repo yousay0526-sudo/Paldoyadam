@@ -22,7 +22,7 @@ typedef struct {
 } Typeface;
 typedef struct {
     SDL_Renderer *renderer;
-    Picture map, hero, messenger, boss, boar, npcs, prologue[3];
+    Picture map, hero, hero_walk, messenger, boss, boar, npcs, prologue[3];
     Typeface fonts[2];
     int face;
 } Gfx;
@@ -44,9 +44,10 @@ void gfx_center(Gfx *gfx, const char *text, float x, float y, float size, SDL_Co
 void gfx_label(Gfx *gfx, const char *text, SDL_FRect r, float size, SDL_Color c);
 void gfx_heading(Gfx *gfx, const char *text, SDL_FRect r, float size, SDL_Color c);
 void gfx_sprite(Gfx *gfx, Picture *picture, Vec2 p, float box_w, float box_h, bool flip);
+void gfx_hero(Gfx *gfx, const Game *game, Vec2 feet);
 void gfx_story(Gfx *gfx, int image, float width, float height, float elapsed, float footer_height);
 void gfx_collision(Gfx *gfx, Vec2 camera);
-void gfx_world(Gfx *gfx, const Game *game, float width, float height, Vec2 camera, bool walking,
+void gfx_world(Gfx *gfx, const Game *game, float width, float height, Vec2 camera,
                bool target_set, Vec2 target);
 Vec2 world_camera(float width, float height, Vec2 focus);
 #endif
