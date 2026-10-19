@@ -27,6 +27,12 @@ int main(int argc, char **argv) {
     if (!surface || !gfx) return 1;
     SDL_Renderer *renderer = SDL_CreateSoftwareRenderer(surface);
     if (!renderer || !gfx_load(gfx, renderer, argc > 1 ? argv[1] : "assets")) return 1;
+    /* The village remains at its original source size; only its color detail
+     * changes. Nearest sampling preserves the established pixel-RPG style. */
+    CHECK(gfx->map.w == 1536 && gfx->map.h == 1024);
+    SDL_ScaleMode village_mode;
+    CHECK(SDL_GetTextureScaleMode(gfx->map.texture, &village_mode) == 0);
+    CHECK(village_mode == SDL_ScaleModeNearest);
     size_t bytes = (size_t)surface->pitch * surface->h;
     Uint32 *pixels = malloc(bytes), *previous = malloc(bytes), *idle = malloc(bytes);
     if (!pixels || !previous || !idle) return 1;
