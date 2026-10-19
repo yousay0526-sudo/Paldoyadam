@@ -93,6 +93,24 @@ int main(int argc, char **argv) {
             CHECK(memcmp(pixels, previous, bytes) != 0);
             game.hero.attack_face = 1;
         }
+        game.hero.attacking = false; game.hero.skilling = true;
+        for (int t = 0; t < TECH_COUNT; t++) {
+            game.hero.technique = (Technique)t; game.hero.skill_angle = 0;
+            for (int tick = 0; tick < 8; tick++) {
+                game.hero.skill_elapsed = (tick+.1f) * HERO_SKILL_SECONDS / 8;
+                CHECK(game_hero_skill_frame(&game) >= 0 && game_hero_skill_frame(&game) < HERO_ATTACK_FRAMES);
+                capture(gfx, &game, surface, pixels);
+                CHECK(memcmp(pixels, idle, bytes) != 0);
+                if (tick == 0) memcpy(previous, pixels, bytes);
+                if (tick == 4) CHECK(memcmp(pixels, previous, bytes) != 0);
+            }
+            game.hero.skill_elapsed = .30f; game.hero.attack_face = 1;
+            capture(gfx, &game, surface, previous);
+            game.hero.attack_face = -1; game.hero.skill_angle = 3.14159265f;
+            capture(gfx, &game, surface, pixels);
+            CHECK(memcmp(pixels, previous, bytes) != 0);
+            game.hero.attack_face = 1;
+        }
         game.phase = PH_BAG;
         capture(gfx, &game, surface, pixels);
         CHECK(memcmp(pixels, idle, bytes) == 0);
@@ -100,6 +118,6 @@ int main(int argc, char **argv) {
     free(pixels); free(previous); free(idle);
     gfx_free(gfx); free(gfx);
     SDL_DestroyRenderer(renderer); SDL_FreeSurface(surface); SDL_Quit();
-    printf("PASS: %d hero rendering checks: eight poses, bounds, flip and idle at 1/2/3x.\n", checks);
+    printf("PASS: %d hero rendering checks: walk/attack/four techniques, bounds, flip and idle at 1/2/3x.\n", checks);
     return 0;
 }

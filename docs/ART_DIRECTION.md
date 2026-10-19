@@ -58,3 +58,10 @@ python3 scripts/prepare_hero_asset.py
 - Swing lasts 0.42 seconds; impact at 0.14 seconds. Validate the committed target, distance and unobstructed segment at impact. Menus freeze elapsed time. Recovery/retry clear pending attacks.
 - Future armor, helmet and weapon artwork must use per-action layers with shared foot roots, cell dimensions, pose timing and the same facing convention. Store item appearance separately from combat stats; align equipment to the torso/head/hand anchors of each pose. This release records that contract; equipment appearance swaps are a later feature.
 - Preserve the Joseon pixel-RPG palette: topknot, navy/teal armor, gold ornaments, red sash, curved silver hwando. Follow the same palette and proportions for later episodes.
+
+
+## 0.8.0: 무공 동작
+
+기존 공격 아틀라스의 발 기준점과 좌우 규칙을 유지하며, 기술별 8개 시간 키에 6개 포즈를 연결한다. 갈라베기는 들어 올려 내리기, 횡베기는 큰 기울기와 넓은 곡선, 파고들기는 짧은 준비와 직선 검 궤적, 물러베기는 반대 기울기와 후퇴로 구분한다. 0.64초 중 0.24초에 한 번 타격하며, 메뉴에서는 동작 시간이 멈춘다. 렌더러는 기술 동작 동안 가림 판정의 검 궤적 영역을 넓힌다.
+
+장비창은 현재 정지 캐릭터를 보여 준다. 장비 장착/해제의 수치 효과와 소유 여부는 구현했으며, 몸·갑옷·투구·무기 레이어를 실제 포즈에 겹치는 외형 변경은 이후 별도 원화가 필요한 작업이다.

@@ -402,7 +402,8 @@ void gfx_sprite(Gfx *g, Picture *p, Vec2 v, float w, float h, bool flip) {
 }
 void gfx_hero(Gfx *f, const Game *g, Vec2 feet) {
     int frame = game_hero_frame(g);
-    int attack = game_hero_attack_frame(g);
+    int skill = game_hero_skill_frame(g);
+    int attack = skill >= 0 ? skill : game_hero_attack_frame(g);
     Picture *p = attack >= 0 ? &f->hero_attack : frame < 0 ? &f->hero : &f->hero_walk;
     SDL_Rect source = {0, 0, p->w, p->h};
     if (frame >= 0 || attack >= 0) {
@@ -428,11 +429,47 @@ void gfx_hero(Gfx *f, const Game *g, Vec2 feet) {
         dest = (SDL_FRect){feet.x - root_x * size,
                            feet.y - roots[attack].y / 512 * size, size, size};
     }
+    float body_angle = 0;
+    if (skill >= 0) {
+        float t = g->hero.skill_elapsed / HERO_SKILL_SECONDS;
+        float lean = t < .375f ? -5 : t < .65f ? 10 : 3;
+        if (g->hero.technique == TECH_SWEEP) lean *= 1.6f;
+        if (g->hero.technique == TECH_RETREAT) lean = -lean;
+        body_angle = lean * (flip ? 1 : -1);
+    }
+    SDL_FPoint pivot = {feet.x - dest.x, feet.y - dest.y};
     SDL_SetTextureAlphaMod(p->texture,
         g->hero.invul > 0 && ((int)(g->time * 18) % 2) ? 110 : 255);
-    SDL_RenderCopyExF(f->renderer, p->texture, &source, &dest, 0, NULL,
-                     flip ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE);
+    SDL_RenderCopyExF(f->renderer, p->texture, &source, &dest, body_angle,
+                     body_angle == 0 ? NULL : &pivot, flip ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE);
     SDL_SetTextureAlphaMod(p->texture, 255);
+    if (skill >= 0) {
+        float elapsed = g->hero.skill_elapsed;
+        Vec2 center = {feet.x, feet.y - 22};
+        if (elapsed < HERO_SKILL_IMPACT) {
+            gfx_circle(f, center, 14 + elapsed * 52,
+                       (SDL_Color){170, 213, 230, (Uint8)(55 + elapsed * 500)});
+        } else {
+            float progress = clampf((elapsed - HERO_SKILL_IMPACT) / .26f, 0, 1);
+            float radius = g->hero.technique == TECH_SWEEP ? 70 : 53;
+            float angle = g->hero.skill_angle;
+            Uint8 alpha = (Uint8)(205 * (1 - progress));
+            if (g->hero.technique == TECH_THRUST) {
+                for (int j = -1; j <= 1; j++)
+                    gfx_line(f, (Vec2){center.x + cosf(angle) * 10, center.y + sinf(angle) * 10 + j},
+                        (Vec2){center.x + cosf(angle) * 72, center.y + sinf(angle) * 72 + j},
+                        (SDL_Color){211, 238, 244, alpha});
+            } else {
+                for (int j = 0; j < 18; j++) {
+                    float a = angle - 1.8f + progress * 3.6f - j * .055f;
+                    float b = a + .065f;
+                    gfx_line(f, (Vec2){center.x + cosf(a) * radius, center.y + sinf(a) * radius},
+                        (Vec2){center.x + cosf(b) * radius, center.y + sinf(b) * radius},
+                        (SDL_Color){183, 222, 237, (Uint8)(alpha * (18 - j) / 18)});
+                }
+            }
+        }
+    }
 }
 /* Preserve the entire illustration above the dialogue. A dimmed copy fills
  * the widescreen background, so even the reflected wolf stays in view. */
@@ -660,7 +697,8 @@ void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool has_ta
             /* A faint silhouette keeps the player readable behind tall scenery. */
             SDL_SetTextureAlphaMod(f->map.texture, 205);
             cover_actor(f, g->hero.pos, camera,
-                        g->hero.attacking ? 72 : 46, g->hero.attacking ? 64 : 48);
+                        g->hero.skilling ? 180 : g->hero.attacking ? 96 : 46,
+                        g->hero.skilling ? 110 : g->hero.attacking ? 64 : 48);
             SDL_SetTextureAlphaMod(f->map.texture, 255);
         }
     }

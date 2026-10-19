@@ -20,6 +20,11 @@
 #define HERO_ATTACK_COLUMNS 3
 #define HERO_ATTACK_SECONDS .42f
 #define HERO_ATTACK_IMPACT .14f
+#define HERO_SKILL_SECONDS .64f
+#define HERO_SKILL_IMPACT .24f
+#define COMBO_SECONDS 1.05f
+#define MOVE_NONE -2
+#define MOVE_ATTACK -1
 /* One full left/right stride in world units, independent of frame rate. */
 #define HERO_WALK_DISTANCE 112.0f
 
@@ -42,7 +47,8 @@ typedef enum {
     PH_AUGMENT,
     PH_COMPLETE,
     PH_DEAD,
-    PH_PAUSED
+    PH_PAUSED,
+    PH_TECHNIQUES
 } Phase;
 typedef enum {
     Q_MEET,
@@ -57,6 +63,8 @@ typedef enum {
     QUEST_COUNT
 } Quest;
 typedef enum { AUG_NONE, AUG_STEEL, AUG_WIND, AUG_FLOW } Augment;
+typedef enum { TECH_CLEAVE, TECH_SWEEP, TECH_THRUST, TECH_RETREAT, TECH_COUNT } Technique;
+typedef enum { SWIPE_UP, SWIPE_RIGHT, SWIPE_DOWN, SWIPE_LEFT, SWIPE_COUNT } Swipe;
 typedef enum { ELDER, SMITH, HERBALIST, INNKEEPER, MESSENGER } NpcId;
 typedef enum { ITEM_SWORD, ITEM_ARMOR, ITEM_TONIC, ITEM_BANDAGE, ITEM_MEAL, ITEM_COUNT } Item;
 typedef enum { AI_IDLE, AI_CHASE, AI_WINDUP, AI_SWING, AI_RECOVER, AI_RETURN, AI_DEAD } AiState;
@@ -73,6 +81,9 @@ typedef struct {
     float attack_elapsed;
     int attack_target, attack_face;
     bool attacking, attack_hit;
+    float skill_elapsed, skill_angle;
+    Technique technique;
+    bool skilling, skill_hit;
 } Hero;
 typedef struct {
     Vec2 pos, home;
@@ -111,6 +122,11 @@ typedef struct {
     const char *name, *kind, *description;
 } AugmentInfo;
 typedef struct {
+    const char *name, *description;
+    float cooldown, range, step;
+    int damage;
+} TechniqueInfo;
+typedef struct {
     EffectKind kind;
     Vec2 pos, target;
     float life, angle;
@@ -124,9 +140,13 @@ typedef struct {
     Enemy boss, boars[BOAR_COUNT];
     Drop drops[BOAR_COUNT];
     bool traces[TRACE_COUNT], sword, armor, supplies_delivered, boss_rewarded, replay;
+    bool owned_sword, owned_armor;
     int coins, tonics, bandages, herbs, shop;
     Augment augment;
-    float cooldown, item_cooldown, auto_timer, time, toast_time;
+    float cooldown, technique_cooldowns[TECH_COUNT], item_cooldown, attack_cooldown, time, toast_time;
+    Technique swipe_bindings[SWIPE_COUNT];
+    int combo_count, last_move, queued_move;
+    float combo_time, buffer_time;
     unsigned notices;
     char toast[384];
     Effect effects[EFFECT_MAX];
@@ -139,6 +159,7 @@ extern const Trace TRACES[TRACE_COUNT];
 extern const QuestInfo QUESTS[QUEST_COUNT];
 extern const ItemInfo ITEMS[ITEM_COUNT];
 extern const AugmentInfo AUGMENTS[3];
+extern const TechniqueInfo TECHNIQUES[TECH_COUNT];
 
 float distance(Vec2 a, Vec2 b);
 float clampf(float value, float min, float max);
@@ -148,6 +169,12 @@ void game_tick(Game *g, float dt, Vec2 movement);
 /* -1 means the approved standing pose; 0..7 select walking atlas cells. */
 int game_hero_frame(const Game *g);
 int game_hero_attack_frame(const Game *g);
+int game_hero_skill_frame(const Game *g);
+bool game_attack(Game *g);
+bool game_technique(Game *g, Technique technique);
+float game_technique_cooldown(const Game *g, Technique technique);
+bool game_bind_swipe(Game *g, Swipe direction, Technique technique);
+bool game_equip(Game *g, Item item, bool equipped);
 void game_toast(Game *g, const char *text);
 Nearby game_nearby(const Game *g);
 int game_pickup_count(const Game *g);

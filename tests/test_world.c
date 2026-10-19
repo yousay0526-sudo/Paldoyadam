@@ -44,9 +44,19 @@ static void geometry(void) {
     start = g.hero.pos;
     CHECK(world_clear(start, HERO_RADIUS));
     CHECK(game_skill(&g));
+    for(int i=0;i<5;i++) game_tick(&g,.05f,(Vec2){0});
     CHECK(world_clear(g.hero.pos, HERO_RADIUS));
     CHECK(g.hero.pos.y > 300 * 1.5f);
     CHECK(distance(start, g.hero.pos) < 45);
+    const Technique movement_techniques[]={TECH_THRUST,TECH_RETREAT};
+    for(int t=0;t<2;t++) {
+        game_reset(&g); game_start(&g); g.hero.pos=P(250,319);
+        g.hero.dir=(Vec2){0,t==0?-1:1}; start=g.hero.pos;
+        CHECK(game_technique(&g,movement_techniques[t]));
+        for(int i=0;i<5;i++) game_tick(&g,.05f,(Vec2){0});
+        CHECK(world_clear(g.hero.pos,HERO_RADIUS));
+        CHECK(g.hero.pos.y>300*1.5f && distance(start,g.hero.pos)<fabsf(TECHNIQUES[movement_techniques[t]].step));
+    }
 }
 
 static void walk_route(Vec2 from, Vec2 to, float dt) {
@@ -114,9 +124,10 @@ static void combat_respects_walls(void) {
     CHECK(world_clear(g.boars[0].pos, BOAR_RADIUS));
     CHECK(!world_segment(g.hero.pos, g.boars[0].pos, 0));
     CHECK(game_skill(&g));
+    for(int i=0;i<5;i++) game_tick(&g,.05f,(Vec2){0});
     CHECK(g.boars[0].hp == 38);
     g.augment = AUG_WIND;
-    g.auto_timer = 0;
+    g.attack_cooldown = 0;
     game_tick(&g, .05f, (Vec2){0});
     CHECK(g.boars[0].hp == 38);
 
@@ -127,7 +138,7 @@ static void combat_respects_walls(void) {
     CHECK(distance(g.hero.pos, g.boars[0].pos) < 73);
     g.boars[0].state = AI_WINDUP;
     g.boars[0].timer = 0;
-    g.auto_timer = 100;
+    g.attack_cooldown = 100;
     game_tick(&g, .05f, (Vec2){0});
     CHECK(g.hero.hp == 100);
 
@@ -138,7 +149,7 @@ static void combat_respects_walls(void) {
     g.boars[0].repath = 0;
     g.boars[0].route.count = 0;
     g.hero.invul = 100;
-    g.auto_timer = 100;
+    g.attack_cooldown = 100;
     CHECK(world_clear(g.hero.pos, HERO_RADIUS));
     CHECK(world_clear(g.boars[0].pos, BOAR_RADIUS));
     CHECK(!world_segment(g.hero.pos, g.boars[0].pos, BOAR_RADIUS));

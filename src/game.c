@@ -35,6 +35,12 @@ const AugmentInfo AUGMENTS[3] = {
     {"강철 대검", "무기", "베는 범위가 넓어지고 한 번의 베기가 무거워집니다.\n공격 범위 +18 · 기본 피해 +4"},
     {"바람의 깃", "패시브", "검 끝에서 바람 칼날이 뻗어 나갑니다.\n거리 120 안의 적에게 바람 피해 6"},
     {"흐르는 발", "액티브", "갈라베기와 함께 앞으로 파고듭니다.\n스킬 재사용 4초 · 스킬 피해 +6"}};
+const TechniqueInfo TECHNIQUES[TECH_COUNT] = {
+    {"갈라베기", "힘을 모아 크게 내려베기", 5.5f, 105, 10, 26},
+    {"횡베기", "넓게 휘둘러 주변을 베기", 1.5f, 84, 0, 12},
+    {"파고들기", "앞으로 파고들며 찌르기", 2.5f, 76, 45, 14},
+    {"물러베기", "가까운 적을 베고 뒤로 빠지기", 2.0f, 90, -36, 8}
+};
 float clampf(float v, float lo, float hi) {
     return fmaxf(lo, fminf(hi, v));
 }
@@ -103,7 +109,12 @@ void game_reset(Game *g) {
     g->tonics = 2;
     g->bandages = 1;
     g->shop = -1;
-    g->auto_timer = .2f;
+    g->attack_cooldown = 0;
+    g->queued_move = g->last_move = MOVE_NONE;
+    g->swipe_bindings[SWIPE_UP] = TECH_CLEAVE;
+    g->swipe_bindings[SWIPE_RIGHT] = TECH_SWEEP;
+    g->swipe_bindings[SWIPE_DOWN] = TECH_RETREAT;
+    g->swipe_bindings[SWIPE_LEFT] = TECH_THRUST;
 }
 void game_start(Game *g) {
     g->phase = PH_PLAY;
@@ -267,8 +278,18 @@ bool game_open_shop(Game *g, int n) {
     g->phase = PH_SHOP;
     return true;
 }
+bool game_equip(Game *g, Item item, bool equipped) {
+    if (g->phase != PH_BAG) return false;
+    if (item == ITEM_SWORD && (g->owned_sword || g->sword)) {
+        g->owned_sword = true; g->sword = equipped; return true;
+    }
+    if (item == ITEM_ARMOR && (g->owned_armor || g->armor)) {
+        g->owned_armor = true; g->armor = equipped; return true;
+    }
+    return false;
+}
 void game_close_panel(Game *g) {
-    if (g->phase == PH_SHOP || g->phase == PH_BAG || g->phase == PH_JOURNAL || g->phase == PH_PAUSED) {
+    if (g->phase == PH_SHOP || g->phase == PH_BAG || g->phase == PH_JOURNAL || g->phase == PH_PAUSED || g->phase == PH_TECHNIQUES) {
         g->shop = -1;
         g->phase = PH_PLAY;
     }
@@ -277,7 +298,8 @@ const char *game_purchase_error(const Game *g, Item item) {
     if (item < 0 || item >= ITEM_COUNT || g->phase != PH_SHOP || g->shop != (int)ITEMS[item].shop ||
         !near_npc(g, g->shop))
         return "상점에서 구입하세요";
-    if ((item == ITEM_SWORD && g->sword) || (item == ITEM_ARMOR && g->armor))
+    if ((item == ITEM_SWORD && (g->owned_sword || g->sword)) ||
+        (item == ITEM_ARMOR && (g->owned_armor || g->armor)))
         return "장착 중";
     if (item == ITEM_MEAL && g->hero.hp == g->hero.max_hp && g->hero.bleed <= 0)
         return "충분히 쉬었습니다";
@@ -293,10 +315,10 @@ bool game_buy(Game *g, Item item) {
     g->coins -= ITEMS[item].price;
     switch (item) {
     case ITEM_SWORD:
-        g->sword = true;
+        g->owned_sword = g->sword = true;
         break;
     case ITEM_ARMOR:
-        g->armor = true;
+        g->owned_armor = g->armor = true;
         break;
     case ITEM_TONIC:
         g->tonics++;
@@ -406,30 +428,26 @@ static Enemy *nearest_enemy(Game *g) {
         }
     return e;
 }
-bool game_skill(Game *g) {
-    if (g->phase != PH_PLAY || g->cooldown > 0)
-        return false;
-    g->cooldown = g->augment == AUG_FLOW ? 4 : 5.5f;
-    if (g->augment == AUG_FLOW) {
-        Enemy *e = nearest_enemy(g);
-        float a = e && distance(e->pos, g->hero.pos) < 180
-                      ? atan2f(e->pos.y - g->hero.pos.y, e->pos.x - g->hero.pos.x)
-                      : atan2f(g->hero.dir.y, g->hero.dir.x);
-        g->hero.pos = world_move(g->hero.pos, (Vec2){cosf(a) * 45, sinf(a) * 45}, HERO_RADIUS);
-        g->hero.invul = .45f;
-    }
-    effect(g, (Effect){.kind = FX_SKILL, .pos = g->hero.pos, .life = .4f});
-    int damage = (g->augment == AUG_FLOW ? 32 : 26) + (g->sword ? 5 : 0);
-    if (g->quest == Q_COMBAT) {
-        if (distance(g->hero.pos, g->boss.pos) < 105 && world_segment(g->hero.pos, g->boss.pos, 0))
-            game_damage(g, &g->boss, damage, FX_HIT);
-    } else if (game_boars_active(g))
-        for (int i = 0; i < BOAR_COUNT; i++)
-            if (distance(g->hero.pos, g->boars[i].pos) < 105 &&
-                world_segment(g->hero.pos, g->boars[i].pos, 0))
-                game_damage(g, &g->boars[i], damage, FX_HIT);
+static bool request_move(Game *g, int move);
+float game_technique_cooldown(const Game *g, Technique technique) {
+    if (technique < 0 || technique >= TECH_COUNT) return 999;
+    return technique == TECH_CLEAVE ? g->cooldown : g->technique_cooldowns[technique];
+}
+bool game_bind_swipe(Game *g, Swipe direction, Technique technique) {
+    if (g->phase != PH_TECHNIQUES || direction < 0 || direction >= SWIPE_COUNT ||
+        technique < 0 || technique >= TECH_COUNT) return false;
+    Technique previous = g->swipe_bindings[direction];
+    for (int i = 0; i < SWIPE_COUNT; i++)
+        if (i != (int)direction && g->swipe_bindings[i] == technique)
+            g->swipe_bindings[i] = previous;
+    g->swipe_bindings[direction] = technique;
     return true;
 }
+bool game_attack(Game *g) { return request_move(g, MOVE_ATTACK); }
+bool game_technique(Game *g, Technique technique) {
+    return technique >= 0 && technique < TECH_COUNT && request_move(g, technique);
+}
+bool game_skill(Game *g) { return game_technique(g, TECH_CLEAVE); }
 bool game_begin_boss(Game *g) {
     if (g->quest != Q_HUNT)
         return false;
@@ -446,6 +464,10 @@ void game_recover(Game *g) {
     g->hero.walk_cycle = 0;
     g->hero.attacking = false;
     g->hero.attack_elapsed = 0;
+    g->hero.skilling = false; g->hero.skill_elapsed = 0;
+    g->combo_count = 0; g->combo_time = g->buffer_time = 0;
+    g->queued_move = g->last_move = MOVE_NONE;
+    memset(g->technique_cooldowns, 0, sizeof g->technique_cooldowns);
     g->hero.hp = g->hero.max_hp;
     g->hero.bleed = g->hero.invul = 0;
     if (g->quest == Q_COMBAT) {
@@ -468,11 +490,15 @@ void game_retry(Game *g) {
     g->hero.walk_cycle = 0;
     g->hero.attacking = false;
     g->hero.attack_elapsed = 0;
+    g->hero.skilling = false; g->hero.skill_elapsed = 0;
+    g->combo_count = 0; g->combo_time = g->buffer_time = 0;
+    g->queued_move = g->last_move = MOVE_NONE;
+    memset(g->technique_cooldowns, 0, sizeof g->technique_cooldowns);
     g->hero.hp = 100;
     g->hero.bleed = g->hero.invul = 0;
     g->boss = make_enemy(BOSS_HOME, 240);
     g->cooldown = g->item_cooldown = 0;
-    g->auto_timer = .4f;
+    g->attack_cooldown = .4f;
     g->effect_count = 0;
     g->notices = 0;
     g->quest = Q_HUNT;
@@ -602,41 +628,129 @@ static void tick_loot(Game *g, float dt) {
             game_collect(g, i);
     }
 }
+static void chain_move(Game *g, int move) {
+    g->combo_count = g->combo_time > 0 && g->last_move != move
+        ? (int)fminf(3, g->combo_count + 1) : 1;
+    g->last_move = move;
+    g->combo_time = COMBO_SECONDS;
+}
+static int combo_damage(const Game *g, int damage) {
+    return (damage * (100 + 10 * (g->combo_count - 1)) + 50) / 100;
+}
 static void begin_attack(Game *g, Enemy *enemy) {
     Hero *h = &g->hero;
-    h->attacking = true;
-    h->attack_hit = false;
-    h->attack_elapsed = 0;
-    h->attack_target = enemy == &g->boss ? -1 : (int)(enemy - g->boars);
-    float dx = enemy->pos.x - h->pos.x;
-    if (fabsf(dx) > .1f)
-        h->face = dx > 0 ? 1 : -1;
+    h->attacking = true; h->attack_hit = false; h->attack_elapsed = 0;
+    h->attack_target = enemy ? (enemy == &g->boss ? -1 : (int)(enemy - g->boars)) : -2;
+    if (enemy && fabsf(enemy->pos.x - h->pos.x) > .1f)
+        h->face = enemy->pos.x > h->pos.x ? 1 : -1;
     h->attack_face = h->face;
+    g->attack_cooldown = .75f;
+    chain_move(g, MOVE_ATTACK);
+}
+static void begin_technique(Game *g, Technique technique) {
+    Hero *h = &g->hero;
+    Enemy *e = nearest_enemy(g);
+    h->skill_angle = e && distance(e->pos, h->pos) < 180
+        ? atan2f(e->pos.y - h->pos.y, e->pos.x - h->pos.x)
+        : atan2f(h->dir.y, h->dir.x);
+    if (fabsf(cosf(h->skill_angle)) > .1f)
+        h->face = cosf(h->skill_angle) > 0 ? 1 : -1;
+    h->attack_face = h->face;
+    h->attacking = false; h->skilling = true; h->skill_hit = false;
+    h->skill_elapsed = 0; h->technique = technique;
+    float cooldown = technique == TECH_CLEAVE && g->augment == AUG_FLOW
+        ? 4 : TECHNIQUES[technique].cooldown;
+    if (technique == TECH_CLEAVE) g->cooldown = cooldown;
+    else g->technique_cooldowns[technique] = cooldown;
+    if (technique == TECH_RETREAT || technique == TECH_THRUST)
+        h->invul = fmaxf(h->invul, .38f);
+    chain_move(g, technique);
+}
+static bool request_move(Game *g, int move) {
+    if (g->phase != PH_PLAY || g->hero.hp <= 0 ||
+        (move != MOVE_ATTACK && (move < 0 || move >= TECH_COUNT))) return false;
+    if (move == MOVE_ATTACK ? g->attack_cooldown > 0
+                            : game_technique_cooldown(g, (Technique)move) > 0) return false;
+    float remaining = g->hero.skilling ? HERO_SKILL_SECONDS - g->hero.skill_elapsed
+        : g->hero.attacking ? HERO_ATTACK_SECONDS - g->hero.attack_elapsed : 0;
+    if (remaining > 0) {
+        if (remaining > .22f) return false;
+        g->queued_move = move; g->buffer_time = .28f;
+        return true;
+    }
+    if (move == MOVE_ATTACK) {
+        Enemy *e = nearest_enemy(g);
+        float range = g->augment == AUG_WIND ? 120 : g->augment == AUG_STEEL ? 76 : 58;
+        if (e && distance(e->pos, g->hero.pos) >= range + 22) e = NULL;
+        begin_attack(g, e);
+    } else begin_technique(g, (Technique)move);
+    return true;
 }
 static void tick_attack(Game *g, float dt) {
     Hero *h = &g->hero;
-    if (!h->attacking)
-        return;
+    if (!h->attacking) return;
     h->attack_elapsed += dt;
     if (!h->attack_hit && h->attack_elapsed >= HERO_ATTACK_IMPACT) {
-        /* Commit one hit at the blade's strike frame, never during the windup. */
-        h->attack_hit = true;
+        h->attack_hit = true; g->combo_time = COMBO_SECONDS;
         Enemy *e = h->attack_target == -1 ? &g->boss
             : h->attack_target >= 0 && h->attack_target < BOAR_COUNT
-                ? &g->boars[h->attack_target] : NULL;
+                ? &g->boars[h->attack_target] : nearest_enemy(g);
         if (e && active_enemy(g, e) && e->hp > 0 && world_segment(h->pos, e->pos, 0)) {
             float d = distance(h->pos, e->pos);
             float range = g->augment == AUG_STEEL ? 76 : 58;
             if (d < range)
-                game_damage(g, e, (g->augment == AUG_STEEL ? 13 : 9) + (g->sword ? 5 : 0), FX_HIT);
+                game_damage(g, e, combo_damage(g, (g->augment == AUG_STEEL ? 13 : 9) + (g->sword ? 5 : 0)), FX_HIT);
             if (g->augment == AUG_WIND && d < 120)
                 game_damage(g, e, 6, FX_WIND);
         }
     }
     if (h->attack_elapsed >= HERO_ATTACK_SECONDS) {
-        h->attacking = false;
-        h->attack_elapsed = 0;
+        h->attacking = false; h->attack_elapsed = 0;
     }
+}
+static void technique_area(Game *g, float range, int damage) {
+    if (g->quest == Q_COMBAT) {
+        if (distance(g->hero.pos, g->boss.pos) < range &&
+            world_segment(g->hero.pos, g->boss.pos, 0))
+            game_damage(g, &g->boss, damage, FX_HIT);
+    } else if (game_boars_active(g)) {
+        for (int i = 0; i < BOAR_COUNT; i++)
+            if (distance(g->hero.pos, g->boars[i].pos) < range &&
+                world_segment(g->hero.pos, g->boars[i].pos, 0))
+                game_damage(g, &g->boars[i], damage, FX_HIT);
+    }
+}
+static void tick_technique(Game *g, float dt) {
+    Hero *h = &g->hero;
+    if (!h->skilling) return;
+    h->skill_elapsed += dt;
+    if (!h->skill_hit && h->skill_elapsed >= HERO_SKILL_IMPACT) {
+        h->skill_hit = true; g->combo_time = COMBO_SECONDS;
+        const TechniqueInfo *info = &TECHNIQUES[h->technique];
+        float step = h->technique == TECH_CLEAVE && g->augment == AUG_FLOW ? 45 : info->step;
+        if (step > 0)
+            h->pos = world_move(h->pos, (Vec2){cosf(h->skill_angle) * step,
+                                             sinf(h->skill_angle) * step}, HERO_RADIUS);
+        int base = h->technique == TECH_CLEAVE && g->augment == AUG_FLOW ? 32 : info->damage;
+        technique_area(g, info->range, combo_damage(g, base + (g->sword ? 5 : 0)));
+        if (step < 0)
+            h->pos = world_move(h->pos, (Vec2){cosf(h->skill_angle) * step,
+                                             sinf(h->skill_angle) * step}, HERO_RADIUS);
+        effect(g, (Effect){.kind = FX_SKILL, .pos = h->pos,
+                            .angle = h->skill_angle, .life = .30f});
+    }
+    if (h->skill_elapsed >= HERO_SKILL_SECONDS) {
+        h->skilling = false; h->skill_elapsed = 0;
+    }
+}
+int game_hero_skill_frame(const Game *g) {
+    if (g->phase != PH_PLAY || !g->hero.skilling) return -1;
+    const int cleave[] = {0,1,1,2,3,4,5,5};
+    const int sweep[] = {0,0,1,2,3,3,4,5};
+    const int thrust[] = {0,0,2,2,3,4,5,5};
+    int tick = (int)clampf(g->hero.skill_elapsed / HERO_SKILL_SECONDS * 8, 0, 7);
+    return g->hero.technique == TECH_SWEEP ? sweep[tick]
+        : g->hero.technique == TECH_THRUST ? thrust[tick] : cleave[tick];
 }
 int game_hero_attack_frame(const Game *g) {
     if (g->phase != PH_PLAY || !g->hero.attacking)
@@ -645,7 +759,7 @@ int game_hero_attack_frame(const Game *g) {
     return frame < HERO_ATTACK_FRAMES ? frame : HERO_ATTACK_FRAMES - 1;
 }
 int game_hero_frame(const Game *g) {
-    if (g->phase != PH_PLAY || !g->hero.walking || g->hero.attacking)
+    if (g->phase != PH_PLAY || !g->hero.walking || g->hero.attacking || g->hero.skilling)
         return -1;
     return (int)(g->hero.walk_cycle * HERO_WALK_FRAMES) % HERO_WALK_FRAMES;
 }
@@ -656,6 +770,7 @@ void game_tick(Game *g, float dt, Vec2 input) {
     if (g->phase != PH_PLAY) {
         g->hero.walking = false;
         g->hero.walk_cycle = 0;
+        g->queued_move = MOVE_NONE; g->buffer_time = 0;
         return;
     }
     g->time += dt;
@@ -679,6 +794,12 @@ void game_tick(Game *g, float dt, Vec2 input) {
     g->hero.walk_cycle = g->hero.walking
         ? fmodf(g->hero.walk_cycle + travelled / HERO_WALK_DISTANCE, 1.0f) : 0;
     g->cooldown = fmaxf(0, g->cooldown - dt);
+    for (int i = 0; i < TECH_COUNT; i++)
+        g->technique_cooldowns[i] = fmaxf(0, g->technique_cooldowns[i] - dt);
+    g->attack_cooldown = fmaxf(0, g->attack_cooldown - dt);
+    g->combo_time = fmaxf(0, g->combo_time - dt);
+    g->buffer_time = fmaxf(0, g->buffer_time - dt);
+    if (g->buffer_time <= 0) g->queued_move = MOVE_NONE;
     g->item_cooldown = fmaxf(0, g->item_cooldown - dt);
     g->hero.invul = fmaxf(0, g->hero.invul - dt);
     for (int i = 0; i < g->effect_count;) {
@@ -706,13 +827,11 @@ void game_tick(Game *g, float dt, Vec2 input) {
         }
     }
     tick_attack(g, dt);
-    g->auto_timer -= dt;
-    Enemy *e = nearest_enemy(g);
-    float range = g->augment == AUG_STEEL ? 76 : 58;
-    if (e && !g->hero.attacking && g->auto_timer <= 0 &&
-        distance(g->hero.pos, e->pos) < (g->augment == AUG_WIND ? 120 : range)) {
-        g->auto_timer = .75f;
-        begin_attack(g, e);
+    tick_technique(g, dt);
+    if (!g->hero.attacking && !g->hero.skilling && g->queued_move != MOVE_NONE) {
+        int next = g->queued_move;
+        g->queued_move = MOVE_NONE; g->buffer_time = 0;
+        request_move(g, next);
     }
     if (g->quest == Q_COMBAT)
         tick_boss(g, dt);

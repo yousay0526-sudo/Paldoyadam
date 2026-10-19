@@ -11,7 +11,7 @@ EM_JS(void, web_ready, (void), { if (Module.paldoReady) Module.paldoReady(); });
 EM_JS(void, web_fullscreen, (void), { if (Module.paldoToggleFullscreen) Module.paldoToggleFullscreen(); });
 #endif
 
-#define BUTTON_MAX 36
+#define BUTTON_MAX 64
 #define PI 3.14159265358979323846f
 
 typedef enum {
@@ -31,7 +31,8 @@ typedef enum {
     ACT_BUY,
     ACT_USE,
     ACT_CHOOSE,
-    ACT_PICKUP
+    ACT_PICKUP, ACT_ATTACK, ACT_TECHNIQUE, ACT_TECHNIQUES, ACT_SWIPE_SELECT,
+    ACT_TECH_BIND, ACT_BIND_RESET, ACT_BAG_TAB, ACT_BAG_SELECT, ACT_EQUIP, ACT_GEAR_SELECT
 } Action;
 typedef enum {
     DONE_NONE,
@@ -67,10 +68,17 @@ typedef struct {
     Sint64 pointer_id;
     Vec2 pointer_start, pointer_delta, target;
     float journal_scroll, story_elapsed;
+    int bag_tab, bag_selected, selected_swipe;
+    bool attack_pointer_down, attack_swiping, attack_repeated, attack_key_down;
+    Sint64 attack_pointer_id;
+    Vec2 attack_start, attack_last;
+    float attack_hold;
     Route route;
     Uint64 previous_frame;
     double timer_frequency;
 } App;
+static int combat_direction(Vec2 delta);
+static void combat_tick(App *a, float dt);
 #if defined(__EMSCRIPTEN__) && defined(PALDO_WEB_TESTING)
 static App *web_test_app;
 EMSCRIPTEN_KEEPALIVE const char *paldo_test_state(void) {
@@ -125,6 +133,10 @@ static void stop_input(App *a) {
     a->pointer_down = false;
     a->pointer_delta = (Vec2){0, 0};
     a->target_set = false;
+    a->attack_pointer_down = a->attack_key_down = false;
+    a->attack_swiping = a->attack_repeated = false;
+    a->attack_hold = 0;
+    a->game.queued_move = MOVE_NONE; a->game.buffer_time = 0;
 }
 static void say(App *a, const Line *lines, int count, DialogueDone done) {
     if (count > 5)
@@ -242,8 +254,61 @@ static void dispatch(App *a, Action action, int value) {
         game_pickup_nearby(g);
         break;
     case ACT_SKILL:
-        if (game_skill(g) && a->target_set)
-            a->target_set = world_route(g->hero.pos, a->target, HERO_RADIUS, &a->route);
+        dispatch(a, ACT_TECHNIQUE, g->swipe_bindings[SWIPE_UP]);
+        break;
+    case ACT_ATTACK:
+        if (a->width <= a->height) break;
+        a->target_set = false;
+        game_attack(g);
+        break;
+    case ACT_TECHNIQUE:
+        if (a->width <= a->height) break;
+        a->target_set = false;
+        if (!game_technique(g, (Technique)value) && g->phase == PH_PLAY &&
+            value >= 0 && value < TECH_COUNT && game_technique_cooldown(g, (Technique)value) > 0) {
+            char message[96];
+            snprintf(message, sizeof message, "%s · %.1f초 후", TECHNIQUES[value].name,
+                     game_technique_cooldown(g, (Technique)value));
+            game_toast(g, message);
+        }
+        break;
+    case ACT_TECHNIQUES:
+        if (g->phase == PH_PLAY || g->phase == PH_BAG) {
+            g->phase = PH_TECHNIQUES; stop_input(a);
+        } else if (g->phase == PH_TECHNIQUES) game_close_panel(g);
+        break;
+    case ACT_SWIPE_SELECT:
+        if (g->phase == PH_TECHNIQUES && value >= 0 && value < SWIPE_COUNT)
+            a->selected_swipe = value;
+        break;
+    case ACT_TECH_BIND:
+        game_bind_swipe(g, (Swipe)a->selected_swipe, (Technique)value);
+        break;
+    case ACT_BIND_RESET:
+        if (g->phase == PH_TECHNIQUES) {
+            g->swipe_bindings[SWIPE_UP] = TECH_CLEAVE;
+            g->swipe_bindings[SWIPE_RIGHT] = TECH_SWEEP;
+            g->swipe_bindings[SWIPE_DOWN] = TECH_RETREAT;
+            g->swipe_bindings[SWIPE_LEFT] = TECH_THRUST;
+        }
+        break;
+    case ACT_BAG_TAB:
+        if (g->phase == PH_BAG && value >= 0 && value < 4) {
+            a->bag_tab = value; a->bag_selected = -999;
+        }
+        break;
+    case ACT_BAG_SELECT:
+        if (g->phase == PH_BAG) a->bag_selected = value;
+        break;
+    case ACT_GEAR_SELECT:
+        if (g->phase == PH_BAG) {
+            a->bag_tab = 0;
+            a->bag_selected = value == 0 ? (g->sword ? ITEM_SWORD : 100)
+                : value == 2 ? (g->armor ? ITEM_ARMOR : 101) : 200 + value;
+        }
+        break;
+    case ACT_EQUIP:
+        game_equip(g, (Item)value, value == ITEM_SWORD ? !g->sword : !g->armor);
         break;
     case ACT_FULLSCREEN:
 #ifdef __EMSCRIPTEN__
@@ -265,6 +330,7 @@ static void dispatch(App *a, Action action, int value) {
     case ACT_BAG:
         if (g->phase == PH_PLAY) {
             g->phase = PH_BAG;
+            a->bag_tab = 0; a->bag_selected = 100;
             stop_input(a);
         } else if (g->phase == PH_BAG)
             game_close_panel(g);
@@ -305,8 +371,7 @@ static void dispatch(App *a, Action action, int value) {
         game_buy(g, (Item)value);
         break;
     case ACT_USE:
-        if (game_use(g, (Item)value) && g->phase == PH_BAG)
-            game_close_panel(g);
+        game_use(g, (Item)value);
         break;
     case ACT_CHOOSE:
         game_choose(g, (Augment)value);
@@ -409,20 +474,50 @@ static void draw_hud(App *a) {
             gfx_label(f, weapon, weapon_card, 13, GOLD);
         else {
             gfx_text(f, weapon, 24, h - 43, 13, 0, GOLD);
-            gfx_text(f, "끌어 이동 · 가까운 적 자동 공격", 24, h - 26, 10, 0, MUTED);
+            gfx_text(f, "Z 공격 · Q/R/G/T 무공", 24, h - 26, 10, 0, MUTED);
         }
         snprintf(text, sizeof text, "탕약 %d", g->tonics);
-        button(a, (SDL_FRect){w - 172, h - 98, 78, 44}, text, ACT_USE, ITEM_TONIC,
+        button(a, (SDL_FRect){w - 198, h - 98, 78, 44}, text, ACT_USE, ITEM_TONIC,
                game_can_use(g, ITEM_TONIC), false);
         snprintf(text, sizeof text, "지혈산 %d", g->bandages);
-        button(a, (SDL_FRect){w - 172, h - 54, 78, 44}, text, ACT_USE, ITEM_BANDAGE,
+        button(a, (SDL_FRect){w - 198, h - 54, 78, 44}, text, ACT_USE, ITEM_BANDAGE,
                game_can_use(g, ITEM_BANDAGE), false);
-        if (g->cooldown > 0)
-            snprintf(text, sizeof text, "%.1f초", g->cooldown);
-        else
-            snprintf(text, sizeof text, "%s%s", g->augment == AUG_FLOW ? "파고들기" : "갈라베기",
-                     a->touch_input || w < 680 ? "" : " Q");
-        button(a, (SDL_FRect){w - 90, h - 78, 78, 68}, text, ACT_SKILL, 0, g->cooldown <= 0, true);
+        button(a, (SDL_FRect){w - 198, h - 142, 78, 44},
+               a->touch_input ? "무공" : "무공 K", ACT_TECHNIQUES, 0, true, false);
+        SDL_FRect attack = {w - 116, h - 116, 88, 88};
+        if (a->button_count < BUTTON_MAX)
+            a->buttons[a->button_count++] = (Button){attack, ACT_ATTACK, 0, true};
+        Vec2 center = {attack.x + 44, attack.y + 44};
+        gfx_sector(f, center, 42, 0, PI, a->attack_pointer_down
+            ? (SDL_Color){217, 191, 139, 245} : (SDL_Color){30, 49, 48, 240});
+        gfx_circle(f, center, 42, GOLD);
+        gfx_label(f, "공격", (SDL_FRect){attack.x + 3, attack.y + 16, 82, 30}, 21,
+                  a->attack_pointer_down ? INK : PAPER);
+        if (g->attack_cooldown > 0) snprintf(text, sizeof text, "%.1f", g->attack_cooldown);
+        else snprintf(text, sizeof text, "%s", a->touch_input ? "탭 / 밀기" : "Z / 밀기");
+        gfx_label(f, text, (SDL_FRect){attack.x + 3, attack.y + 48, 82, 20}, 11,
+                  a->attack_pointer_down ? INK : GOLD);
+        int direction = a->attack_pointer_down ? combat_direction((Vec2){
+            a->attack_last.x - a->attack_start.x, a->attack_last.y - a->attack_start.y}) : -1;
+        if (direction >= 0) {
+            Technique tech = g->swipe_bindings[direction];
+            float cd = game_technique_cooldown(g, tech);
+            snprintf(text, sizeof text, cd > 0 ? "%s · %.1f초" : "%s", TECHNIQUES[tech].name, cd);
+        } else if (g->combo_count > 1 && g->combo_time > 0)
+            snprintf(text, sizeof text, "%d연계 +%d%%", g->combo_count, 10 * (g->combo_count - 1));
+        else snprintf(text, sizeof text, "밀어서 무공");
+        hud_card(f, (SDL_FRect){w - 116, h - 153, 108, 26}, 205);
+        gfx_label(f, text, (SDL_FRect){w - 116, h - 153, 108, 26}, 11, GOLD);
+        if (a->attack_pointer_down) {
+            const Vec2 vectors[] = {{0,-1},{1,0},{0,1},{-1,0}};
+            for (int i = 0; i < SWIPE_COUNT; i++) {
+                Vec2 n = vectors[i], tip = {center.x + n.x * 60, center.y + n.y * 60};
+                SDL_Color c = i == direction ? PAPER : GOLD;
+                gfx_line(f, (Vec2){center.x + n.x * 48, center.y + n.y * 48}, tip, c);
+                gfx_line(f, tip, (Vec2){tip.x - n.x * 6 - n.y * 4, tip.y - n.y * 6 + n.x * 4}, c);
+                gfx_line(f, tip, (Vec2){tip.x - n.x * 6 + n.y * 4, tip.y - n.y * 6 - n.x * 4}, c);
+            }
+        }
         Nearby near = game_nearby(g);
         if (near.kind != NEAR_NONE) {
             if (near.kind == NEAR_TRACE)
@@ -437,7 +532,7 @@ static void draw_hud(App *a) {
                 char *hint = strstr(text, " · Space");
                 if (hint) *hint = '\0';
             }
-            float left = w < 800 ? 122 : 242, right = w - 184;
+            float left = w < 800 ? 122 : 242, right = w - 210;
             float bw = fminf(178, right - left);
             button(a, (SDL_FRect){left + (right - left - bw) / 2, h - 54, bw, 44}, text, ACT_INTERACT, 0, true, false);
         }
@@ -483,31 +578,169 @@ static void draw_shop(App *a) {
                    error == NULL, true);
         }
 }
+typedef struct {
+    int key, count;
+    const char *name, *description;
+} BagEntry;
+static int bag_entries(const Game *g, int tab, BagEntry entries[8]) {
+    int n = 0;
+    if (tab == 0) {
+        entries[n++] = (BagEntry){100, 1, "환도", "기본 무기 · 단련한 환도 해제 시 사용"};
+        entries[n++] = (BagEntry){101, 1, "군영 갑주", "기본 방어구 · 누비 갑옷 해제 시 사용"};
+        if (g->owned_sword || g->sword)
+            entries[n++] = (BagEntry){ITEM_SWORD, 1, "단련한 환도", "무기 · 공격 피해 +5"};
+        if (g->owned_armor || g->armor)
+            entries[n++] = (BagEntry){ITEM_ARMOR, 1, "누비 갑옷", "방어구 · 받는 피해 -3"};
+    } else if (tab == 1) {
+        if (g->tonics > 0) entries[n++] = (BagEntry){ITEM_TONIC, g->tonics, "탕약", "체력 45 회복"};
+        if (g->bandages > 0) entries[n++] = (BagEntry){ITEM_BANDAGE, g->bandages, "지혈산", "출혈 즉시 해제"};
+    } else if (tab == 3 && g->herbs > 0)
+        entries[n++] = (BagEntry){102, g->herbs, "약재 꾸러미", "의뢰품 · 약방 주인에게 전달할 약재"};
+    return n;
+}
+static void bag_icon(Gfx *f, int key, SDL_FRect r, SDL_Color c) {
+    Vec2 p = {r.x + r.w / 2, r.y + r.h / 2};
+    float z = fminf(r.w, r.h) * .34f;
+    if (key == ITEM_SWORD || key == 100) {
+        gfx_line(f, (Vec2){p.x-z,p.y+z}, (Vec2){p.x+z,p.y-z}, c);
+        gfx_line(f, (Vec2){p.x-z*.7f,p.y+z*1.1f}, (Vec2){p.x-z*1.1f,p.y+z*.7f}, c);
+        gfx_line(f, (Vec2){p.x-z*.6f,p.y+z*.2f}, (Vec2){p.x-z*.2f,p.y+z*.6f}, c);
+        gfx_line(f, (Vec2){p.x+z,p.y-z}, (Vec2){p.x+z*.4f,p.y-z*.8f}, c);
+    } else if (key == ITEM_ARMOR || key == 101) {
+        gfx_line(f, (Vec2){p.x-z,p.y-z*.7f}, (Vec2){p.x-z*.45f,p.y-z}, c);
+        gfx_line(f, (Vec2){p.x-z*.45f,p.y-z}, (Vec2){p.x,p.y-z*.35f}, c);
+        gfx_line(f, (Vec2){p.x,p.y-z*.35f}, (Vec2){p.x+z*.45f,p.y-z}, c);
+        gfx_line(f, (Vec2){p.x+z*.45f,p.y-z}, (Vec2){p.x+z,p.y-z*.7f}, c);
+        gfx_border(f, (SDL_FRect){p.x-z*.65f,p.y-z*.35f,z*1.3f,z*1.35f}, c);
+    } else if (key == ITEM_TONIC || key == ITEM_BANDAGE || key == 102) {
+        gfx_round_border(f, (SDL_FRect){p.x-z*.7f,p.y-z*.5f,z*1.4f,z*1.5f}, 4, c);
+        gfx_line(f, (Vec2){p.x-z*.35f,p.y-z}, (Vec2){p.x+z*.35f,p.y-z}, c);
+        gfx_line(f, (Vec2){p.x,p.y-z*.2f}, (Vec2){p.x,p.y+z*.6f}, c);
+        gfx_line(f, (Vec2){p.x-z*.4f,p.y+z*.2f}, (Vec2){p.x+z*.4f,p.y+z*.2f}, c);
+    } else gfx_circle(f, p, z*.65f, c);
+}
+static bool bag_equipped(const Game *g, int key) {
+    return key == ITEM_SWORD ? g->sword : key == ITEM_ARMOR ? g->armor
+        : key == 100 ? !g->sword : key == 101 ? !g->armor : false;
+}
 static void draw_bag(App *a) {
-    Gfx *f = &a->gfx;
-    Game *g = &a->game;
-    SDL_FRect p = panel(a, "여정의 채비", "가방", 260);
-    char s[256];
-    snprintf(s, sizeof s, "소지금 %d문 · 체력 %d/100", g->coins, g->hero.hp);
-    gfx_text_box(f, s, (SDL_FRect){p.x + 16, p.y + 65, p.w - 32, 20}, 13, 12, GOLD);
-    snprintf(s, sizeof s, "%s   /   %s", g->sword ? "단련한 환도 · 피해 +5" : "환도",
-             g->armor ? "누비 갑옷 · 피해 -3" : "군복");
-    gfx_text_box(f, s, (SDL_FRect){p.x + 16, p.y + 86, p.w - 32, 20}, 13, 12, PAPER);
-    float row_h = fminf(59, (p.h - 142) / 2);
-    for (int i = 0; i < 2; i++) {
-        Item item = i == 0 ? ITEM_TONIC : ITEM_BANDAGE;
-        float y = p.y + 108 + (row_h + 6) * (float)i;
-        gfx_round(f, (SDL_FRect){p.x + 16, y, p.w - 32, row_h}, 10, (SDL_Color){34, 53, 49, 220});
-        snprintf(s, sizeof s, "%s × %d", ITEMS[item].name, i == 0 ? g->tonics : g->bandages);
-        gfx_text_box(f, s, (SDL_FRect){p.x + 25, y + 5, p.w - 146, 21}, 15, 13, PAPER);
-        gfx_text_box(f, i == 0 ? "체력 45 회복" : "출혈 즉시 해제",
-                     (SDL_FRect){p.x + 25, y + 27, p.w - 146, row_h - 29}, 12, 11, MUTED);
-        button(a, (SDL_FRect){p.x + p.w - 111, y + (row_h - 44) / 2, 90, 44}, "사용", ACT_USE, item,
-               game_can_use(g, item), true);
+    Gfx *f = &a->gfx; Game *g = &a->game;
+    float w = fminf(900, a->width-20), h = fminf(520, a->height-20);
+    SDL_FRect p = {(a->width-w)/2,(a->height-h)/2,w,h};
+    gfx_rect(f, (SDL_FRect){0,0,a->width,a->height}, (SDL_Color){4,17,20,175});
+    surface(f,p,16,INK);
+    gfx_heading(f,"가방",(SDL_FRect){p.x+16,p.y+8,90,32},28,PAPER);
+    char text[192]; snprintf(text,sizeof text,"%d문 · 체력 %d/100",g->coins,g->hero.hp);
+    gfx_text_box(f,text,(SDL_FRect){p.x+106,p.y+17,p.w-204,20},13,11,GOLD);
+    button(a,(SDL_FRect){p.x+p.w-86,p.y+3,76,44},"닫기",ACT_CLOSE,0,true,false);
+    float top = p.y+51, content = p.h-63, lw = fminf(240,(p.w-32)*.31f);
+    SDL_FRect left = {p.x+12,top,lw,content};
+    float rx = left.x+lw+12, rw = p.x+p.w-12-rx;
+    gfx_round(f,left,11,(SDL_Color){24,43,43,255});
+    float portrait = content<220 ? 42 : fminf(130,content*.30f);
+    gfx_sprite(f,&f->hero,(Vec2){left.x+lw/2,top+portrait-2},lw*.75f,portrait-4,true);
+    const char *labels[] = {"무기","투구","갑옷","신발","목걸이","반지"};
+    float sy = top+portrait+3, sh = (content-portrait-30)/3, sw = (lw-18)/2;
+    for (int i=0;i<6;i++) {
+        SDL_FRect slot = {left.x+6+(sw+6)*(i%2),sy+sh*(i/2),sw,sh-4};
+        bool active = (i==0 || i==2);
+        gfx_round(f,slot,6,active ? (SDL_Color){39,61,56,255} : (SDL_Color){19,36,38,255});
+        gfx_text_box(f,labels[i],(SDL_FRect){slot.x+5,slot.y+2,slot.w-10,13},10,9,GOLD);
+        const char *name = i==0 ? (g->sword?(lw<150?"환도 +":"단련한 환도"):"환도")
+            : i==2 ? (g->armor?(lw<150?"누비옷":"누비 갑옷"):(lw<150?"군영복":"군영 갑주")) : "미장착";
+        gfx_text_box(f,name,(SDL_FRect){slot.x+5,slot.y+16,slot.w-10,slot.h-17},12,10,active?PAPER:MUTED);
+        if(a->button_count<BUTTON_MAX) a->buttons[a->button_count++] = (Button){slot,ACT_GEAR_SELECT,i,true};
     }
-    snprintf(s, sizeof s, "약재 꾸러미 %d/3%s", g->herbs,
-             g->supplies_delivered ? " · 약방에 전달 완료" : "");
-    gfx_text_box(f, s, (SDL_FRect){p.x + 16, p.y + p.h - 23, p.w - 32, 17}, 11, 11, MUTED);
+    snprintf(text,sizeof text,"공격 +%d · 방어 %d",g->sword?5:0,g->armor?3:0);
+    gfx_label(f,text,(SDL_FRect){left.x+4,top+content-24,lw-8,20},11,GOLD);
+    const char *tabs[] = {"장비","소비","기타","의뢰품"};
+    for(int i=0;i<4;i++) {
+        SDL_FRect tab = {rx+(rw/4)*i,top,rw/4-3,29};
+        gfx_round(f,tab,6,a->bag_tab==i ? GOLD : (SDL_Color){27,47,46,255});
+        gfx_label(f,tabs[i],tab,12,a->bag_tab==i?INK:MUTED);
+        if(a->button_count<BUTTON_MAX) a->buttons[a->button_count++] = (Button){tab,ACT_BAG_TAB,i,true};
+    }
+    BagEntry entries[8]; int n = bag_entries(g,a->bag_tab,entries), selected=-1;
+    for(int i=0;i<n;i++) if(entries[i].key==a->bag_selected) selected=i;
+    if(selected<0 && n>0 && a->bag_selected<200) { selected=0; a->bag_selected=entries[0].key; }
+    float detail_h = a->height<340?61:88;
+    SDL_FRect grid = {rx,top+37,rw,content-37-detail_h-6};
+    int columns = rw>=430?4:2;
+    float gap=6, cellw=(rw-gap*(columns-1))/columns;
+    int rows = (int)(grid.h/78); if(rows<2) rows=2;
+    if(rows<(n+columns-1)/columns) rows=(n+columns-1)/columns;
+    float cellh = fminf(92,(grid.h-gap*(rows-1))/rows);
+    for(int i=0;i<columns*rows;i++) {
+        SDL_FRect cell={rx+(cellw+gap)*(i%columns),grid.y+(cellh+gap)*(i/columns),cellw,cellh};
+        if(i>=n) {
+            gfx_round(f,cell,8,(SDL_Color){19,36,38,255});
+            gfx_round_border(f,cell,8,(SDL_Color){56,76,67,140});
+            continue;
+        }
+        BagEntry e=entries[i]; bool equipped=bag_equipped(g,e.key);
+        gfx_round(f,cell,8,i==selected?(SDL_Color){49,68,58,255}:(SDL_Color){24,44,45,255});
+        gfx_round_border(f,cell,8,i==selected?GOLD:(SDL_Color){77,96,82,160});
+        float icon=fminf(32,cell.h-8);
+        bag_icon(f,e.key,(SDL_FRect){cell.x+4,cell.y+4,icon,icon},GOLD);
+        float tx=cell.x+icon+5, tw=cell.w-icon-10;
+        gfx_text_box(f,e.name,(SDL_FRect){tx,cell.y+5,tw,cell.h<50?cell.h-9:28},13,10,PAPER);
+        if(cell.h<50 && a->bag_tab!=0) {
+            snprintf(text,sizeof text,"%d",e.count);
+            gfx_text_box(f,text,(SDL_FRect){cell.x+cell.w-23,cell.y+cell.h-15,20,13},10,10,GOLD);
+        }
+        if(cell.h>=50) {
+            snprintf(text,sizeof text,equipped?"장착 중":a->bag_tab==0?"장비":"× %d",e.count);
+            gfx_text_box(f,text,(SDL_FRect){tx,cell.y+cell.h-23,tw,18},11,10,equipped?GOLD:MUTED);
+        }
+        if(a->button_count<BUTTON_MAX) a->buttons[a->button_count++] = (Button){cell,ACT_BAG_SELECT,e.key,true};
+    }
+    if(n==0) gfx_label(f,a->bag_tab==2?"보관 중인 기타 물품이 없습니다":"보관 중인 물품이 없습니다",grid,13,MUTED);
+    SDL_FRect detail={rx,top+content-detail_h,rw,detail_h};
+    gfx_round(f,detail,8,(SDL_Color){24,43,42,255});
+    if(selected>=0) {
+        BagEntry e=entries[selected]; bool actionable=e.key>=0 && e.key<=ITEM_BANDAGE;
+        float reserved=actionable?80:8;
+        gfx_text_box(f,e.name,(SDL_FRect){rx+9,detail.y+6,rw-reserved-16,22},14,11,PAPER);
+        gfx_text_box(f,e.description,(SDL_FRect){rx+9,detail.y+29,rw-reserved-16,detail.h-34},12,10,MUTED);
+        if(actionable) {
+            bool gear=e.key==ITEM_SWORD || e.key==ITEM_ARMOR;
+            button(a,(SDL_FRect){rx+rw-80,detail.y+(detail_h-44)/2,76,44},gear?(bag_equipped(g,e.key)?"해제":"장착"):"사용",
+                   gear?ACT_EQUIP:ACT_USE,e.key,gear||game_can_use(g,(Item)e.key),true);
+        }
+    } else gfx_text_box(f,a->bag_selected>=200?"장착된 장비가 없는 부위입니다":"물품을 선택하면 자세히 볼 수 있습니다",
+            (SDL_FRect){rx+10,detail.y+9,rw-20,detail.h-18},13,11,MUTED);
+}
+static void draw_techniques(App *a) {
+    Game *g=&a->game; Gfx *f=&a->gfx;
+    SDL_FRect p=panel(a,"공격 버튼을 밀어 무공 연결","무공 설정",430);
+    float top=p.y+69, bottom=p.y+p.h-42;
+    float lw=fminf(200,(p.w-42)*.39f), rx=p.x+18+lw+12, rw=p.x+p.w-18-rx;
+    const char *directions[]={"↑ 위 · Q","→ 오른쪽 · R","↓ 아래 · G","← 왼쪽 · T"};
+    float rowh=(bottom-top)/4;
+    for(int i=0;i<SWIPE_COUNT;i++) {
+        SDL_FRect r={p.x+18,top+rowh*i,lw,rowh-5};
+        gfx_round(f,r,7,i==a->selected_swipe?(SDL_Color){59,70,55,255}:(SDL_Color){25,44,44,255});
+        if(i==a->selected_swipe) gfx_round_border(f,r,7,GOLD);
+        float suby=rowh<48?16:24;
+        gfx_text_box(f,directions[i],(SDL_FRect){r.x+8,r.y+2,r.w-16,suby-2},12,10,GOLD);
+        gfx_text_box(f,TECHNIQUES[g->swipe_bindings[i]].name,(SDL_FRect){r.x+8,r.y+suby,r.w-16,r.h-suby},14,10,PAPER);
+        if(a->button_count<BUTTON_MAX) a->buttons[a->button_count++] = (Button){r,ACT_SWIPE_SELECT,i,true};
+    }
+    float ch=(bottom-top-6)/2, cw=(rw-6)/2;
+    for(int i=0;i<TECH_COUNT;i++) {
+        SDL_FRect r={rx+(cw+6)*(i%2),top+(ch+6)*(i/2),cw,ch};
+        bool selected=g->swipe_bindings[a->selected_swipe]==(Technique)i;
+        gfx_round(f,r,8,selected?(SDL_Color){53,67,51,255}:(SDL_Color){24,43,43,255});
+        gfx_round_border(f,r,8,selected?GOLD:(SDL_Color){82,95,76,150});
+        gfx_text_box(f,TECHNIQUES[i].name,(SDL_FRect){r.x+8,r.y+7,r.w-16,24},16,12,PAPER);
+        char s[100]; snprintf(s,sizeof s,"피해 %d · %.1f초",TECHNIQUES[i].damage,TECHNIQUES[i].cooldown);
+        gfx_text_box(f,s,(SDL_FRect){r.x+8,r.y+33,r.w-16,18},11,10,GOLD);
+        if(ch>85) gfx_text_box(f,TECHNIQUES[i].description,(SDL_FRect){r.x+8,r.y+57,r.w-16,r.h-62},12,11,MUTED);
+        if(a->button_count<BUTTON_MAX) a->buttons[a->button_count++] = (Button){r,ACT_TECH_BIND,i,true};
+    }
+    button(a,(SDL_FRect){p.x+p.w-180,p.y+10,90,44},"기본 배치",ACT_BIND_RESET,0,true,false);
+    gfx_text_box(f,"방향 선택 → 기술 선택 · 서로 다른 기술을 이어 쓰면 2/3연계 +10/20%",
+                 (SDL_FRect){p.x+18,p.y+p.h-34,p.w-36,26},12,10,MUTED);
 }
 static void draw_journal(App *a) {
     Gfx *f = &a->gfx;
@@ -613,6 +846,10 @@ static void draw_overlay(App *a) {
         draw_bag(a);
         return;
     }
+    if (g->phase == PH_TECHNIQUES) {
+        draw_techniques(a);
+        return;
+    }
     if (g->phase == PH_JOURNAL) {
         draw_journal(a);
         return;
@@ -646,8 +883,8 @@ static void draw_overlay(App *a) {
                                                   : "길은 계속된다";
         gfx_heading(f, title, (SDL_FRect){w / 2 - 220, 24, 440, 50}, 42, PAPER);
         if (g->phase == PH_PAUSED) {
-            gfx_center(f, "화면을 끌거나 목적지를 탭해 이동 · 가까운 적 자동 공격", w / 2, 84, 16, MUTED);
-            gfx_center(f, "WASD 이동 · Space 대화 / 다음 · Q 스킬 · 물품 자동 줍기", w / 2, 115, 15, MUTED);
+            gfx_center(f, "끌기 / WASD 이동 · 공격 버튼 탭 또는 Z · 누르면 연속 공격", w / 2, 84, 16, MUTED);
+            gfx_center(f, "공격 버튼 밀기: ↑ Q · → R · ↓ G · ← T · K 무공 배치", w / 2, 115, 15, MUTED);
             gfx_center(f, "I 가방 · J 여정 기록 · 1 탕약 · 2 지혈산 · F11 전체화면", w / 2, 146, 14, MUTED);
         } else if (g->phase == PH_DEAD) {
             gfx_center(f, "마을에서 회복하고 다시 떠납니다.", w / 2, 88, 18, MUTED);
@@ -728,51 +965,87 @@ static void draw(App *a) {
 static bool inside(SDL_FRect r, Vec2 p) {
     return p.x >= r.x && p.x < r.x + r.w && p.y >= r.y && p.y < r.y + r.h;
 }
+static int combat_direction(Vec2 delta) {
+    float x=fabsf(delta.x), y=fabsf(delta.y);
+    if(hypotf(x,y)<32) return -1;
+    if(x>y*1.15f) return delta.x>0 ? SWIPE_RIGHT : SWIPE_LEFT;
+    if(y>x*1.15f) return delta.y>0 ? SWIPE_DOWN : SWIPE_UP;
+    return -1;
+}
+static void combat_tick(App *a, float dt) {
+    if(a->game.phase!=PH_PLAY || a->width<=a->height) return;
+    if(a->attack_key_down) {
+        a->target_set=false;
+        game_attack(&a->game);
+    }
+    if(a->attack_pointer_down && !a->attack_swiping) {
+        a->attack_hold+=clampf(dt,0,.05f);
+        if(a->attack_hold>=.24f) {
+            a->target_set=false;
+            if(game_attack(&a->game)) a->attack_repeated=true;
+        }
+    }
+}
 static void pointer_down(App *a, Sint64 id, Vec2 p) {
+    if(a->width<=a->height) return;
     for (int i = a->button_count - 1; i >= 0; i--) {
         Button b = a->buttons[i];
         if (inside(b.rect, p)) {
             if (b.enabled) {
-                if (b.action == ACT_JOURNAL && a->game.phase == PH_JOURNAL && b.value != 0)
+                if(b.action==ACT_ATTACK && a->game.phase==PH_PLAY) {
+                    if(!a->attack_pointer_down) {
+                        a->attack_pointer_down=true; a->attack_pointer_id=id;
+                        a->attack_start=a->attack_last=p; a->attack_hold=0;
+                        a->attack_swiping=a->attack_repeated=false;
+                        a->target_set=false;
+                    }
+                } else if (b.action == ACT_JOURNAL && a->game.phase == PH_JOURNAL && b.value != 0)
                     a->journal_scroll += (float)b.value;
-                else
-                    dispatch(a, b.action, b.value);
+                else dispatch(a, b.action, b.value);
             }
             return;
         }
     }
-    if (a->game.phase != PH_PLAY || a->width <= a->height || a->pointer_down)
-        return;
-    a->pointer_down = true;
-    a->pointer_id = id;
-    a->pointer_start = p;
-    a->pointer_delta = (Vec2){0, 0};
-    a->pointer_moved = false;
-    a->target_set = false;
+    if (a->game.phase != PH_PLAY || a->pointer_down ||
+        (a->attack_pointer_down && a->attack_pointer_id==id)) return;
+    a->pointer_down = true; a->pointer_id = id;
+    a->pointer_start = p; a->pointer_delta = (Vec2){0, 0};
+    a->pointer_moved = false; a->target_set = false;
 }
 static void pointer_move(App *a, Sint64 id, Vec2 p) {
-    if (!a->pointer_down || a->pointer_id != id)
+    if(a->attack_pointer_down && a->attack_pointer_id==id) {
+        a->attack_last=p;
+        if(distance(p,a->attack_start)>=32) a->attack_swiping=true;
         return;
+    }
+    if (!a->pointer_down || a->pointer_id != id) return;
     float dx = p.x - a->pointer_start.x, dy = p.y - a->pointer_start.y, d = hypotf(dx, dy), m = fmaxf(34, d);
     a->pointer_delta = (Vec2){dx / m, dy / m};
-    if (d > 8)
-        a->pointer_moved = true;
+    if (d > 8) a->pointer_moved = true;
 }
 static void pointer_up(App *a, Sint64 id, Vec2 p) {
-    if (!a->pointer_down || a->pointer_id != id)
+    if(a->attack_pointer_down && a->attack_pointer_id==id) {
+        Vec2 delta={p.x-a->attack_start.x,p.y-a->attack_start.y};
+        int direction=combat_direction(delta);
+        if(a->game.phase==PH_PLAY && a->width>a->height) {
+            if(a->attack_swiping || distance(p,a->attack_start)>=32) {
+                if(direction>=0) dispatch(a,ACT_TECHNIQUE,a->game.swipe_bindings[direction]);
+            } else if(!a->attack_repeated) dispatch(a,ACT_ATTACK,0);
+        }
+        a->attack_pointer_down=false; a->attack_hold=0;
+        a->attack_swiping=a->attack_repeated=false;
         return;
+    }
+    if (!a->pointer_down || a->pointer_id != id) return;
     if (!a->pointer_moved && a->game.phase == PH_PLAY) {
         a->target = world_from_screen(p, a->camera);
         a->target.x = clampf(a->target.x, 28, WORLD_W - 28);
         a->target.y = clampf(a->target.y, 28, WORLD_H - 28);
         a->target_set = world_route(a->game.hero.pos, a->target, HERO_RADIUS, &a->route);
-        if (a->target_set)
-            a->target = a->route.points[a->route.count - 1];
-        else
-            game_toast(&a->game, "막힌 지형 · 다른 길을 선택해 주세요");
+        if (a->target_set) a->target = a->route.points[a->route.count - 1];
+        else game_toast(&a->game, "막힌 지형 · 다른 길을 선택해 주세요");
     }
-    a->pointer_down = false;
-    a->pointer_delta = (Vec2){0, 0};
+    a->pointer_down = false; a->pointer_delta = (Vec2){0, 0};
 }
 static void handle_events(App *a) {
     SDL_Event e;
@@ -817,7 +1090,18 @@ static void handle_events(App *a) {
                     dispatch(a, ACT_INTERACT, 0);
             } else if (key == SDLK_q)
                 dispatch(a, ACT_SKILL, 0);
-            else if (key == SDLK_f)
+            else if (key == SDLK_r)
+                dispatch(a, ACT_TECHNIQUE, a->game.swipe_bindings[SWIPE_RIGHT]);
+            else if (key == SDLK_g)
+                dispatch(a, ACT_TECHNIQUE, a->game.swipe_bindings[SWIPE_DOWN]);
+            else if (key == SDLK_t)
+                dispatch(a, ACT_TECHNIQUE, a->game.swipe_bindings[SWIPE_LEFT]);
+            else if (key == SDLK_k)
+                dispatch(a, ACT_TECHNIQUES, 0);
+            else if (key == SDLK_z && a->game.phase == PH_PLAY) {
+                a->attack_key_down = true;
+                dispatch(a, ACT_ATTACK, 0);
+            } else if (key == SDLK_f)
                 dispatch(a, ACT_PICKUP, 0);
             else if (key == SDLK_e)
                 dispatch(a, ACT_INTERACT, 0);
@@ -836,6 +1120,7 @@ static void handle_events(App *a) {
                     a->journal_scroll--;
             }
         }
+        if (e.type == SDL_KEYUP && e.key.keysym.sym == SDLK_z) a->attack_key_down = false;
         if (e.type == SDL_MOUSEWHEEL && a->game.phase == PH_JOURNAL)
             a->journal_scroll -= (float)e.wheel.y;
         if (e.type == SDL_MOUSEBUTTONDOWN && e.button.which != SDL_TOUCH_MOUSEID &&
@@ -910,9 +1195,20 @@ static void smoke_scene(App *a, const char *scene) {
         a->game.hero.pos = NPCS[SMITH].pos;
         a->game.coins = 137;
         game_open_shop(&a->game, SMITH);
-    } else if (!strcmp(scene, "bag")) {
+    } else if (!strncmp(scene, "bag", 3)) {
         a->game.hero.hp = 45;
+        a->game.owned_sword = a->game.sword = true;
+        a->game.owned_armor = a->game.armor = true;
+        a->game.herbs = 2; a->bag_selected = ITEM_SWORD;
+        a->bag_tab = !strcmp(scene,"bag-consumables") ? 1 : !strcmp(scene,"bag-quest") ? 3 : 0;
         a->game.phase = PH_BAG;
+    } else if (!strcmp(scene,"techniques")) {
+        a->game.phase = PH_TECHNIQUES;
+    } else if (!strncmp(scene,"skill",5)) {
+        a->game.hero.skilling = true; a->game.hero.skill_hit = true;
+        a->game.hero.technique = (Technique)(int)clampf((float)atoi(scene+5)-1,0,TECH_COUNT-1);
+        a->game.hero.skill_elapsed = .30f; a->game.hero.skill_angle = 0;
+        a->game.hero.attack_face = a->game.hero.face = 1;
     } else if (!strcmp(scene, "dialogue")) {
         say(a, MEET_LINES, 3, DONE_ACCEPT);
     } else if (!strcmp(scene, "augment")) {
@@ -940,7 +1236,7 @@ static void smoke_scene(App *a, const char *scene) {
         a->game.hero.attacking = true;
         a->game.hero.attack_face = 1;
         a->game.hero.attack_elapsed = (pose + .1f) * HERO_ATTACK_SECONDS / HERO_ATTACK_FRAMES;
-        a->game.auto_timer = 1;
+        a->game.attack_cooldown = 1;
     } else if (!strcmp(scene, "loot")) {
         a->game.traces[0] = a->game.traces[1] = true;
         a->game.quest = Q_RECOVER;
@@ -967,6 +1263,7 @@ static void frame(App *a) {
     if (a->width > a->height) {
         if (a->game.phase == PH_PROLOGUE)
             a->story_elapsed += clampf(dt, 0, .05f);
+        combat_tick(a, dt);
         game_tick(&a->game, dt, input(a, dt));
     }
     unsigned notices = a->game.notices;

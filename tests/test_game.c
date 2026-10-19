@@ -112,7 +112,8 @@ static void shops(void) {
     ready(&g);
     CHECK(game_begin_boss(&g));
     g.hero.pos = g.boss.pos;
-    g.auto_timer = 0;
+    g.attack_cooldown = 0;
+    CHECK(game_attack(&g));
     game_tick(&g, .05f, (Vec2){0});
     CHECK(g.boss.hp == 240 && g.hero.attacking);
     for (int i = 0; i < 3; i++) game_tick(&g, .05f, (Vec2){0});
@@ -199,20 +200,24 @@ static void augments_and_bounds(void) {
     clues(&g);
     g.hero.pos = g.boars[0].pos;
     CHECK(game_skill(&g));
+    CHECK(g.boars[0].hp == 38);
+    for(int i=0;i<5;i++) game_tick(&g,.05f,(Vec2){0});
     CHECK(g.boars[0].hp == 12);
     CHECK(!game_skill(&g));
     g.replay = true;
     g.augment = AUG_STEEL;
     game_retry(&g);
     g.hero.pos = (Vec2){g.boss.pos.x - 70, g.boss.pos.y};
-    g.auto_timer = 0;
+    g.attack_cooldown = 0;
+    CHECK(game_attack(&g));
     game_tick(&g, .05f, (Vec2){0});
     for (int i = 0; i < 3; i++) game_tick(&g, .05f, (Vec2){0});
     CHECK(g.boss.hp == 227);
     g.augment = AUG_WIND;
     game_retry(&g);
     g.hero.pos = (Vec2){g.boss.pos.x - 110, g.boss.pos.y};
-    g.auto_timer = 0;
+    g.attack_cooldown = 0;
+    CHECK(game_attack(&g));
     game_tick(&g, .05f, (Vec2){0});
     for (int i = 0; i < 3; i++) game_tick(&g, .05f, (Vec2){0});
     CHECK(g.boss.hp == 234);
@@ -220,7 +225,9 @@ static void augments_and_bounds(void) {
     game_retry(&g);
     g.hero.pos = (Vec2){g.boss.pos.x - 95, g.boss.pos.y};
     CHECK(game_skill(&g));
-    CHECK(g.cooldown == 4 && g.boss.hp == 208);
+    CHECK(g.cooldown == 4 && g.boss.hp == 240);
+    for(int i=0;i<5;i++) game_tick(&g,.05f,(Vec2){0});
+    CHECK(g.boss.hp == 208);
     game_reset(&g);
     game_start(&g);
     g.hero.pos = (Vec2){28, 28};
@@ -344,7 +351,8 @@ static void attack_motion(void) {
     game_reset(&g); game_start(&g); clues(&g);
     g.hero.pos = (Vec2){g.boars[0].pos.x + 40, g.boars[0].pos.y};
     g.boars[0].state = AI_RECOVER; g.boars[0].timer = 9;
-    g.auto_timer = 0;
+    g.attack_cooldown = 0;
+    CHECK(game_attack(&g));
     game_tick(&g, .01f, (Vec2){0});
     CHECK(game_hero_attack_frame(&g) == 0 && g.boars[0].hp == 38);
     CHECK(g.hero.attack_face == -1);
@@ -371,7 +379,8 @@ static void attack_motion(void) {
     /* Moving out of range during windup evades the committed target. */
     game_reset(&g); game_start(&g); clues(&g);
     g.hero.pos = (Vec2){g.boars[0].pos.x - 40, g.boars[0].pos.y};
-    g.auto_timer = 0;
+    g.attack_cooldown = 0;
+    CHECK(game_attack(&g));
     game_tick(&g, .01f, (Vec2){0});
     CHECK(g.hero.attacking && g.hero.attack_face == 1);
     g.hero.pos = HOME;
@@ -432,7 +441,7 @@ static void walking_motion(void) {
     CHECK(g.hero.pos.x > start.x && game_hero_frame(&g) >= 0);
 
     const Phase panels[] = {PH_TITLE, PH_PROLOGUE, PH_DIALOGUE, PH_SHOP, PH_BAG,
-                            PH_JOURNAL, PH_AUGMENT, PH_COMPLETE, PH_DEAD, PH_PAUSED};
+                            PH_JOURNAL, PH_AUGMENT, PH_COMPLETE, PH_DEAD, PH_PAUSED, PH_TECHNIQUES};
     for (size_t i = 0; i < sizeof panels/sizeof *panels; i++) {
         game_reset(&g); game_start(&g);
         game_tick(&g, .05f, (Vec2){1, 0});
@@ -450,7 +459,92 @@ static void walking_motion(void) {
     game_retry(&g);
     CHECK(game_hero_frame(&g) == -1 && g.hero.walk_cycle == 0);
 }
+static void advance(Game *g, int ticks) {
+    for(int i=0;i<ticks;i++) game_tick(g,.05f,(Vec2){0});
+}
+static void combat_fixture(Game *g) {
+    game_reset(g); game_start(g); g->quest=Q_COMBAT;
+    g->hero.pos=HOME; g->hero.invul=99;
+    g->boss.pos=(Vec2){HOME.x+40,HOME.y}; g->boss.hp=240;
+    g->boss.home=g->boss.pos; g->boss.state=AI_RECOVER; g->boss.timer=99;
+}
+static void equipment_and_manual_combat(void) {
+    Game g; combat_fixture(&g);
+    advance(&g,30);
+    CHECK(g.boss.hp==240 && !g.hero.attacking); /* Proximity never starts an attack. */
+    CHECK(game_attack(&g)); advance(&g,3);
+    CHECK(g.boss.hp==231); advance(&g,10); CHECK(g.boss.hp==231);
+    g.phase=PH_BAG;
+    CHECK(!game_equip(&g,ITEM_SWORD,true));
+    g.owned_sword=g.owned_armor=true;
+    CHECK(game_equip(&g,ITEM_SWORD,true) && g.sword);
+    CHECK(game_equip(&g,ITEM_SWORD,false) && !g.sword && g.owned_sword);
+    CHECK(!game_equip(&g,ITEM_TONIC,true));
+    CHECK(game_equip(&g,ITEM_ARMOR,true) && g.armor);
+    g.phase=PH_SHOP; g.shop=SMITH; g.coins=300;
+    CHECK(!game_buy(&g,ITEM_SWORD) && g.coins==300); /* Owned gear cannot be re-bought. */
+    CHECK(!game_equip(&g,ITEM_SWORD,true));
+    g.phase=PH_BAG; CHECK(game_equip(&g,ITEM_SWORD,true));
+    game_close_panel(&g); advance(&g,30);
+    CHECK(game_attack(&g)); advance(&g,3); CHECK(g.boss.hp==217);
+    game_reset(&g); game_start(&g); CHECK(game_attack(&g));
+    CHECK(g.hero.attacking); advance(&g,10); CHECK(!g.hero.attacking);
+}
+static void techniques_and_combos(void) {
+    Game g;
+    for(int t=0;t<TECH_COUNT;t++) {
+        combat_fixture(&g);
+        CHECK(game_technique(&g,(Technique)t));
+        CHECK(!game_technique(&g,(Technique)t));
+        advance(&g,4); CHECK(g.boss.hp==240 && !g.hero.skill_hit);
+        float elapsed=g.hero.skill_elapsed;
+        g.phase=PH_TECHNIQUES; advance(&g,10);
+        CHECK(g.hero.skill_elapsed==elapsed && game_hero_skill_frame(&g)==-1);
+        game_close_panel(&g); advance(&g,1);
+        CHECK(g.boss.hp==240-TECHNIQUES[t].damage && g.hero.skill_hit);
+        int hp=g.boss.hp; advance(&g,10);
+        CHECK(g.boss.hp==hp && !g.hero.skilling);
+        CHECK(!game_technique(&g,(Technique)t));
+    }
+    combat_fixture(&g);
+    CHECK(!game_bind_swipe(&g,SWIPE_UP,TECH_THRUST));
+    g.phase=PH_TECHNIQUES;
+    CHECK(game_bind_swipe(&g,SWIPE_UP,TECH_THRUST));
+    CHECK(g.swipe_bindings[SWIPE_UP]==TECH_THRUST && g.swipe_bindings[SWIPE_LEFT]==TECH_CLEAVE);
+    for(int d=0;d<SWIPE_COUNT;d++) for(int t=0;t<TECH_COUNT;t++) {
+        CHECK(game_bind_swipe(&g,(Swipe)d,(Technique)t));
+        unsigned assigned=0;
+        for(int i=0;i<SWIPE_COUNT;i++) assigned|=1u<<g.swipe_bindings[i];
+        CHECK(assigned==(1u<<TECH_COUNT)-1);
+    }
+    CHECK(!game_bind_swipe(&g,(Swipe)-1,TECH_CLEAVE));
+    CHECK(!game_bind_swipe(&g,SWIPE_UP,(Technique)TECH_COUNT));
+    game_close_panel(&g);
+    CHECK(!game_technique(&g,(Technique)-1));
+    CHECK(!game_technique(&g,(Technique)TECH_COUNT));
+    combat_fixture(&g); CHECK(game_attack(&g));
+    CHECK(!game_technique(&g,TECH_SWEEP)); /* Early inputs cannot bypass windup. */
+    advance(&g,5); CHECK(g.boss.hp==231);
+    CHECK(game_technique(&g,TECH_SWEEP) && g.queued_move==TECH_SWEEP);
+    advance(&g,4); CHECK(g.hero.skilling && g.hero.technique==TECH_SWEEP && g.combo_count==2);
+    advance(&g,9); CHECK(g.boss.hp==218); /* 12 * 1.1 rounds to 13. */
+    CHECK(game_technique(&g,TECH_CLEAVE)); advance(&g,4);
+    CHECK(g.hero.technique==TECH_CLEAVE && g.combo_count==3);
+    advance(&g,5); CHECK(g.boss.hp==187); /* 26 * 1.2 rounds to 31. */
+    CHECK(!game_technique(&g,TECH_CLEAVE));
+    advance(&g,35); CHECK(g.combo_time==0);
+    CHECK(game_technique(&g,TECH_THRUST) && g.combo_count==1);
+    combat_fixture(&g); CHECK(game_attack(&g)); advance(&g,5);
+    CHECK(game_technique(&g,TECH_SWEEP));
+    g.phase=PH_BAG; advance(&g,1);
+    CHECK(g.queued_move==MOVE_NONE); game_close_panel(&g); advance(&g,10);
+    CHECK(!g.hero.skilling && g.boss.hp==231);
+    combat_fixture(&g); CHECK(game_attack(&g)); advance(&g,16);
+    CHECK(g.combo_time>0 && game_attack(&g) && g.combo_count==1); /* A repeat does not stack. */
+}
 int main(void) {
+    equipment_and_manual_combat();
+    techniques_and_combos();
     quest_chain();
     shops();
     supplies();
@@ -461,7 +555,7 @@ int main(void) {
     walking_motion();
     attack_motion();
     printf(
-        "PASS: %d checks across quests, transactions, consumables, recovery, pause, augments and bounds.\n",
+        "PASS: %d checks across quests, transactions, consumables, recovery, pause, four techniques, combos and bounds.\n",
         checks);
     return 0;
 }

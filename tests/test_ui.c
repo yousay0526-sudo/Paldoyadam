@@ -63,6 +63,42 @@ static void text_stays_inside(App *a, SDL_Surface *surface) {
           after.w == outer.w && after.h == outer.h);
     SDL_RenderSetClipRect(a->renderer,NULL);
 }
+static void panel_controls_fit(App *a) {
+    const Vec2 sizes[]={{432,270},{480,306},{568,320},{844,390},{1100,650}};
+    game_reset(&a->game); game_start(&a->game);
+    a->game.owned_sword=a->game.sword=a->game.owned_armor=a->game.armor=true;
+    a->game.herbs=2;
+    for(int view=0;view<5;view++) {
+        a->width=sizes[view].x; a->height=sizes[view].y;
+        for(int tab=0;tab<4;tab++) {
+            a->game.phase=PH_BAG; a->bag_tab=tab; a->bag_selected=-999;
+            a->button_count=0; draw_bag(a);
+            CHECK(a->button_count<BUTTON_MAX);
+            int tabs=0, gear=0;
+            for(int i=0;i<a->button_count;i++) {
+                Button b=a->buttons[i];
+                CHECK(b.rect.w>0 && b.rect.h>0 && b.rect.x>=0 && b.rect.y>=0);
+                CHECK(b.rect.x+b.rect.w<=a->width && b.rect.y+b.rect.h<=a->height);
+                tabs+=b.action==ACT_BAG_TAB; gear+=b.action==ACT_GEAR_SELECT;
+            }
+            CHECK(tabs==4 && gear==6);
+        }
+        a->game.phase=PH_TECHNIQUES; a->button_count=0; draw_techniques(a);
+        int binds=0, directions=0;
+        for(int i=0;i<a->button_count;i++) {
+            Button b=a->buttons[i];
+            CHECK(b.rect.x>=0 && b.rect.y>=0 && b.rect.w>0 && b.rect.h>0);
+            CHECK(b.rect.x+b.rect.w<=a->width && b.rect.y+b.rect.h<=a->height);
+            binds+=b.action==ACT_TECH_BIND; directions+=b.action==ACT_SWIPE_SELECT;
+        }
+        CHECK(binds==4 && directions==4);
+        a->game.phase=PH_PLAY; a->button_count=0; draw_hud(a);
+        for(int i=0;i<a->button_count;i++) for(int j=i+1;j<a->button_count;j++) {
+            SDL_FRect x=a->buttons[i].rect,y=a->buttons[j].rect;
+            CHECK(x.x>=y.x+y.w || y.x>=x.x+x.w || x.y>=y.y+y.h || y.y>=x.y+x.h);
+        }
+    }
+}
 int main(int argc,char **argv) {
     SDL_SetMainReady();
     SDL_setenv("SDL_VIDEODRIVER","dummy",1);
@@ -73,6 +109,7 @@ int main(int argc,char **argv) {
     a->renderer = SDL_CreateSoftwareRenderer(surface);
     if (!a->renderer || !gfx_load(&a->gfx,a->renderer,argc > 1 ? argv[1] : "assets")) return 1;
     all_narratives(a);
+    panel_controls_fit(a);
     text_stays_inside(a,surface);
     gfx_free(&a->gfx);
     SDL_DestroyRenderer(a->renderer);
