@@ -92,11 +92,35 @@ static void panel_controls_fit(App *a) {
             binds+=b.action==ACT_TECH_BIND; directions+=b.action==ACT_SWIPE_SELECT;
         }
         CHECK(binds==4 && directions==4);
-        a->game.phase=PH_PLAY; a->button_count=0; draw_hud(a);
-        for(int i=0;i<a->button_count;i++) for(int j=i+1;j<a->button_count;j++) {
-            SDL_FRect x=a->buttons[i].rect,y=a->buttons[j].rect;
-            CHECK(x.x>=y.x+y.w || y.x>=x.x+x.w || x.y>=y.y+y.h || y.y>=x.y+x.h);
+        for(int touch=0;touch<2;touch++) {
+            a->touch_input=touch!=0;
+            a->game.phase=PH_PLAY;
+            /* Force a nearby interaction button to catch narrow HUD overlaps. */
+            a->game.hero.pos=NPCS[ELDER].pos;
+            a->button_count=0; draw_hud(a);
+            int attack_count=0, interact_count=0;
+            for(int i=0;i<a->button_count;i++) {
+                SDL_FRect x=a->buttons[i].rect;
+                CHECK(x.x>=0 && x.y>=0 && x.w>0 && x.h>0);
+                CHECK(x.x+x.w<=a->width && x.y+x.h<=a->height);
+                if(a->buttons[i].action==ACT_INTERACT) interact_count++;
+                if(a->buttons[i].action==ACT_ATTACK) {
+                    attack_count++;
+                    CHECK(x.w==x.h && x.w==88);
+                    if(touch) {
+                        CHECK(x.x==a->width-160 && x.y==a->height-160);
+                        CHECK(a->width-(x.x+x.w)>=72 && a->height-(x.y+x.h)>=72);
+                    }
+                }
+                for(int j=i+1;j<a->button_count;j++) {
+                    SDL_FRect y=a->buttons[j].rect;
+                    CHECK(x.x>=y.x+y.w || y.x>=x.x+x.w ||
+                          x.y>=y.y+y.h || y.y>=x.y+x.h);
+                }
+            }
+            CHECK(attack_count==1 && interact_count==1);
         }
+        a->touch_input=false;
     }
 }
 int main(int argc,char **argv) {
