@@ -444,6 +444,8 @@ void game_recover(Game *g) {
     g->hero.pos = HOME;
     g->hero.walking = false;
     g->hero.walk_cycle = 0;
+    g->hero.attacking = false;
+    g->hero.attack_elapsed = 0;
     g->hero.hp = g->hero.max_hp;
     g->hero.bleed = g->hero.invul = 0;
     if (g->quest == Q_COMBAT) {
@@ -464,6 +466,8 @@ void game_retry(Game *g) {
     g->hero.pos = add(BOSS_HOME, (Vec2){-145, 0});
     g->hero.walking = false;
     g->hero.walk_cycle = 0;
+    g->hero.attacking = false;
+    g->hero.attack_elapsed = 0;
     g->hero.hp = 100;
     g->hero.bleed = g->hero.invul = 0;
     g->boss = make_enemy(BOSS_HOME, 240);
@@ -598,8 +602,50 @@ static void tick_loot(Game *g, float dt) {
             game_collect(g, i);
     }
 }
+static void begin_attack(Game *g, Enemy *enemy) {
+    Hero *h = &g->hero;
+    h->attacking = true;
+    h->attack_hit = false;
+    h->attack_elapsed = 0;
+    h->attack_target = enemy == &g->boss ? -1 : (int)(enemy - g->boars);
+    float dx = enemy->pos.x - h->pos.x;
+    if (fabsf(dx) > .1f)
+        h->face = dx > 0 ? 1 : -1;
+    h->attack_face = h->face;
+}
+static void tick_attack(Game *g, float dt) {
+    Hero *h = &g->hero;
+    if (!h->attacking)
+        return;
+    h->attack_elapsed += dt;
+    if (!h->attack_hit && h->attack_elapsed >= HERO_ATTACK_IMPACT) {
+        /* Commit one hit at the blade's strike frame, never during the windup. */
+        h->attack_hit = true;
+        Enemy *e = h->attack_target == -1 ? &g->boss
+            : h->attack_target >= 0 && h->attack_target < BOAR_COUNT
+                ? &g->boars[h->attack_target] : NULL;
+        if (e && active_enemy(g, e) && e->hp > 0 && world_segment(h->pos, e->pos, 0)) {
+            float d = distance(h->pos, e->pos);
+            float range = g->augment == AUG_STEEL ? 76 : 58;
+            if (d < range)
+                game_damage(g, e, (g->augment == AUG_STEEL ? 13 : 9) + (g->sword ? 5 : 0), FX_HIT);
+            if (g->augment == AUG_WIND && d < 120)
+                game_damage(g, e, 6, FX_WIND);
+        }
+    }
+    if (h->attack_elapsed >= HERO_ATTACK_SECONDS) {
+        h->attacking = false;
+        h->attack_elapsed = 0;
+    }
+}
+int game_hero_attack_frame(const Game *g) {
+    if (g->phase != PH_PLAY || !g->hero.attacking)
+        return -1;
+    int frame = (int)(g->hero.attack_elapsed / HERO_ATTACK_SECONDS * HERO_ATTACK_FRAMES);
+    return frame < HERO_ATTACK_FRAMES ? frame : HERO_ATTACK_FRAMES - 1;
+}
 int game_hero_frame(const Game *g) {
-    if (g->phase != PH_PLAY || !g->hero.walking)
+    if (g->phase != PH_PLAY || !g->hero.walking || g->hero.attacking)
         return -1;
     return (int)(g->hero.walk_cycle * HERO_WALK_FRAMES) % HERO_WALK_FRAMES;
 }
@@ -659,15 +705,14 @@ void game_tick(Game *g, float dt, Vec2 input) {
                 return;
         }
     }
+    tick_attack(g, dt);
     g->auto_timer -= dt;
     Enemy *e = nearest_enemy(g);
     float range = g->augment == AUG_STEEL ? 76 : 58;
-    if (e && g->auto_timer <= 0 && distance(g->hero.pos, e->pos) < (g->augment == AUG_WIND ? 120 : range)) {
+    if (e && !g->hero.attacking && g->auto_timer <= 0 &&
+        distance(g->hero.pos, e->pos) < (g->augment == AUG_WIND ? 120 : range)) {
         g->auto_timer = .75f;
-        if (distance(g->hero.pos, e->pos) < range)
-            game_damage(g, e, (g->augment == AUG_STEEL ? 13 : 9) + (g->sword ? 5 : 0), FX_HIT);
-        if (g->augment == AUG_WIND)
-            game_damage(g, e, 6, FX_WIND);
+        begin_attack(g, e);
     }
     if (g->quest == Q_COMBAT)
         tick_boss(g, dt);

@@ -4,6 +4,9 @@
 #include "game.h"
 #include "stb_truetype.h"
 
+/* Uniform world zoom enlarges actors and scenery together; UI stays unchanged. */
+#define WORLD_ZOOM 1.20f
+
 typedef struct {
     SDL_Texture *texture;
     int w, h;
@@ -22,7 +25,7 @@ typedef struct {
 } Typeface;
 typedef struct {
     SDL_Renderer *renderer;
-    Picture map, hero, hero_walk, messenger, boss, boar, npcs, prologue[3];
+    Picture map, hero, hero_walk, hero_attack, messenger, boss, boar, npcs, prologue[3];
     Typeface fonts[2];
     int face;
 } Gfx;
@@ -50,4 +53,5 @@ void gfx_collision(Gfx *gfx, Vec2 camera);
 void gfx_world(Gfx *gfx, const Game *game, float width, float height, Vec2 camera,
                bool target_set, Vec2 target);
 Vec2 world_camera(float width, float height, Vec2 focus);
+Vec2 world_from_screen(Vec2 screen, Vec2 camera);
 #endif

@@ -20,11 +20,15 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
-      - name: Test common C gameplay and terrain
+      - name: Install SDL for native rendering checks
         run: |
-          cmake -S . -B build-core -DPALDO_BUILD_GAME=OFF -DCMAKE_BUILD_TYPE=Release
-          cmake --build build-core --parallel 2
-          ctest --test-dir build-core --output-on-failure
+          sudo apt-get update -qq
+          sudo apt-get install -y libsdl2-dev
+      - name: Test C gameplay, terrain, controls and rendering
+        run: |
+          cmake -S . -B build-native -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-native --parallel 2
+          ctest --test-dir build-native --output-on-failure
       - name: Get the official Emscripten SDK
         uses: actions/checkout@v6
         with:

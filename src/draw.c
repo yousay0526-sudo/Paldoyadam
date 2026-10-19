@@ -66,11 +66,12 @@ bool gfx_load(Gfx *g, SDL_Renderer *renderer, const char *root) {
     memset(g, 0, sizeof *g);
     g->renderer = renderer;
     char path[2048];
-    Picture *pictures[] = {&g->map, &g->hero, &g->hero_walk, &g->messenger, &g->boss, &g->boar,
+    Picture *pictures[] = {&g->map, &g->hero, &g->hero_walk, &g->hero_attack, &g->messenger, &g->boss, &g->boar,
                            &g->npcs, &g->prologue[0], &g->prologue[1], &g->prologue[2]};
     const char *names[] = {"village.png",
                            "warrior-v2.png",
                            "warrior-walk-v1.png",
+                           "warrior-attack-v1.png",
                            "warrior.png",
                            "butcher.png",
                            "minion.png",
@@ -88,7 +89,7 @@ bool gfx_load(Gfx *g, SDL_Renderer *renderer, const char *root) {
         }
         /* World sprites keep crisp sampling. The hero image is prefiltered
          * at 3x its logical size; only the story illustrations use linear. */
-        if (i >= 7)
+        if (i >= 8)
             SDL_SetTextureScaleMode(pictures[i]->texture, SDL_ScaleModeLinear);
     }
     if (g->hero_walk.w % HERO_WALK_COLUMNS ||
@@ -96,6 +97,14 @@ bool gfx_load(Gfx *g, SDL_Renderer *renderer, const char *root) {
         g->hero_walk.w / HERO_WALK_COLUMNS !=
         g->hero_walk.h / (HERO_WALK_FRAMES / HERO_WALK_COLUMNS)) {
         SDL_Log("Hero walking atlas must contain eight square cells in a 4x2 grid");
+        gfx_free(g);
+        return false;
+    }
+    if (g->hero_attack.w % HERO_ATTACK_COLUMNS ||
+        g->hero_attack.h % (HERO_ATTACK_FRAMES / HERO_ATTACK_COLUMNS) ||
+        g->hero_attack.w / HERO_ATTACK_COLUMNS !=
+        g->hero_attack.h / (HERO_ATTACK_FRAMES / HERO_ATTACK_COLUMNS)) {
+        SDL_Log("Hero attack atlas must contain six square cells in a 3x2 grid");
         gfx_free(g);
         return false;
     }
@@ -120,7 +129,7 @@ bool gfx_load(Gfx *g, SDL_Renderer *renderer, const char *root) {
     return true;
 }
 void gfx_free(Gfx *g) {
-    Picture *pictures[] = {&g->map, &g->hero, &g->hero_walk, &g->messenger, &g->boss, &g->boar,
+    Picture *pictures[] = {&g->map, &g->hero, &g->hero_walk, &g->hero_attack, &g->messenger, &g->boss, &g->boar,
                            &g->npcs, &g->prologue[0], &g->prologue[1], &g->prologue[2]};
     for (size_t i = 0; i < sizeof pictures / sizeof *pictures; i++) {
         if (pictures[i]->texture)
@@ -393,19 +402,36 @@ void gfx_sprite(Gfx *g, Picture *p, Vec2 v, float w, float h, bool flip) {
 }
 void gfx_hero(Gfx *f, const Game *g, Vec2 feet) {
     int frame = game_hero_frame(g);
-    Picture *p = frame < 0 ? &f->hero : &f->hero_walk;
+    int attack = game_hero_attack_frame(g);
+    Picture *p = attack >= 0 ? &f->hero_attack : frame < 0 ? &f->hero : &f->hero_walk;
     SDL_Rect source = {0, 0, p->w, p->h};
-    if (frame >= 0) {
-        source.w = p->w / HERO_WALK_COLUMNS;
-        source.h = p->h / (HERO_WALK_FRAMES / HERO_WALK_COLUMNS);
-        source.x = frame % HERO_WALK_COLUMNS * source.w;
-        source.y = frame / HERO_WALK_COLUMNS * source.h;
+    if (frame >= 0 || attack >= 0) {
+        int columns = attack >= 0 ? HERO_ATTACK_COLUMNS : HERO_WALK_COLUMNS;
+        int frames = attack >= 0 ? HERO_ATTACK_FRAMES : HERO_WALK_FRAMES;
+        int cell = attack >= 0 ? attack : frame;
+        source.w = p->w / columns;
+        source.h = p->h / (frames / columns);
+        source.x = cell % columns * source.w;
+        source.y = cell / columns * source.h;
     }
+    bool flip = (attack >= 0 ? g->hero.attack_face : g->hero.face) > 0;
     SDL_FRect dest = {feet.x - 23, feet.y - 46, 46, 46};
+    if (attack >= 0) {
+        /* Atlas-space roots keep the supporting foot planted through the swing.
+         * These anchors are also the alignment contract for future equipment layers. */
+        const Vec2 roots[HERO_ATTACK_FRAMES] = {
+            {290, 470}, {264, 470}, {310, 470}, {340, 455}, {280, 464}, {300, 465}};
+        const float fit[HERO_ATTACK_FRAMES] = {1, 1, 1, 1, .95f, .88f};
+        float size = 64 * fit[attack];
+        float root_x = roots[attack].x / 512;
+        if (flip) root_x = 1 - root_x;
+        dest = (SDL_FRect){feet.x - root_x * size,
+                           feet.y - roots[attack].y / 512 * size, size, size};
+    }
     SDL_SetTextureAlphaMod(p->texture,
         g->hero.invul > 0 && ((int)(g->time * 18) % 2) ? 110 : 255);
     SDL_RenderCopyExF(f->renderer, p->texture, &source, &dest, 0, NULL,
-                     g->hero.face < 0 ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE);
+                     flip ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE);
     SDL_SetTextureAlphaMod(p->texture, 255);
 }
 /* Preserve the entire illustration above the dialogue. A dimmed copy fills
@@ -426,6 +452,9 @@ void gfx_story(Gfx *f, int index, float w, float h, float elapsed, float footer_
 Vec2 world_camera(float w, float h, Vec2 p) {
     return (Vec2){w >= WORLD_W ? (WORLD_W - w) / 2 : clampf(p.x - w / 2, 0, WORLD_W - w),
                   h >= WORLD_H ? (WORLD_H - h) / 2 : clampf(p.y - h / 2, 0, WORLD_H - h)};
+}
+Vec2 world_from_screen(Vec2 p, Vec2 camera) {
+    return (Vec2){p.x / WORLD_ZOOM + camera.x, p.y / WORLD_ZOOM + camera.y};
 }
 static Vec2 screen_pos(Vec2 p, Vec2 camera) {
     return (Vec2){p.x - camera.x, p.y - camera.y};
@@ -516,7 +545,7 @@ void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool has_ta
     SDL_FRect map = {-camera.x, -camera.y, WORLD_W, WORLD_H};
     SDL_RenderCopyF(f->renderer, f->map.texture, NULL, &map);
     if (g->phase == PH_TITLE || g->phase == PH_PROLOGUE) {
-        gfx_sprite(f, &f->hero, screen_pos(HOME, camera), 46, 46, false);
+        gfx_hero(f, g, screen_pos(HOME, camera));
         return;
     }
     for (int i = 0; i < TRACE_COUNT; i++)
@@ -630,7 +659,8 @@ void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool has_ta
             gfx_hero(f, g, p);
             /* A faint silhouette keeps the player readable behind tall scenery. */
             SDL_SetTextureAlphaMod(f->map.texture, 205);
-            cover_actor(f, g->hero.pos, camera, 46, 48);
+            cover_actor(f, g->hero.pos, camera,
+                        g->hero.attacking ? 72 : 46, g->hero.attacking ? 64 : 48);
             SDL_SetTextureAlphaMod(f->map.texture, 255);
         }
     }

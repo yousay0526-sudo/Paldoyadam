@@ -71,6 +71,22 @@ static void pickup(App *a) {
     CHECK(a->game.herbs == 2 && a->target_set);
     CHECK(a->game.phase == PH_PLAY && a->game.cooldown == 0);
 }
+static void zoomed_destination(App *a) {
+    game_reset(&a->game); game_start(&a->game);
+    a->button_count = 0;
+    a->camera = world_camera(a->width / WORLD_ZOOM, a->height / WORLD_ZOOM, HOME);
+    Vec2 tap = {a->width / 2 + 72, a->height / 2 + 12};
+    Vec2 expected = {HOME.x + 60, HOME.y + 10};
+    pointer_down(a, -1, tap);
+    pointer_up(a, -1, tap);
+    CHECK(a->target_set && distance(a->target, expected) < .01f);
+    Vec2 origin = world_camera(a->width / WORLD_ZOOM, a->height / WORLD_ZOOM, (Vec2){0, 0});
+    CHECK(origin.x == 0 && origin.y == 0);
+    Vec2 far = world_camera(a->width / WORLD_ZOOM, a->height / WORLD_ZOOM,
+                            (Vec2){WORLD_W, WORLD_H});
+    CHECK(fabsf(far.x + a->width / WORLD_ZOOM - WORLD_W) < .01f);
+    CHECK(fabsf(far.y + a->height / WORLD_ZOOM - WORLD_H) < .01f);
+}
 int main(void) {
     SDL_SetMainReady();
     if (SDL_Init(SDL_INIT_EVENTS) != 0) return 1;
@@ -79,6 +95,7 @@ int main(void) {
     a->width = 844; a->height = 390; a->density = 1;
     conversation(a);
     pickup(a);
+    zoomed_destination(a);
     free(a);
     SDL_Quit();
     printf("PASS: %d controls checks: Space dialogue/repeat, Q skill, F/automatic pickup, panel isolation.\n", checks);

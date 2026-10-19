@@ -16,6 +16,10 @@
 #define DROP_REST_SECONDS .70f
 #define HERO_WALK_FRAMES 8
 #define HERO_WALK_COLUMNS 4
+#define HERO_ATTACK_FRAMES 6
+#define HERO_ATTACK_COLUMNS 3
+#define HERO_ATTACK_SECONDS .42f
+#define HERO_ATTACK_IMPACT .14f
 /* One full left/right stride in world units, independent of frame rate. */
 #define HERO_WALK_DISTANCE 112.0f
 
@@ -65,6 +69,10 @@ typedef struct {
     float bleed, bleed_tick, invul;
     float walk_cycle;
     bool walking;
+    /* The swing keeps its own target/facing while movement remains responsive. */
+    float attack_elapsed;
+    int attack_target, attack_face;
+    bool attacking, attack_hit;
 } Hero;
 typedef struct {
     Vec2 pos, home;
@@ -139,6 +147,7 @@ void game_start(Game *g);
 void game_tick(Game *g, float dt, Vec2 movement);
 /* -1 means the approved standing pose; 0..7 select walking atlas cells. */
 int game_hero_frame(const Game *g);
+int game_hero_attack_frame(const Game *g);
 void game_toast(Game *g, const char *text);
 Nearby game_nearby(const Game *g);
 int game_pickup_count(const Game *g);

@@ -70,3 +70,17 @@
 - Android 준비 스크립트의 SHA-256 검증·SDL 소스 준비·Gradle 실행기 복사 성공. Android XML과 Python 구문 확인.
 
 미검증: 실제 휴대폰의 다중 터치·회전·노치·전체화면, Android APK 컴파일, Windows/macOS 실행. 테스트 화면은 C 실행 파일이 직접 렌더링한 화면이며 기존 HTML 화면 캡처가 아님.
+
+
+## 0.7.4 native review (2026-10-19)
+
+Verified with Clang 19.1.7 via official Zig 0.14.1, C11, and official SDL 2.32.10 on Windows. Compiler caches were scoped to the task temp directory. Third-party stb emits two existing unused-function warnings; application sources compile cleanly.
+
+- Gameplay: 303 assertions, including six attack poses, windup before damage, a single impact, pause/resume, moving out of reach, recovery, equipment damage and augment regressions.
+- Terrain: 136 assertions covering gates, routes, dash and walls. World simulation coordinates and collision polygons remain unchanged under the 1.20 render zoom.
+- SDL controls: 26 assertions, including actual event dispatch and the inverse transform for a tapped destination after zoom.
+- UI: 283 assertions across narrative lines, compact landscape screens and text clipping at 1/1.25/2x.
+- Hero renderer: eight walking and six attack poses at 1/2/3x; source-facing regression, unique frames, bounds, left/right reflection, idle return and menu isolation. Pixel bounds were checked for all attack renders.
+- Actual SDL game smoke scenes: village, attack3, attack6, roof and canopy at 844x390. See hero-scale-review.png and hero-attack-review.png.
+
+The candidate is based on public main bb03a4c4a7592e0e344eefbbacaa0d485a021f45. Browser/WebAssembly build and public deployment remain pending; the workflow now runs all native test groups before compiling the web build.

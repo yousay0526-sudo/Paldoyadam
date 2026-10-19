@@ -48,3 +48,13 @@ python3 scripts/prepare_hero_asset.py
 - 배경과 후속 장의 NPC도 기존 조선 마을의 차분한 흙색·녹색과 어울려야 한다.
 - 배경 오브젝트 위치가 달라지면 같은 단계에서 충돌과 가림 좌표도 수정한다.
 - 2장 이후의 새 NPC와 맵 제작은 별도 요청 전까지 진행하지 않는다.
+
+
+## 0.7.4: directions, scale and attacks
+
+- The approved idle/walk artwork faces screen-left. Mirror for face=+1 (right), retain the source for face=-1 (left). Attack facing is captured independently at swing start.
+- WORLD_ZOOM=1.20 enlarges the complete world, including actors, houses, roofs, tree canopies and collision overlays. Keep simulation coordinates unchanged; camera view dimensions and pointer inverse transforms use the same zoom. HUD/dialogue use the original renderer scale.
+- assets/warrior-attack-v1.png: transparent 576x384 atlas, six 192px square cells, 3x2, row-major anticipation / raised sword / strike / follow-through / recovery / settle. A premultiplied-alpha area reduction preserves detail and avoids dark edges.
+- Swing lasts 0.42 seconds; impact at 0.14 seconds. Validate the committed target, distance and unobstructed segment at impact. Menus freeze elapsed time. Recovery/retry clear pending attacks.
+- Future armor, helmet and weapon artwork must use per-action layers with shared foot roots, cell dimensions, pose timing and the same facing convention. Store item appearance separately from combat stats; align equipment to the torso/head/hand anchors of each pose. This release records that contract; equipment appearance swaps are a later feature.
+- Preserve the Joseon pixel-RPG palette: topknot, navy/teal armor, gold ornaments, red sash, curved silver hwando. Follow the same palette and proportions for later episodes.

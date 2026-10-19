@@ -114,6 +114,8 @@ static void shops(void) {
     g.hero.pos = g.boss.pos;
     g.auto_timer = 0;
     game_tick(&g, .05f, (Vec2){0});
+    CHECK(g.boss.hp == 240 && g.hero.attacking);
+    for (int i = 0; i < 3; i++) game_tick(&g, .05f, (Vec2){0});
     CHECK(g.boss.hp == 226);
     game_hurt(&g, 18, true);
     CHECK(g.hero.hp == 85 && g.hero.bleed == 5);
@@ -205,12 +207,14 @@ static void augments_and_bounds(void) {
     g.hero.pos = (Vec2){g.boss.pos.x - 70, g.boss.pos.y};
     g.auto_timer = 0;
     game_tick(&g, .05f, (Vec2){0});
+    for (int i = 0; i < 3; i++) game_tick(&g, .05f, (Vec2){0});
     CHECK(g.boss.hp == 227);
     g.augment = AUG_WIND;
     game_retry(&g);
     g.hero.pos = (Vec2){g.boss.pos.x - 110, g.boss.pos.y};
     g.auto_timer = 0;
     game_tick(&g, .05f, (Vec2){0});
+    for (int i = 0; i < 3; i++) game_tick(&g, .05f, (Vec2){0});
     CHECK(g.boss.hp == 234);
     g.augment = AUG_FLOW;
     game_retry(&g);
@@ -335,6 +339,47 @@ static void automatic_magnet(void) {
     CHECK(g.herbs == 1 && g.drops[0].collected);
 
 }
+static void attack_motion(void) {
+    Game g;
+    game_reset(&g); game_start(&g); clues(&g);
+    g.hero.pos = (Vec2){g.boars[0].pos.x + 40, g.boars[0].pos.y};
+    g.boars[0].state = AI_RECOVER; g.boars[0].timer = 9;
+    g.auto_timer = 0;
+    game_tick(&g, .01f, (Vec2){0});
+    CHECK(game_hero_attack_frame(&g) == 0 && g.boars[0].hp == 38);
+    CHECK(g.hero.attack_face == -1);
+    game_tick(&g, .05f, (Vec2){0});
+    CHECK(g.boars[0].hp == 38);
+    float elapsed = g.hero.attack_elapsed;
+    g.phase = PH_BAG;
+    for (int i = 0; i < 20; i++) game_tick(&g, .05f, (Vec2){0});
+    CHECK(g.hero.attack_elapsed == elapsed && g.boars[0].hp == 38);
+    CHECK(game_hero_attack_frame(&g) == -1);
+    g.phase = PH_PLAY;
+    unsigned seen = 1u | (1u << game_hero_attack_frame(&g));
+    for (int i = 0; i < 20; i++) {
+        game_tick(&g, .02f, (Vec2){0});
+        int frame = game_hero_attack_frame(&g);
+        if (frame >= 0) seen |= 1u << frame;
+        if (g.hero.attacking && g.hero.attack_elapsed < HERO_ATTACK_IMPACT)
+            CHECK(g.boars[0].hp == 38);
+    }
+    CHECK(seen == (1u << HERO_ATTACK_FRAMES) - 1);
+    CHECK(g.boars[0].hp == 29); /* One impact despite several strike/recovery frames. */
+    CHECK(!g.hero.attacking && game_hero_attack_frame(&g) == -1);
+
+    /* Moving out of range during windup evades the committed target. */
+    game_reset(&g); game_start(&g); clues(&g);
+    g.hero.pos = (Vec2){g.boars[0].pos.x - 40, g.boars[0].pos.y};
+    g.auto_timer = 0;
+    game_tick(&g, .01f, (Vec2){0});
+    CHECK(g.hero.attacking && g.hero.attack_face == 1);
+    g.hero.pos = HOME;
+    for (int i = 0; i < 4; i++) game_tick(&g, .05f, (Vec2){0});
+    CHECK(g.boars[0].hp == 38 && g.hero.attack_hit);
+    game_recover(&g);
+    CHECK(!g.hero.attacking && g.hero.attack_elapsed == 0);
+}
 static void walking_motion(void) {
     Game g, slow;
     game_reset(&g);
@@ -414,6 +459,7 @@ int main(void) {
     dedicated_pickup();
     automatic_magnet();
     walking_motion();
+    attack_motion();
     printf(
         "PASS: %d checks across quests, transactions, consumables, recovery, pause, augments and bounds.\n",
         checks);

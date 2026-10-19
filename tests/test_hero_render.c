@@ -36,6 +36,16 @@ int main(int argc, char **argv) {
         Game game;
         game_reset(&game); game_start(&game);
         capture(gfx, &game, surface, idle);
+        /* Source artwork faces left: right-facing idle must be its reflection. */
+        SDL_SetRenderDrawColor(renderer, 11, 15, 19, 255);
+        SDL_RenderClear(renderer);
+        SDL_Rect original = {0, 0, gfx->hero.w, gfx->hero.h};
+        SDL_FRect expected = {25, 26, 46, 46};
+        SDL_RenderCopyExF(renderer, gfx->hero.texture, &original, &expected,
+                          0, NULL, SDL_FLIP_HORIZONTAL);
+        CHECK(SDL_RenderReadPixels(renderer, NULL, surface->format->format,
+                                  pixels, surface->pitch) == 0);
+        CHECK(memcmp(pixels, idle, bytes) == 0);
         for (int frame = 0; frame < HERO_WALK_FRAMES; frame++) {
             game.hero.walking = true;
             game.hero.walk_cycle = (frame+.1f)/HERO_WALK_FRAMES;
@@ -60,6 +70,30 @@ int main(int argc, char **argv) {
         capture(gfx, &game, surface, pixels);
         CHECK(memcmp(pixels, idle, bytes) == 0);
         game.hero.walking = true; game.phase = PH_PAUSED;
+        capture(gfx, &game, surface, pixels);
+        CHECK(memcmp(pixels, idle, bytes) == 0);
+        game.phase = PH_PLAY; game.hero.walking = false;
+        game.hero.attacking = true; game.hero.attack_face = 1;
+        for (int frame = 0; frame < HERO_ATTACK_FRAMES; frame++) {
+            game.hero.attack_elapsed = (frame + .1f) * HERO_ATTACK_SECONDS / HERO_ATTACK_FRAMES;
+            capture(gfx, &game, surface, pixels);
+            CHECK(memcmp(pixels, idle, bytes) != 0);
+            if (frame) CHECK(memcmp(pixels, previous, bytes) != 0);
+            memcpy(previous, pixels, bytes);
+            int visible = 0;
+            for (int y = 0; y < surface->h; y++)
+                for (int x = 0; x < surface->w; x++)
+                    if (pixels[y * surface->w + x] != background) {
+                        visible++;
+                        CHECK(x < 96 * scale && y < 80 * scale);
+                    }
+            CHECK(visible > 100);
+            game.hero.attack_face = -1;
+            capture(gfx, &game, surface, pixels);
+            CHECK(memcmp(pixels, previous, bytes) != 0);
+            game.hero.attack_face = 1;
+        }
+        game.phase = PH_BAG;
         capture(gfx, &game, surface, pixels);
         CHECK(memcmp(pixels, idle, bytes) == 0);
     }

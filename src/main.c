@@ -691,13 +691,18 @@ static void draw(App *a) {
     resize(a);
     a->button_count = 0;
     Vec2 focus = a->game.phase == PH_TITLE || a->game.phase == PH_PROLOGUE ? HOME : a->game.hero.pos;
-    a->camera = world_camera(a->width, a->height, focus);
-    gfx_world(&a->gfx, &a->game, a->width, a->height, a->camera, a->target_set, a->target);
+    float scale_x, scale_y;
+    SDL_RenderGetScale(a->renderer, &scale_x, &scale_y);
+    SDL_RenderSetScale(a->renderer, scale_x * WORLD_ZOOM, scale_y * WORLD_ZOOM);
+    a->camera = world_camera(a->width / WORLD_ZOOM, a->height / WORLD_ZOOM, focus);
+    gfx_world(&a->gfx, &a->game, a->width / WORLD_ZOOM, a->height / WORLD_ZOOM,
+              a->camera, a->target_set, a->target);
     if (a->debug_collision) {
         gfx_collision(&a->gfx, a->camera);
         gfx_circle(&a->gfx, (Vec2){a->game.hero.pos.x - a->camera.x, a->game.hero.pos.y - a->camera.y},
                    HERO_RADIUS, GOLD);
     }
+    SDL_RenderSetScale(a->renderer, scale_x, scale_y);
     if (a->game.phase == PH_PROLOGUE && a->story_index < 4) {
         const int pictures[4] = {0, 1, 1, 2};
         gfx_story(&a->gfx, pictures[a->story_index], a->width, a->height, a->story_elapsed, narrative_rect(a, STORY_TEXT[a->story_index]).h);
@@ -757,8 +762,9 @@ static void pointer_up(App *a, Sint64 id, Vec2 p) {
     if (!a->pointer_down || a->pointer_id != id)
         return;
     if (!a->pointer_moved && a->game.phase == PH_PLAY) {
-        a->target =
-            (Vec2){clampf(p.x + a->camera.x, 28, WORLD_W - 28), clampf(p.y + a->camera.y, 28, WORLD_H - 28)};
+        a->target = world_from_screen(p, a->camera);
+        a->target.x = clampf(a->target.x, 28, WORLD_W - 28);
+        a->target.y = clampf(a->target.y, 28, WORLD_H - 28);
         a->target_set = world_route(a->game.hero.pos, a->target, HERO_RADIUS, &a->route);
         if (a->target_set)
             a->target = a->route.points[a->route.count - 1];
@@ -926,6 +932,15 @@ static void smoke_scene(App *a, const char *scene) {
         a->game.traces[0] = a->game.traces[1] = true;
         a->game.quest = Q_RECOVER;
         a->game.hero.pos = (Vec2){a->game.boars[0].pos.x - 100, a->game.boars[0].pos.y};
+    } else if (!strncmp(scene, "attack", 6)) {
+        a->game.traces[0] = a->game.traces[1] = true;
+        a->game.quest = Q_RECOVER;
+        a->game.hero.pos = (Vec2){a->game.boars[0].pos.x - 45, a->game.boars[0].pos.y};
+        int pose = (int)clampf((float)atoi(scene + 6) - 1, 0, HERO_ATTACK_FRAMES - 1);
+        a->game.hero.attacking = true;
+        a->game.hero.attack_face = 1;
+        a->game.hero.attack_elapsed = (pose + .1f) * HERO_ATTACK_SECONDS / HERO_ATTACK_FRAMES;
+        a->game.auto_timer = 1;
     } else if (!strcmp(scene, "loot")) {
         a->game.traces[0] = a->game.traces[1] = true;
         a->game.quest = Q_RECOVER;
