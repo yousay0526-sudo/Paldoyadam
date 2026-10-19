@@ -523,8 +523,9 @@ static void techniques_and_combos(void) {
     CHECK(!game_technique(&g,(Technique)-1));
     CHECK(!game_technique(&g,(Technique)TECH_COUNT));
     combat_fixture(&g); CHECK(game_attack(&g));
-    CHECK(!game_technique(&g,TECH_SWEEP)); /* Early inputs cannot bypass windup. */
-    advance(&g,5); CHECK(g.boss.hp==231);
+    CHECK(game_technique(&g,TECH_SWEEP) && g.queued_move==TECH_SWEEP);
+    /* Early input waits for the previous attack's impact and recovery. */
+    advance(&g,5); CHECK(g.boss.hp==231 && g.hero.attacking);
     CHECK(game_technique(&g,TECH_SWEEP) && g.queued_move==TECH_SWEEP);
     advance(&g,4); CHECK(g.hero.skilling && g.hero.technique==TECH_SWEEP && g.combo_count==2);
     advance(&g,9); CHECK(g.boss.hp==218); /* 12 * 1.1 rounds to 13. */
