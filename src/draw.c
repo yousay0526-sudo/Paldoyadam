@@ -643,7 +643,7 @@ void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool has_ta
         float y;
     } Actor;
     Actor actors[10];
-    int count = 0, npcs = g->quest == Q_MESSENGER ? 5 : 4;
+    int count = 0, npcs = g->training.active ? 0 : g->quest == Q_MESSENGER ? 5 : 4;
     for (int i = 0; i < npcs; i++)
         actors[count++] = (Actor){0, i, NPCS[i].pos.y};
     if (game_boars_active(g))
@@ -654,7 +654,7 @@ void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool has_ta
                     gfx_sector(f, screen_pos(g->boars[i].pos, camera), 64, 0, PI,
                                (SDL_Color){200, 90, 45, 72});
             }
-    if (g->quest == Q_HUNT || g->quest == Q_COMBAT) {
+    if (g->training.active || g->quest == Q_HUNT || g->quest == Q_COMBAT) {
         actors[count++] = (Actor){2, 0, g->boss.pos.y};
         if (g->boss.state == AI_WINDUP) {
             Vec2 p = screen_pos(g->boss.pos, camera);
@@ -710,6 +710,17 @@ void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool has_ta
         } else if (actors[a].kind == 2) {
             p = screen_pos(g->boss.pos, camera);
             shadow(f, p, 23);
+            if (g->training.active) {
+                SDL_Color straw = g->training.hit_time > 0 ? PAPER : GOLD;
+                float sway = g->training.hit_time > 0 ? sinf(g->training.hit_time * 55) * 3 : 0;
+                gfx_round(f, (SDL_FRect){p.x - 4, p.y - 45, 8, 45}, 3, (SDL_Color){104, 74, 47, 255});
+                gfx_round(f, (SDL_FRect){p.x - 26 + sway, p.y - 40, 52, 7}, 3, straw);
+                gfx_round(f, (SDL_FRect){p.x - 13 + sway, p.y - 43, 26, 29}, 7, straw);
+                gfx_disc(f, (Vec2){p.x + sway, p.y - 53}, 10, straw, INK);
+                gfx_line(f, (Vec2){p.x - 12 + sway, p.y - 29}, (Vec2){p.x + 12 + sway, p.y - 29}, INK);
+                label(f, "허수아비", (Vec2){p.x, p.y - 78}, PAPER);
+                continue;
+            }
             gfx_sprite(f, &f->boss, (Vec2){p.x, p.y + 7}, 83, 96, g->boss.pos.x < g->hero.pos.x);
             cover_actor(f, g->boss.pos, camera, 83, 98);
             if (g->boss.state == AI_RECOVER)
@@ -748,7 +759,7 @@ void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool has_ta
             gfx_line(f, (Vec2){q.x - 16, q.y - 35}, (Vec2){q.x + 17, q.y - 12}, PAPER);
     }
     Vec2 objective = game_objective(g);
-    if (g->phase == PH_PLAY && g->quest != Q_COMBAT && distance(objective, g->hero.pos) > 70) {
+    if (!g->training.active && g->phase == PH_PLAY && g->quest != Q_COMBAT && distance(objective, g->hero.pos) > 70) {
         float angle = atan2f(objective.y - g->hero.pos.y, objective.x - g->hero.pos.x);
         Vec2 p = screen_pos(g->hero.pos, camera);
         p.x += cosf(angle) * 42;

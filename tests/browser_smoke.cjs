@@ -18,6 +18,16 @@ async function phase(page, value) {
 async function shot(page, name) {
   if (shots) { fs.mkdirSync(shots, {recursive:true}); await page.screenshot({path:path.join(shots,name+'.png')}); }
 }
+async function hiddenTaps(context, page) {
+  const entry=await context.newCDPSession(page), taps=[];
+  for(let tap=0;tap<7;tap++) {
+    taps.push(entry.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:60,y:18}]}));
+    taps.push(entry.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]}));
+  }
+  await Promise.all(taps);
+  await entry.detach();
+  await page.waitForFunction(()=>JSON.parse(Module.UTF8ToString(Module._paldo_test_state())).training);
+}
 
 (async () => {
   const server = http.createServer((req,res) => {
@@ -32,7 +42,7 @@ async function shot(page, name) {
     });
   });
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
-  let browser;
+  let browser, currentPage;
   try {
     browser=await chromium.launch({executablePath:process.env.PALDO_BROWSER||undefined,
       args:['--no-sandbox','--disable-dev-shm-usage']});
@@ -42,6 +52,7 @@ async function shot(page, name) {
       const context=await browser.newContext({viewport:{width,height},deviceScaleFactor:mobile?2:1,
         isMobile:mobile,hasTouch:mobile});
       const page=await context.newPage();
+      currentPage=page;
       page.on('pageerror',e=>errors.push(e.message));
       page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
       await page.goto(url);
@@ -148,17 +159,83 @@ async function shot(page, name) {
         assert((await state(page)).cooldown>0,'Q must trigger the skill');
         await page.setViewportSize({width:960,height:540});await page.waitForTimeout(150);
         assert.equal(Math.round((await state(page)).width),960);
-        await page.mouse.click(960-83,32);
-        await page.waitForFunction(()=>!!document.fullscreenElement,{},{timeout:5000});
-        await page.evaluate(()=>document.exitFullscreen());
-        await page.waitForTimeout(150);
+        if(process.env.PALDO_SKIP_FULLSCREEN === '1') console.log('SKIP browser fullscreen (explicit PALDO_SKIP_FULLSCREEN=1)');
+        else {
+          await page.mouse.click(960-83,32);
+          await page.waitForFunction(()=>!!document.fullscreenElement,{},{timeout:5000});
+          await page.evaluate(()=>document.exitFullscreen());
+          await page.waitForTimeout(150);
+        }
       }
       assert.equal((await state(page)).clear,true);
       await shot(page,mobile?'mobile-village':'desktop-village');
-      console.log('PASS browser',mobile?'mobile touch/DPR2/rotation':'desktop keyboard/dialogue/panels/fullscreen',await state(page));
+      const original=await state(page);
+      if(mobile) await hiddenTaps(context,page);
+      else await page.keyboard.press('F8');
+      await page.waitForFunction(()=>JSON.parse(Module.UTF8ToString(Module._paldo_test_state())).training);
+      assert.equal((await state(page)).dummyHp,240);
+      if(mobile) {
+        const cdp=await context.newCDPSession(page);
+        const point={x:728,y:274};
+        await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[point]});
+        point.y-=40;
+        await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[point]});
+        await page.waitForTimeout(100);
+        point.y+=40;
+        await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[point]});
+        await page.waitForFunction(()=>JSON.parse(Module.UTF8ToString(Module._paldo_test_state())).combo===2);
+        point.x-=40;
+        await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[point]});
+        await page.waitForFunction(()=>JSON.parse(Module.UTF8ToString(Module._paldo_test_state())).hits===3);
+        point.x+=40;
+        await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[point]});
+        assert.equal((await state(page)).queued,1);
+        await page.setViewportSize({width:390,height:844});
+        await page.waitForFunction(()=>JSON.parse(Module.UTF8ToString(Module._paldo_test_state())).height>800);
+        const rotated=await state(page);
+        assert.equal(rotated.queued,-2); assert.equal(rotated.attackDown,false);
+        await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+        await page.setViewportSize({width:844,height:390});
+        await page.waitForTimeout(700);
+        assert.equal((await state(page)).hits,3,'Rotation must cancel the queued fourth attack');
+      } else {
+        await page.keyboard.press('z');
+        await page.waitForFunction(()=>JSON.parse(Module.UTF8ToString(Module._paldo_test_state())).hits===1);
+        await page.keyboard.press('r');
+        await page.waitForFunction(()=>JSON.parse(Module.UTF8ToString(Module._paldo_test_state())).combo===2);
+        await page.keyboard.press('q');
+        await page.waitForFunction(()=>JSON.parse(Module.UTF8ToString(Module._paldo_test_state())).hits===3);
+      }
+      const practice=await state(page);
+      assert.equal(practice.combo,3); assert.equal(practice.misses,0); assert.equal(practice.dummyHp,240);
+      assert.equal(practice.hp,100); assert.equal(practice.quest,0);
+      await shot(page,mobile?'mobile-training':'desktop-training');
+      if(mobile) {
+        await page.touchscreen.tap(694,26);
+        await page.waitForFunction(()=>!JSON.parse(Module.UTF8ToString(Module._paldo_test_state())).training);
+        let returned=await state(page);
+        for(const field of ['quest','x','y','hp','coins','herbs']) assert.equal(returned[field],original[field],field+' restored by exit button');
+        await hiddenTaps(context,page);
+        await page.touchscreen.tap(818,26); await phase(page,10);
+        await page.touchscreen.tap(422,300); await phase(page,2);
+      } else {
+        await page.keyboard.press('Escape'); await phase(page,10);
+        await page.keyboard.press('F8'); await phase(page,2);
+      }
+      const restored=await state(page);
+      assert.equal(restored.training,false); assert.equal(restored.queued,-2); assert.equal(restored.attackDown,false);
+      for(const field of ['quest','x','y','hp','coins','herbs']) assert.equal(restored[field],original[field],field+' restored');
+      console.log('PASS browser',mobile?'mobile touch/DPR2/rotation/training'
+        :'desktop keyboard/dialogue/panels/training/'+(process.env.PALDO_SKIP_FULLSCREEN === '1'?'fullscreen skipped':'fullscreen'),await state(page));
       await context.close();
     }
     assert.deepEqual(errors,[],'No browser or console errors');
+  } catch(error) {
+    if(currentPage && !currentPage.isClosed()) {
+      console.error('Last browser state:',await state(currentPage));
+      await shot(currentPage,'failure');
+    }
+    throw error;
   } finally {
     if(browser) await browser.close();
     await new Promise(resolve=>server.close(resolve));

@@ -123,6 +123,43 @@ static void panel_controls_fit(App *a) {
         a->touch_input=false;
     }
 }
+static void training_controls_fit(App *app) {
+    const Vec2 sizes[] = {{432,270},{480,306},{568,320},{844,390},{1100,650}};
+    Game saved;
+    game_reset(&app->game); game_start(&app->game);
+    CHECK(game_enter_training(&app->game, &saved));
+    CHECK(gfx_measure(&app->gfx, "갈라베기 · 재사용 중", 12) <= 134);
+    for (int view = 0; view < 5; view++) {
+        app->width = sizes[view].x; app->height = sizes[view].y;
+        for (int touch = 0; touch < 2; touch++) {
+            app->touch_input = touch != 0;
+            app->button_count = 0; draw_hud(app);
+            int exits = 0, attacks = 0;
+            SDL_FRect status = {12,58,148,146};
+            for (int button_index = 0; button_index < app->button_count; button_index++) {
+                Button control = app->buttons[button_index];
+                SDL_FRect rect = control.rect;
+                CHECK(rect.x >= 0 && rect.y >= 0 && rect.w > 0 && rect.h > 0);
+                CHECK(rect.x + rect.w <= app->width && rect.y + rect.h <= app->height);
+                CHECK(rect.x >= status.x + status.w || status.x >= rect.x + rect.w ||
+                      rect.y >= status.y + status.h || status.y >= rect.y + rect.h);
+                CHECK(control.action != ACT_INTERACT && control.action != ACT_JOURNAL && control.action != ACT_BAG);
+                exits += control.action == ACT_TRAINING_EXIT;
+                attacks += control.action == ACT_ATTACK;
+                for (int other = button_index + 1; other < app->button_count; other++) {
+                    SDL_FRect next = app->buttons[other].rect;
+                    CHECK(rect.x >= next.x + next.w || next.x >= rect.x + rect.w ||
+                          rect.y >= next.y + next.h || next.y >= rect.y + rect.h);
+                }
+            }
+            CHECK(exits == 1 && attacks == 1);
+        }
+    }
+    app->game.phase = PH_PAUSED; app->button_count = 0; draw_overlay(app);
+    int returns = 0;
+    for (int index = 0; index < app->button_count; index++) returns += app->buttons[index].action == ACT_TITLE;
+    CHECK(returns == 1);
+}
 int main(int argc,char **argv) {
     SDL_SetMainReady();
     SDL_setenv("SDL_VIDEODRIVER","dummy",1);
@@ -134,6 +171,7 @@ int main(int argc,char **argv) {
     if (!a->renderer || !gfx_load(&a->gfx,a->renderer,argc > 1 ? argv[1] : "assets")) return 1;
     all_narratives(a);
     panel_controls_fit(a);
+    training_controls_fit(a);
     text_stays_inside(a,surface);
     gfx_free(&a->gfx);
     SDL_DestroyRenderer(a->renderer);
