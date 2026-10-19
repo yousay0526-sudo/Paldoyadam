@@ -222,11 +222,11 @@ static void continuous_swipes(App *a) {
     /* Last valid input wins, rejected directions cannot erase it or retry later. */
     p=attack_fixture(a); up=(Vec2){p.x,p.y-60};
     touch(a,SDL_FINGERDOWN,21,p); touch(a,SDL_FINGERMOTION,21,up);
-    touch(a,SDL_FINGERMOTION,21,p); /* Too early for down. */
-    CHECK(a->game.queued_move==MOVE_NONE);
+    touch(a,SDL_FINGERMOTION,21,p); /* Early down now waits for the next action. */
+    CHECK(a->game.queued_move==TECH_RETREAT);
     combat_frames(a,9);
-    touch(a,SDL_FINGERMOTION,21,(Vec2){p.x,p.y+35}); /* Same rejected direction. */
-    CHECK(a->game.queued_move==MOVE_NONE);
+    touch(a,SDL_FINGERMOTION,21,(Vec2){p.x,p.y+35}); /* Same direction is not re-requested. */
+    CHECK(a->game.queued_move==TECH_RETREAT);
     Vec2 right={p.x+40,p.y+35}, back={p.x,p.y+35};
     touch(a,SDL_FINGERMOTION,21,right);
     CHECK(a->game.queued_move==TECH_SWEEP);
@@ -239,6 +239,31 @@ static void continuous_swipes(App *a) {
     CHECK(a->game.hero.technique==TECH_THRUST && a->game.combo_count==2);
     combat_frames(a,120);
     CHECK(!a->game.hero.skilling && a->game.queued_move==MOVE_NONE);
+}
+/* Touch direction transitions are not restricted to up/down or to
+ * opposites. Each ordered pair gets its own real held-pointer stroke. */
+static void all_direction_pairs(App *a) {
+    const Vec2 strokes[]={{0,-60},{60,0},{0,60},{-60,0}};
+    for(int first=0;first<SWIPE_COUNT;first++) {
+        for(int next=0;next<SWIPE_COUNT;next++) {
+            if(first==next) continue;
+            Vec2 p=attack_fixture(a);
+            Vec2 first_point={p.x+strokes[first].x,p.y+strokes[first].y};
+            Vec2 second_point={first_point.x+strokes[next].x,
+                               first_point.y+strokes[next].y};
+            pointer_down(a,1,p);
+            pointer_move(a,1,first_point);
+            CHECK(a->attack_pointer_down && a->game.hero.skilling);
+            CHECK(a->game.hero.technique==a->game.swipe_bindings[first]);
+            pointer_move(a,1,second_point); /* Intentionally early (<0.22s elapsed). */
+            CHECK(a->game.queued_move==a->game.swipe_bindings[next]);
+            combat_frames(a,13);
+            CHECK(a->game.hero.skilling && a->game.hero.technique==a->game.swipe_bindings[next]);
+            CHECK(a->game.combo_count==2 && a->game.queued_move==MOVE_NONE);
+            pointer_up(a,1,second_point);
+            CHECK(!a->attack_pointer_down && a->game.queued_move==MOVE_NONE);
+        }
+    }
 }
 static void swipe_thresholds(App *a) {
     Vec2 p=attack_fixture(a);
@@ -340,6 +365,7 @@ int main(void) {
     zoomed_destination(a);
     combat_inputs(a);
     continuous_swipes(a);
+    all_direction_pairs(a);
     swipe_thresholds(a);
     swipe_cancellation(a);
     bag_actions(a);
