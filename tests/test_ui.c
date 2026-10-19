@@ -129,6 +129,9 @@ static void training_controls_fit(App *app) {
     game_reset(&app->game); game_start(&app->game);
     CHECK(game_enter_training(&app->game, &saved));
     CHECK(gfx_measure(&app->gfx, "갈라베기 · 재사용 중", 12) <= 134);
+    CHECK(gfx_measure(&app->gfx, "피해 38 · 입력 3/3", 12) <= 134);
+    CHECK(gfx_measure(&app->gfx, "명중 3/3 · 1.0초", 12) <= 134);
+    CHECK(gfx_measure(&app->gfx, "없음 · 방향 불명", 12) <= 134);
     for (int view = 0; view < 5; view++) {
         app->width = sizes[view].x; app->height = sizes[view].y;
         for (int touch = 0; touch < 2; touch++) {
