@@ -158,6 +158,7 @@ static void stop_input(App *a) {
     a->attack_hold = 0;
     a->game.queued_move = MOVE_NONE; a->game.buffer_time = 0;
     a->game.request_time = 0;
+    game_clear_hit_feedback(&a->game);
 }
 static void toggle_training(App *app) {
     if (app->width <= app->height) return;
@@ -459,7 +460,7 @@ static const char *request_name(const Game *game) {
 }
 static void draw_training_status(App *app) {
     Game *game = &app->game;
-    char lines[10][96];
+    char lines[11][96];
     snprintf(lines[0], sizeof lines[0], "타격 %u · 미스 %u", game->training.hits, game->training.misses);
     snprintf(lines[1], sizeof lines[1], "피해 %d · 입력 %d/3", game->training.last_damage, game->input_count);
     snprintf(lines[2], sizeof lines[2], "명중 %d/3 · %.1f초", game->combo_count, game->combo_time);
@@ -472,9 +473,11 @@ static void draw_training_status(App *app) {
         snprintf(lines[6 + direction], sizeof lines[6 + direction], "%s %s %.1f초", directions[direction],
                  TECHNIQUES[technique].name, game_technique_cooldown(game, technique));
     }
+    snprintf(lines[10], sizeof lines[10], "정지 %dms · 피격 %dms",
+             (int)roundf(game->hitstop_time * 1000), (int)roundf(game->boss.hit_time * 1000));
     hud_card(&app->gfx, (SDL_FRect){12, 58, 148, 146}, 225);
-    for (int line = 0; line < 10; line++)
-        gfx_text(&app->gfx, lines[line], 18, 61 + line * 14, 12, 134, line < 5 ? PAPER : GOLD);
+    for (int line = 0; line < 11; line++)
+        gfx_text(&app->gfx, lines[line], 18, 61 + line * 13, 12, 134, line < 5 ? PAPER : GOLD);
 }
 static void draw_quest_tracker(App *a) {
     Game *g = &a->game;
@@ -1366,6 +1369,13 @@ static void smoke_scene(App *a, const char *scene) {
         a->game.phase = PH_PROLOGUE;
         a->story_index = (int)clampf((float)atoi(scene + 8) - 1, 0, 4);
         a->story_elapsed = 1;
+    } else if (!strcmp(scene, "training-hit")) {
+        toggle_training(a);
+        a->touch_input = true;
+        game_attack(&a->game);
+        for (int i = 0; i < 3; i++) game_tick(&a->game, .05f, (Vec2){0});
+    } else if (!strcmp(scene, "hero-hurt")) {
+        game_hurt(&a->game, 9, false);
     } else if (!strcmp(scene, "training")) {
         toggle_training(a);
         a->touch_input = true;

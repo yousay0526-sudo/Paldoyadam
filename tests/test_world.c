@@ -1,3 +1,4 @@
+#include "test_simulation.h"
 #include "world.h"
 #include <math.h>
 #include <stdio.h>
@@ -44,7 +45,7 @@ static void geometry(void) {
     start = g.hero.pos;
     CHECK(world_clear(start, HERO_RADIUS));
     CHECK(game_skill(&g));
-    for(int i=0;i<5;i++) game_tick(&g,.05f,(Vec2){0});
+    for(int i=0;i<5;i++) simulation_tick(&g,.05f,(Vec2){0});
     CHECK(world_clear(g.hero.pos, HERO_RADIUS));
     CHECK(g.hero.pos.y > 300 * 1.5f);
     CHECK(distance(start, g.hero.pos) < 45);
@@ -53,7 +54,7 @@ static void geometry(void) {
         game_reset(&g); game_start(&g); g.hero.pos=P(250,319);
         g.hero.dir=(Vec2){0,t==0?-1:1}; start=g.hero.pos;
         CHECK(game_technique(&g,movement_techniques[t]));
-        for(int i=0;i<5;i++) game_tick(&g,.05f,(Vec2){0});
+        for(int i=0;i<5;i++) simulation_tick(&g,.05f,(Vec2){0});
         CHECK(world_clear(g.hero.pos,HERO_RADIUS));
         CHECK(g.hero.pos.y>300*1.5f && distance(start,g.hero.pos)<fabsf(TECHNIQUES[movement_techniques[t]].step));
     }
@@ -74,7 +75,7 @@ static void walk_route(Vec2 from, Vec2 to, float dt) {
             break;
         float d = distance(g.hero.pos, route.points[route.cursor]);
         float strength = fminf(1, d / (155 * dt));
-        game_tick(&g, dt, (Vec2){direction.x * strength, direction.y * strength});
+        simulation_tick(&g, dt, (Vec2){direction.x * strength, direction.y * strength});
         if (!world_clear(g.hero.pos, HERO_RADIUS)) {
             fprintf(stderr, "Route entered solid at %.2f,%.2f\n", g.hero.pos.x, g.hero.pos.y);
             exit(1);
@@ -124,11 +125,11 @@ static void combat_respects_walls(void) {
     CHECK(world_clear(g.boars[0].pos, BOAR_RADIUS));
     CHECK(!world_segment(g.hero.pos, g.boars[0].pos, 0));
     CHECK(game_skill(&g));
-    for(int i=0;i<5;i++) game_tick(&g,.05f,(Vec2){0});
+    for(int i=0;i<5;i++) simulation_tick(&g,.05f,(Vec2){0});
     CHECK(g.boars[0].hp == 38);
     g.augment = AUG_WIND;
     g.attack_cooldown = 0;
-    game_tick(&g, .05f, (Vec2){0});
+    simulation_tick(&g, .05f, (Vec2){0});
     CHECK(g.boars[0].hp == 38);
 
     g.hero.pos = P(280, 440);
@@ -139,7 +140,7 @@ static void combat_respects_walls(void) {
     g.boars[0].state = AI_WINDUP;
     g.boars[0].timer = 0;
     g.attack_cooldown = 100;
-    game_tick(&g, .05f, (Vec2){0});
+    simulation_tick(&g, .05f, (Vec2){0});
     CHECK(g.hero.hp == 100);
 
     g.hero.pos = P(441, 349);
@@ -154,7 +155,7 @@ static void combat_respects_walls(void) {
     CHECK(world_clear(g.boars[0].pos, BOAR_RADIUS));
     CHECK(!world_segment(g.hero.pos, g.boars[0].pos, BOAR_RADIUS));
     for (int i = 0; i < 600; i++) {
-        game_tick(&g, .05f, (Vec2){0});
+        simulation_tick(&g, .05f, (Vec2){0});
         if (!world_clear(g.boars[0].pos, BOAR_RADIUS)) {
             fputs("Enemy entered terrain\n", stderr);
             exit(1);

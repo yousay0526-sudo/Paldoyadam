@@ -149,6 +149,7 @@ bool game_leave_training(Game *game, const Game *saved) {
     game->combat_request = TRAIN_READY;
     game->hero.attacking = game->hero.skilling = game->hero.walking = false;
     game->hero.attack_elapsed = game->hero.skill_elapsed = game->hero.walk_cycle = 0;
+    game_clear_hit_feedback(game);
     return true;
 }
 Nearby game_nearby(const Game *g) {
@@ -402,8 +403,15 @@ bool game_damage(Game *g, Enemy *e, int amount, EffectKind kind) {
     if (g->phase != PH_PLAY || e->hp <= 0 || amount <= 0 || !active_enemy(g, e))
         return false;
     e->hp = (int)fmaxf(0, (float)e->hp - (float)amount);
+    e->hit_time = HIT_FLASH_SECONDS;
+    float stop = kind == FX_WIND ? HITSTOP_WIND_SECONDS
+        : g->hero.skilling && g->hero.technique == TECH_CLEAVE
+            ? HITSTOP_HEAVY_SECONDS : HITSTOP_LIGHT_SECONDS;
+    /* Simultaneous victims and the wind add-on share a single stop. */
+    g->hitstop_time = fmaxf(g->hitstop_time, stop);
     effect(g, (Effect){.kind = FX_NUMBER, .pos = add(e->pos, (Vec2){0, -48}), .life = .7f, .amount = amount});
-    effect(g, (Effect){.kind = kind, .pos = g->hero.pos, .target = e->pos, .life = .25f});
+    effect(g, (Effect){.kind = kind, .pos = g->hero.pos, .target = e->pos, .life = .25f,
+                      .angle = atan2f(e->pos.y - g->hero.pos.y, e->pos.x - g->hero.pos.x)});
     if (g->training.active) {
         e->hp = e->max_hp;
         g->training.impact_damage += amount;
@@ -431,11 +439,13 @@ bool game_damage(Game *g, Enemy *e, int amount, EffectKind kind) {
     return true;
 }
 void game_hurt(Game *g, int amount, bool bleed) {
-    if (g->training.active || g->phase != PH_PLAY || g->hero.invul > 0)
+    if (g->training.active || g->phase != PH_PLAY || g->hero.hp <= 0 || g->hero.invul > 0 || amount <= 0)
         return;
     amount = (int)fmaxf(1, (float)amount - (g->armor ? 3.0f : 0));
     g->hero.hp = (int)fmaxf(0, (float)g->hero.hp - amount);
     g->hero.invul = .75f;
+    g->hero.hurt_time = HIT_FLASH_SECONDS;
+    g->hitstop_time = fmaxf(g->hitstop_time, HITSTOP_HURT_SECONDS);
     if (bleed) {
         g->hero.bleed = 5;
         g->hero.bleed_tick = 1;
@@ -446,7 +456,13 @@ void game_hurt(Game *g, int amount, bool bleed) {
                        .life = .8f,
                        .amount = amount,
                        .damage = true});
+    effect(g, (Effect){.kind = FX_HIT, .pos = g->hero.pos, .target = g->hero.pos,
+                      .life = .25f, .damage = true});
     dead(g);
+}
+void game_clear_hit_feedback(Game *g) {
+    g->hitstop_time = g->hero.hurt_time = g->boss.hit_time = g->training.hit_time = 0;
+    for (int i = 0; i < BOAR_COUNT; i++) g->boars[i].hit_time = 0;
 }
 static Enemy *nearest_enemy(Game *g) {
     if (g->training.active)
@@ -498,6 +514,7 @@ bool game_begin_boss(Game *g) {
     return true;
 }
 void game_recover(Game *g) {
+    game_clear_hit_feedback(g);
     g->hero.pos = HOME;
     g->hero.walking = false;
     g->hero.walk_cycle = 0;
@@ -526,6 +543,7 @@ void game_recover(Game *g) {
     game_toast(g, "마을에서 회복 · 여정 진행 유지");
 }
 void game_retry(Game *g) {
+    game_clear_hit_feedback(g);
     g->hero.pos = add(BOSS_HOME, (Vec2){-145, 0});
     g->hero.walking = false;
     g->hero.walk_cycle = 0;
@@ -791,12 +809,12 @@ static bool request_move(Game *g, int move) {
     }
     float remaining = g->hero.skilling ? HERO_SKILL_SECONDS - g->hero.skill_elapsed
         : g->hero.attacking ? HERO_ATTACK_SECONDS - g->hero.attack_elapsed : 0;
-    if (remaining > 0) {
+    if (remaining > 0 || g->hitstop_time > 0) {
         /* Keep one intentional follow-up across the entire active animation.
          * The last valid input replaces it; no held direction auto-repeats.
          * Its lifetime covers the remaining animation, not just 0.28 s. */
         g->queued_move = move;
-        g->buffer_time = remaining + .10f;
+        g->buffer_time = fmaxf(0, remaining) + .10f;
         combat_feedback(g, move, TRAIN_QUEUED);
         return true;
     }
@@ -931,7 +949,16 @@ void game_tick(Game *g, float dt, Vec2 input) {
         g->hero.walking = false;
         g->hero.walk_cycle = 0;
         g->queued_move = MOVE_NONE; g->buffer_time = 0;
+        game_clear_hit_feedback(g);
         return;
+    }
+    /* Consume only the stopped part of this frame. A partial final frame must
+     * not drop or double-count time, regardless of rendering frequency. */
+    if (g->hitstop_time > 0) {
+        float stopped = fminf(dt, g->hitstop_time);
+        g->hitstop_time = fmaxf(0, g->hitstop_time - stopped);
+        dt -= stopped;
+        if (dt <= 0) return;
     }
     g->time += dt;
     g->toast_time = fmaxf(0, g->toast_time - dt);
@@ -967,6 +994,10 @@ void game_tick(Game *g, float dt, Vec2 input) {
     g->item_cooldown = fmaxf(0, g->item_cooldown - dt);
     g->training.hit_time = fmaxf(0, g->training.hit_time - dt);
     g->hero.invul = fmaxf(0, g->hero.invul - dt);
+    g->hero.hurt_time = fmaxf(0, g->hero.hurt_time - dt);
+    g->boss.hit_time = fmaxf(0, g->boss.hit_time - dt);
+    for (int i = 0; i < BOAR_COUNT; i++)
+        g->boars[i].hit_time = fmaxf(0, g->boars[i].hit_time - dt);
     for (int i = 0; i < g->effect_count;) {
         g->effects[i].life -= dt;
         if (g->effects[i].life <= 0)

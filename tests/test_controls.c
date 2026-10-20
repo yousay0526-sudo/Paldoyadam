@@ -420,6 +420,8 @@ static void training_entry_and_inputs(App *app) {
         key(app, SDLK_F8, false);
         key(app, SDLK_q, false); key(app, SDLK_r, false);
         CHECK(app->game.queued_move == TECH_SWEEP);
+        app->game.hitstop_time = HITSTOP_LIGHT_SECONDS;
+        app->game.hero.hurt_time = app->game.boss.hit_time = HIT_FLASH_SECONDS;
         if (reason == 0) key(app, SDLK_k, false);
         else if (reason == 1) key(app, SDLK_ESCAPE, false);
         else {
@@ -430,11 +432,40 @@ static void training_entry_and_inputs(App *app) {
             SDL_PushEvent(&event); handle_events(app);
         }
         CHECK(app->game.queued_move == MOVE_NONE && app->game.buffer_time == 0);
+        CHECK(app->game.hitstop_time == 0 && app->game.hero.hurt_time == 0 && app->game.boss.hit_time == 0);
         CHECK(!app->attack_key_down && !app->attack_pointer_down && !app->pointer_down && app->secret_taps == 0);
         if (reason == 4) { SDL_SetWindowSize(app->window, 844, 390); resize(app); }
         dispatch(app, ACT_TITLE, 0);
         CHECK(!app->game.training.active && app->game.phase == PH_PLAY);
     }
+}
+static void hitstop_swipe_inputs(App *app) {
+    attack_fixture(app); key(app, SDLK_F8, false);
+    CHECK(app->game.training.active);
+    app->button_count = 1;
+    app->buttons[0] = (Button){{684,230,88,88}, ACT_ATTACK, 0, true};
+    Vec2 point = {728,274};
+    touch(app, SDL_FINGERDOWN, 91, point);
+    point.y -= 40; touch(app, SDL_FINGERMOTION, 91, point);
+    for (int frame = 0; frame < 20 && !app->game.hero.skill_hit; frame++) combat_frames(app, 1);
+    CHECK(app->game.training.hits == 1 && app->game.hitstop_time > 0);
+    float elapsed = app->game.hero.skill_elapsed;
+    Vec2 position = app->game.hero.pos;
+    point.x += 40; touch(app, SDL_FINGERMOTION, 91, point);
+    CHECK(app->game.queued_move == TECH_SWEEP && app->attack_pointer_down);
+    point.x -= 40; touch(app, SDL_FINGERMOTION, 91, point);
+    CHECK(app->game.queued_move == TECH_THRUST);
+    key(app, SDLK_q, false);
+    CHECK(app->game.combat_request == TRAIN_COOLDOWN && app->game.queued_move == TECH_THRUST);
+    game_tick(&app->game, .01f, (Vec2){1,0});
+    CHECK(app->game.hero.skill_elapsed == elapsed && distance(position, app->game.hero.pos) == 0);
+    touch(app, SDL_FINGERUP, 91, point);
+    CHECK(!app->attack_pointer_down && app->game.queued_move == TECH_THRUST);
+    combat_frames(app, 40);
+    CHECK(app->game.training.hits == 2 && app->game.training.misses == 0);
+    CHECK(app->game.hero.technique == TECH_THRUST && app->game.queued_move == MOVE_NONE);
+    key(app, SDLK_F8, false);
+    CHECK(!app->game.training.active && app->game.hitstop_time == 0);
 }
 int main(void) {
     SDL_SetMainReady();
@@ -457,6 +488,7 @@ int main(void) {
     swipe_cancellation(a);
     bag_actions(a);
     training_entry_and_inputs(a);
+    hitstop_swipe_inputs(a);
     SDL_DestroyRenderer(a->renderer);
     SDL_DestroyWindow(a->window);
     free(a);

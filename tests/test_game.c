@@ -1,3 +1,4 @@
+#include "test_simulation.h"
 #include "game.h"
 #include "world.h"
 #include <math.h>
@@ -45,7 +46,7 @@ static void quest_chain(void) {
     game_reset(&g);
     game_start(&g);
     g.hero.pos = BOSS_HOME;
-    game_tick(&g, .05f, (Vec2){0});
+    simulation_tick(&g, .05f, (Vec2){0});
     CHECK(g.quest == Q_MEET);
     CHECK(!game_begin_boss(&g));
     CHECK(!game_report(&g));
@@ -80,7 +81,7 @@ static void quest_chain(void) {
     CHECK(game_report(&g));
     CHECK(!game_report(&g));
     g.hero.pos = BOSS_HOME;
-    game_tick(&g, .05f, (Vec2){0});
+    simulation_tick(&g, .05f, (Vec2){0});
     CHECK(g.phase == PH_DIALOGUE);
     CHECK(g.notices & NOTICE_BOSS);
     CHECK(game_begin_boss(&g));
@@ -114,9 +115,9 @@ static void shops(void) {
     g.hero.pos = g.boss.pos;
     g.attack_cooldown = 0;
     CHECK(game_attack(&g));
-    game_tick(&g, .05f, (Vec2){0});
+    simulation_tick(&g, .05f, (Vec2){0});
     CHECK(g.boss.hp == 240 && g.hero.attacking);
-    for (int i = 0; i < 3; i++) game_tick(&g, .05f, (Vec2){0});
+    for (int i = 0; i < 3; i++) simulation_tick(&g, .05f, (Vec2){0});
     CHECK(g.boss.hp == 226);
     game_hurt(&g, 18, true);
     CHECK(g.hero.hp == 85 && g.hero.bleed == 5);
@@ -133,7 +134,7 @@ static void supplies(void) {
     CHECK(g.hero.bleed == 0 && g.bandages == 0);
     CHECK(!game_use(&g, ITEM_TONIC));
     for (int i = 0; i < 21; i++)
-        game_tick(&g, .05f, (Vec2){0});
+        simulation_tick(&g, .05f, (Vec2){0});
     CHECK(game_use(&g, ITEM_TONIC));
     CHECK(g.hero.hp == 100 && g.tonics == 1);
     at_npc(&g, HERBALIST);
@@ -190,7 +191,7 @@ static void death_and_pause(void) {
     g.phase = PH_BAG;
     Game before = g;
     for (int i = 0; i < 100; i++)
-        game_tick(&g, .05f, (Vec2){1, 1});
+        simulation_tick(&g, .05f, (Vec2){1, 1});
     CHECK(memcmp(&before, &g, sizeof g) == 0);
 }
 static void augments_and_bounds(void) {
@@ -201,7 +202,7 @@ static void augments_and_bounds(void) {
     g.hero.pos = g.boars[0].pos;
     CHECK(game_skill(&g));
     CHECK(g.boars[0].hp == 38);
-    for(int i=0;i<5;i++) game_tick(&g,.05f,(Vec2){0});
+    for(int i=0;i<5;i++) simulation_tick(&g,.05f,(Vec2){0});
     CHECK(g.boars[0].hp == 12);
     CHECK(!game_skill(&g));
     g.replay = true;
@@ -210,36 +211,36 @@ static void augments_and_bounds(void) {
     g.hero.pos = (Vec2){g.boss.pos.x - 70, g.boss.pos.y};
     g.attack_cooldown = 0;
     CHECK(game_attack(&g));
-    game_tick(&g, .05f, (Vec2){0});
-    for (int i = 0; i < 3; i++) game_tick(&g, .05f, (Vec2){0});
+    simulation_tick(&g, .05f, (Vec2){0});
+    for (int i = 0; i < 3; i++) simulation_tick(&g, .05f, (Vec2){0});
     CHECK(g.boss.hp == 227);
     g.augment = AUG_WIND;
     game_retry(&g);
     g.hero.pos = (Vec2){g.boss.pos.x - 110, g.boss.pos.y};
     g.attack_cooldown = 0;
     CHECK(game_attack(&g));
-    game_tick(&g, .05f, (Vec2){0});
-    for (int i = 0; i < 3; i++) game_tick(&g, .05f, (Vec2){0});
+    simulation_tick(&g, .05f, (Vec2){0});
+    for (int i = 0; i < 3; i++) simulation_tick(&g, .05f, (Vec2){0});
     CHECK(g.boss.hp == 234);
     g.augment = AUG_FLOW;
     game_retry(&g);
     g.hero.pos = (Vec2){g.boss.pos.x - 95, g.boss.pos.y};
     CHECK(game_skill(&g));
     CHECK(g.cooldown == 4 && g.boss.hp == 240);
-    for(int i=0;i<5;i++) game_tick(&g,.05f,(Vec2){0});
+    for(int i=0;i<5;i++) simulation_tick(&g,.05f,(Vec2){0});
     CHECK(g.boss.hp == 208);
     game_reset(&g);
     game_start(&g);
     g.hero.pos = (Vec2){28, 28};
-    game_tick(&g, .05f, (Vec2){-1, -1});
+    simulation_tick(&g, .05f, (Vec2){-1, -1});
     CHECK(g.hero.pos.x == 28 && g.hero.pos.y == 28);
     Vec2 position = g.hero.pos;
-    game_tick(&g, NAN, (Vec2){1, 1});
+    simulation_tick(&g, NAN, (Vec2){1, 1});
     CHECK(distance(position, g.hero.pos) == 0);
     /* The northwest corner is now forest. Check time clamping on open ground. */
     g.hero.pos = HOME;
     position = g.hero.pos;
-    game_tick(&g, 1, (Vec2){1, 0});
+    simulation_tick(&g, 1, (Vec2){1, 0});
     CHECK(fabsf(g.hero.pos.x - position.x - 7.75f) < .01f);
 }
 static void dedicated_pickup(void) {
@@ -291,33 +292,33 @@ static void automatic_magnet(void) {
     g.drops[0] = (Drop){.pos = {HOME.x + 120, HOME.y}, .exists = true};
     g.drops[1] = (Drop){.pos = {HOME.x, HOME.y + MAGNET_RADIUS + 1}, .exists = true};
     Vec2 first = g.drops[0].pos, outside = g.drops[1].pos;
-    game_tick(&g, 0, (Vec2){0, 0});
+    simulation_tick(&g, 0, (Vec2){0, 0});
     CHECK(distance(first, g.drops[0].pos) == 0 && g.herbs == 0);
-    for (int i = 0; i < 13; i++) game_tick(&g, .05f, (Vec2){0, 0});
+    for (int i = 0; i < 13; i++) simulation_tick(&g, .05f, (Vec2){0, 0});
     CHECK(!g.drops[0].attracting && distance(first, g.drops[0].pos) == 0 && g.herbs == 0);
-    for (int i = 0; i < 2; i++) game_tick(&g, .05f, (Vec2){0, 0});
+    for (int i = 0; i < 2; i++) simulation_tick(&g, .05f, (Vec2){0, 0});
     CHECK(g.drops[0].attracting && distance(first, g.drops[0].pos) > 0);
     CHECK(distance(first, g.drops[0].pos) < 12); /* Gradual pickup, not the old instant pull. */
     CHECK(g.herbs == 0 && !g.drops[0].collected); /* Travel is visible, not a teleport. */
     CHECK(distance(outside, g.drops[1].pos) == 0 && !g.drops[1].attracting);
     Vec2 traveling = g.drops[0].pos;
     g.phase = PH_DIALOGUE;
-    game_tick(&g, .05f, (Vec2){0, 0});
+    simulation_tick(&g, .05f, (Vec2){0, 0});
     CHECK(distance(traveling, g.drops[0].pos) == 0 && g.herbs == 0);
     g.phase = PH_PAUSED;
-    game_tick(&g, .05f, (Vec2){0, 0});
+    simulation_tick(&g, .05f, (Vec2){0, 0});
     CHECK(distance(traveling, g.drops[0].pos) == 0 && g.herbs == 0);
     g.phase = PH_PLAY;
-    for (int i = 0; i < 24; i++) game_tick(&g, .05f, (Vec2){0, 0});
+    for (int i = 0; i < 24; i++) simulation_tick(&g, .05f, (Vec2){0, 0});
     CHECK(g.herbs == 1 && g.drops[0].collected);
     CHECK(distance(g.hero.pos, HOME) == 0 && g.quest == Q_RECOVER);
     g.drops[1].pos = (Vec2){HOME.x + 80, HOME.y};
     g.drops[2] = (Drop){.pos = {HOME.x + 110, HOME.y}, .exists = true};
-    for (int i = 0; i < 24; i++) game_tick(&g, .05f, (Vec2){.5f, 0});
+    for (int i = 0; i < 24; i++) simulation_tick(&g, .05f, (Vec2){.5f, 0});
     CHECK(g.herbs == 3 && g.quest == Q_DELIVER);
     CHECK(distance(g.hero.pos, HOME) > 0); /* Gathering does not interrupt movement. */
     CHECK(g.drops[1].collected && g.drops[2].collected);
-    for (int i = 0; i < 12; i++) game_tick(&g, .05f, (Vec2){0, 0});
+    for (int i = 0; i < 12; i++) simulation_tick(&g, .05f, (Vec2){0, 0});
     CHECK(g.herbs == 3); /* Exactly once even with overlapping pickups. */
 
     game_reset(&g);
@@ -326,23 +327,23 @@ static void automatic_magnet(void) {
     g.hero.pos = (Vec2){490 * 1.5f, 259 * 1.5f};
     g.drops[0] = (Drop){.pos = {535 * 1.5f, 259 * 1.5f}, .exists = true};
     first = g.drops[0].pos;
-    for (int i = 0; i < 24; i++) game_tick(&g, .05f, (Vec2){0, 0});
+    for (int i = 0; i < 24; i++) simulation_tick(&g, .05f, (Vec2){0, 0});
     CHECK(distance(first, g.drops[0].pos) == 0 && !g.drops[0].attracting && g.herbs == 0);
     g.hero.pos = g.drops[0].pos;
     g.quest = Q_TRACES;
-    game_tick(&g, .05f, (Vec2){0, 0});
+    simulation_tick(&g, .05f, (Vec2){0, 0});
     CHECK(g.herbs == 0); /* Inactive quest items cannot advance the story early. */
     /* Even a drop directly under the hero must first be visible on the ground. */
     game_reset(&g); game_start(&g); g.quest = Q_RECOVER;
     g.drops[0] = (Drop){.pos = g.hero.pos, .exists = true};
-    for (int i = 0; i < 13; i++) game_tick(&g, .05f, (Vec2){0, 0});
+    for (int i = 0; i < 13; i++) simulation_tick(&g, .05f, (Vec2){0, 0});
     CHECK(g.herbs == 0 && !g.drops[0].collected);
     float age = g.drops[0].age;
     g.phase = PH_BAG;
-    for (int i = 0; i < 20; i++) game_tick(&g, .05f, (Vec2){0, 0});
+    for (int i = 0; i < 20; i++) simulation_tick(&g, .05f, (Vec2){0, 0});
     CHECK(g.drops[0].age == age && g.herbs == 0);
     g.phase = PH_PLAY;
-    for (int i = 0; i < 10; i++) game_tick(&g, .05f, (Vec2){0, 0});
+    for (int i = 0; i < 10; i++) simulation_tick(&g, .05f, (Vec2){0, 0});
     CHECK(g.herbs == 1 && g.drops[0].collected);
 
 }
@@ -353,20 +354,20 @@ static void attack_motion(void) {
     g.boars[0].state = AI_RECOVER; g.boars[0].timer = 9;
     g.attack_cooldown = 0;
     CHECK(game_attack(&g));
-    game_tick(&g, .01f, (Vec2){0});
+    simulation_tick(&g, .01f, (Vec2){0});
     CHECK(game_hero_attack_frame(&g) == 0 && g.boars[0].hp == 38);
     CHECK(g.hero.attack_face == -1);
-    game_tick(&g, .05f, (Vec2){0});
+    simulation_tick(&g, .05f, (Vec2){0});
     CHECK(g.boars[0].hp == 38);
     float elapsed = g.hero.attack_elapsed;
     g.phase = PH_BAG;
-    for (int i = 0; i < 20; i++) game_tick(&g, .05f, (Vec2){0});
+    for (int i = 0; i < 20; i++) simulation_tick(&g, .05f, (Vec2){0});
     CHECK(g.hero.attack_elapsed == elapsed && g.boars[0].hp == 38);
     CHECK(game_hero_attack_frame(&g) == -1);
     g.phase = PH_PLAY;
     unsigned seen = 1u | (1u << game_hero_attack_frame(&g));
     for (int i = 0; i < 20; i++) {
-        game_tick(&g, .02f, (Vec2){0});
+        simulation_tick(&g, .02f, (Vec2){0});
         int frame = game_hero_attack_frame(&g);
         if (frame >= 0) seen |= 1u << frame;
         if (g.hero.attacking && g.hero.attack_elapsed < HERO_ATTACK_IMPACT)
@@ -381,10 +382,10 @@ static void attack_motion(void) {
     g.hero.pos = (Vec2){g.boars[0].pos.x - 40, g.boars[0].pos.y};
     g.attack_cooldown = 0;
     CHECK(game_attack(&g));
-    game_tick(&g, .01f, (Vec2){0});
+    simulation_tick(&g, .01f, (Vec2){0});
     CHECK(g.hero.attacking && g.hero.attack_face == 1);
     g.hero.pos = HOME;
-    for (int i = 0; i < 4; i++) game_tick(&g, .05f, (Vec2){0});
+    for (int i = 0; i < 4; i++) simulation_tick(&g, .05f, (Vec2){0});
     CHECK(g.boars[0].hp == 38 && g.hero.attack_hit);
     game_recover(&g);
     CHECK(!g.hero.attacking && g.hero.attack_elapsed == 0);
@@ -394,37 +395,37 @@ static void walking_motion(void) {
     game_reset(&g);
     CHECK(game_hero_frame(&g) == -1);
     game_start(&g);
-    game_tick(&g, .05f, (Vec2){0, 0});
+    simulation_tick(&g, .05f, (Vec2){0, 0});
     CHECK(game_hero_frame(&g) == -1 && g.hero.walk_cycle == 0);
     Vec2 start = g.hero.pos;
-    game_tick(&g, .05f, (Vec2){1, 0});
+    simulation_tick(&g, .05f, (Vec2){1, 0});
     CHECK(g.hero.pos.x > start.x && game_hero_frame(&g) >= 0);
     CHECK(g.hero.face == 1);
     float first = g.hero.walk_cycle;
-    game_tick(&g, .05f, (Vec2){-1, 0});
+    simulation_tick(&g, .05f, (Vec2){-1, 0});
     CHECK(g.hero.face == -1 && g.hero.walk_cycle > first);
-    game_tick(&g, .05f, (Vec2){0, -1});
+    simulation_tick(&g, .05f, (Vec2){0, -1});
     CHECK(g.hero.face == -1 && game_hero_frame(&g) >= 0);
-    game_tick(&g, .05f, (Vec2){0, 0});
+    simulation_tick(&g, .05f, (Vec2){0, 0});
     CHECK(game_hero_frame(&g) == -1 && g.hero.walk_cycle == 0);
 
     /* Same travel at different render rates and joystick strengths. */
     game_reset(&g); game_start(&g); slow = g;
     g.hero.pos = slow.hero.pos = (Vec2){345, 510};
-    for (int i = 0; i < 10; i++) game_tick(&g, .05f, (Vec2){1, 0});
-    for (int i = 0; i < 50; i++) game_tick(&slow, .01f, (Vec2){1, 0});
+    for (int i = 0; i < 10; i++) simulation_tick(&g, .05f, (Vec2){1, 0});
+    for (int i = 0; i < 50; i++) simulation_tick(&slow, .01f, (Vec2){1, 0});
     CHECK(distance(g.hero.pos, slow.hero.pos) < .01f);
     CHECK(fabsf(g.hero.walk_cycle-slow.hero.walk_cycle) < .0001f);
     game_reset(&g); game_start(&g); slow = g;
-    game_tick(&g, .05f, (Vec2){1, 0});
-    game_tick(&slow, .05f, (Vec2){.25f, 0});
+    simulation_tick(&g, .05f, (Vec2){1, 0});
+    simulation_tick(&slow, .05f, (Vec2){.25f, 0});
     CHECK(fabsf(g.hero.walk_cycle-4*slow.hero.walk_cycle) < .0001f);
 
     /* All eight poses occur while moving through an unobstructed street. */
     game_reset(&g); game_start(&g); g.hero.pos = (Vec2){345, 510};
     unsigned seen = 0;
     for (int i = 0; i < 100; i++) {
-        game_tick(&g, 1.0f/120, (Vec2){i < 50 ? 1 : -1, 0});
+        simulation_tick(&g, 1.0f/120, (Vec2){i < 50 ? 1 : -1, 0});
         int frame = game_hero_frame(&g);
         CHECK(frame >= 0 && frame < HERO_WALK_FRAMES);
         seen |= 1u << frame;
@@ -433,34 +434,34 @@ static void walking_motion(void) {
 
     /* Collision must stop the feet even with input still held. */
     game_reset(&g); game_start(&g); g.hero.pos = (Vec2){270, 525};
-    for (int i = 0; i < 150; i++) game_tick(&g, .05f, (Vec2){0, -1});
+    for (int i = 0; i < 150; i++) simulation_tick(&g, .05f, (Vec2){0, -1});
     CHECK(world_clear(g.hero.pos, HERO_RADIUS));
     CHECK(game_hero_frame(&g) == -1 && g.hero.walk_cycle == 0);
     start = g.hero.pos;
-    game_tick(&g, .05f, (Vec2){1, -1});
+    simulation_tick(&g, .05f, (Vec2){1, -1});
     CHECK(g.hero.pos.x > start.x && game_hero_frame(&g) >= 0);
 
     const Phase panels[] = {PH_TITLE, PH_PROLOGUE, PH_DIALOGUE, PH_SHOP, PH_BAG,
                             PH_JOURNAL, PH_AUGMENT, PH_COMPLETE, PH_DEAD, PH_PAUSED, PH_TECHNIQUES};
     for (size_t i = 0; i < sizeof panels/sizeof *panels; i++) {
         game_reset(&g); game_start(&g);
-        game_tick(&g, .05f, (Vec2){1, 0});
+        simulation_tick(&g, .05f, (Vec2){1, 0});
         g.phase = panels[i];
         CHECK(game_hero_frame(&g) == -1);
         start = g.hero.pos;
-        game_tick(&g, .05f, (Vec2){1, 0});
+        simulation_tick(&g, .05f, (Vec2){1, 0});
         CHECK(distance(start, g.hero.pos) == 0 && g.hero.walk_cycle == 0);
     }
     g.phase = PH_PLAY;
-    game_tick(&g, .05f, (Vec2){1, 0});
+    simulation_tick(&g, .05f, (Vec2){1, 0});
     game_recover(&g);
     CHECK(game_hero_frame(&g) == -1 && distance(g.hero.pos, HOME) == 0);
-    game_tick(&g, .05f, (Vec2){1, 0});
+    simulation_tick(&g, .05f, (Vec2){1, 0});
     game_retry(&g);
     CHECK(game_hero_frame(&g) == -1 && g.hero.walk_cycle == 0);
 }
 static void advance(Game *g, int ticks) {
-    for(int i=0;i<ticks;i++) game_tick(g,.05f,(Vec2){0});
+    for(int i=0;i<ticks;i++) simulation_tick(g,.05f,(Vec2){0});
 }
 static void combat_fixture(Game *g) {
     game_reset(g); game_start(g); g->quest=Q_COMBAT;

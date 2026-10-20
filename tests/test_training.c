@@ -1,3 +1,4 @@
+#include "test_simulation.h"
 #include "game.h"
 #include "world.h"
 #include <stdio.h>
@@ -9,7 +10,7 @@ static int checks;
     fprintf(stderr, "FAIL %s:%d: %s\n", __FILE__, __LINE__, #condition); exit(1); } } while (0)
 
 static void advance(Game *game, int frames) {
-    for (int frame = 0; frame < frames; frame++) game_tick(game, .01f, (Vec2){0, 0});
+    for (int frame = 0; frame < frames; frame++) simulation_tick(game, .01f, (Vec2){0, 0});
 }
 
 static void isolation_and_restore(void) {
