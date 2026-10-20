@@ -7,6 +7,16 @@
 - 현재 버전: `0.8.0` (C11/SDL2 기반 게임 및 Emscripten 웹 빌드)
 - 정본: `src/*.c`, `src/*.h`; 주요 문서: `README.md`, `docs/CONTROLS.md`, `docs/VALIDATION.md`, `docs/WEB.md`
 
+## 이번 작업: 기술별 6프레임 원화 제작·적용
+- 시작 main `45d636f70ad6f0b6b43246a3f6842abcd753dc4a`, 독립 브랜치 `graphics/technique-sprites-20261020`. PR 생성 중 main에 들어온 PR #13 `81467764210357a27eaef25374a4fa46570922b5`를 반영해 피격·히트스톱을 보존하고 재검증했다. 참조 채팅 원화 접근 실패 후 이 채팅의 신규 제작 승인을 따랐다.
+- 내장 ImageGen으로 승인 주인공 원화와 기존 평타를 참조해 갈라베기·횡베기·파고들기·물러베기 원화를 각각 제작. `art/hero/techniques/`에 생성 원본 4장·전체 프롬프트·분리/발 기준점 기록을 보존한다. 붉은 허리띠 유지, 새 원화에 혈흔 없음.
+- `scripts/prepare_technique_assets.py`: 실제 RGBA 알파 확인, 셀 경계를 넘는 검/옷자락을 포함해 포즈 전체를 분리하고 3×2/576×384 실행 PNG로 재배치. 공통 발 기준점 `(116,176)`/192, 왼쪽 원화·오른쪽 반전. 물러베기의 반대 방향 준비 포즈 1장만 실행본에서 반전, master 보존.
+- `src/draw.c/h`: `Technique`별 별도 아틀라스 로딩·검증·해제·표시. 이미 그려진 자세를 회전시키던 임시 기울기 제거. 평타 텍스처·발 기준점 유지. `src/game.c`는 파고들기 표시 키만 `0,0,1,2,3,4,5,5`로 수정해 여섯 포즈를 사용하고 타격 그림을 0.24초에 표시한다. 0.64초 동작·0.24초 피해·이동/후퇴·입력 버퍼·명중 콤보·장비·NPC·퀘스트·맵 로직 유지.
+- 최종 로컬 검사: CMake/CTest 핵심 **5/5 통과**. Windows Zig/SDL 직접 빌드한 게임·지형·수련장·전투·히트스톱·조작·UI·영웅 렌더링 8종, 총 **441,441개 조건 통과**. 새 시트의 피격 표시·색/알파/블렌드 상태 복원도 확인. 훈련 3종 해상도와 전후 8장면 렌더링 통과. 시간 고정 비교에서 평타·상점·지붕/수목 가림은 픽셀 일치. 24포즈/알파/여백과 실제 게임 비교 이미지를 검토했다. 자세한 범위는 `docs/VALIDATION.md` 및 `docs/ART_DIRECTION.md`.
+- 코드 커밋 `ada1d4a`의 [CI 39353122484](https://github.com/yousay0526-sudo/Paldoyadam/actions/runs/39353122484) 성공: Linux 전체 CMake/CTest **9종**, Emscripten 일반/단일 HTML 빌드 통과. Pages 준비·deploy skipped. 결과만 추가하는 문서 후속 커밋의 CI는 PR에서 확인한다.
+- 남은 검증: 웹 브라우저 실행 및 실제 iPhone/Android/APK 표시·조작. 기존 `test_controls.c` signed/unsigned 경고 1건 유지. `GAME_BIBLE.md` 없음. main 병합·자동 병합·Pages 배포·버전 변경 없음.
+- 리뷰 [PR #14](https://github.com/yousay0526-sudo/Paldoyadam/pull/14). 피격/히트스톱의 기능과 검사를 보존했으며 이번 PR의 최신 main 대비 변경은 기술 원화/표시/제작·검증 기록뿐이다.
+
 ## 이번 작업: 전투 고도화 2차 — 피격 시각 반응·히트스톱
 - 기준 main `45d636f70ad6f0b6b43246a3f6842abcd753dc4a`. 브랜치 `feat/combat-hit-feedback-pass2`. 시작 및 구현 후 확인 시 main 동일, 열린 PR 없음.
 - `src/game.c/h`: 실제 피해에만 짧은 정지(일반 35ms / 갈라베기 55ms / 바람만 20ms / 플레이어 피격 45ms)와 0.12초 피격 표시. 동시 타깃·바람 추가 피해는 최대 정지 하나를 공유한다. 정지 중 게임 시간은 함께 멈추고 부분 프레임 시간은 보존한다.

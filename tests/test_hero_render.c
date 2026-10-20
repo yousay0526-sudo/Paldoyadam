@@ -86,6 +86,70 @@ static void directional_trails(Gfx *gfx, SDL_Surface *surface, Uint32 *pixels) {
     for (int i = 0; i < surface->w * surface->h; i++) CHECK(pixels[i] == background);
 }
 
+/* Compare the actual hero path with the authored technique, including source
+ * cell, foot root and both facing directions. Basic-attack reuse must fail. */
+static void technique_atlases(Gfx *gfx, SDL_Surface *surface, Uint32 *pixels, Uint32 *expected) {
+    const size_t bytes = (size_t)surface->pitch * surface->h;
+    Game game; game_reset(&game); game_start(&game);
+    game.hero.skilling = true;
+    for (int scale = 1; scale <= 3; scale++) {
+        SDL_RenderSetScale(gfx->renderer, (float)scale, (float)scale);
+        for (int t = 0; t < TECH_COUNT; t++) {
+            Picture *p = &gfx->hero_techniques[t];
+            CHECK(p->texture && p->texture != gfx->hero_attack.texture);
+            CHECK(p->w == 576 && p->h == 384);
+            for (int other = 0; other < t; other++)
+                CHECK(p->texture != gfx->hero_techniques[other].texture);
+            SDL_ScaleMode sampling;
+            CHECK(SDL_GetTextureScaleMode(p->texture, &sampling) == 0);
+            CHECK(sampling == SDL_ScaleModeNearest);
+            game.hero.technique = (Technique)t;
+            game.hero.skill_elapsed = HERO_SKILL_IMPACT;
+            CHECK(game_hero_skill_frame(&game) == 2);
+            game.hero.skill_elapsed = HERO_SKILL_IMPACT - .01f;
+            CHECK(game_hero_skill_frame(&game) < 2);
+            unsigned poses = 0;
+            for (int tick = 0; tick < 8; tick++) {
+                game.hero.skill_elapsed = (tick + .1f) * HERO_SKILL_SECONDS / 8;
+                int frame = game_hero_skill_frame(&game);
+                poses |= 1u << frame;
+                SDL_Rect source = {frame % 3 * 192, frame / 3 * 192, 192, 192};
+                for (int face = -1; face <= 1; face += 2) {
+                    game.hero.attack_face = face;
+                    capture(gfx, &game, surface, pixels);
+                    float root = face > 0 ? 1 - 116.0f / 192 : 116.0f / 192;
+                    SDL_FRect dest = {48 - root * 80, 72 - 176.0f / 192 * 80, 80, 80};
+                    SDL_SetRenderDrawColor(gfx->renderer, 11, 15, 19, 255);
+                    SDL_RenderClear(gfx->renderer);
+                    SDL_RenderCopyExF(gfx->renderer, p->texture, &source, &dest, 0,
+                                      NULL, face > 0 ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE);
+                    gfx_attack_trace(gfx, &game, (Vec2){48, 72});
+                    CHECK(SDL_RenderReadPixels(gfx->renderer, NULL, surface->format->format,
+                                              expected, surface->pitch) == 0);
+                    CHECK(memcmp(pixels, expected, bytes) == 0);
+                }
+            }
+            CHECK(poses == (1u << HERO_ATTACK_FRAMES) - 1);
+            /* The latest main's contact flash must use the chosen skill
+             * silhouette, and leave its texture ready for the next draw. */
+            game.hero.hurt_time = HIT_FLASH_SECONDS;
+            capture(gfx, &game, surface, pixels);
+            CHECK(memcmp(pixels, expected, bytes) != 0);
+            Uint8 red, green, blue, alpha; SDL_BlendMode blend;
+            SDL_GetTextureColorMod(p->texture, &red, &green, &blue);
+            SDL_GetTextureAlphaMod(p->texture, &alpha);
+            SDL_GetTextureBlendMode(p->texture, &blend);
+            CHECK(red == 255 && green == 255 && blue == 255 && alpha == 255);
+            CHECK(blend == SDL_BLENDMODE_BLEND);
+            game.hero.hurt_time = 0;
+            capture(gfx, &game, surface, pixels);
+            CHECK(memcmp(pixels, expected, bytes) == 0);
+        }
+    }
+    SDL_RenderSetScale(gfx->renderer, 1, 1);
+}
+
+
 static void feedback_pixels(Gfx *gfx, SDL_Surface *surface, Uint32 *pixels, Uint32 *baseline) {
     SDL_RenderSetScale(gfx->renderer, 1, 1);
     size_t bytes = (size_t)surface->pitch * surface->h;
@@ -148,6 +212,8 @@ int main(int argc, char **argv) {
     Uint32 *pixels = malloc(bytes), *previous = malloc(bytes), *idle = malloc(bytes);
     if (!pixels || !previous || !idle) return 1;
     directional_trails(gfx, surface, pixels);
+    technique_atlases(gfx, surface, pixels, previous);
+
     feedback_pixels(gfx, surface, pixels, previous);
     Uint32 background = SDL_MapRGBA(surface->format, 11, 15, 19, 255);
     for (int scale = 1; scale <= 3; scale++) {
