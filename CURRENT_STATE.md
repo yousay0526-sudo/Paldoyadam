@@ -8,6 +8,7 @@
 - 정본: `src/*.c`, `src/*.h`; 주요 문서: `README.md`, `docs/CONTROLS.md`, `docs/VALIDATION.md`, `docs/WEB.md`
 
 ## 이번 작업: 승인된 정지·걷기 8방향 구현 · PR #15 검토 대기
+- 코드 커밋 `a2eb53a`의 [CI 39386598981](https://github.com/yousay0526-sudo/Paldoyadam/actions/runs/39386598981): Linux CMake/CTest **9/9**, Emscripten 3.1.74 일반 웹·단일 HTML 빌드 성공. Pages 준비와 deploy skipped. 아래 로컬 결과와 별도로 확인했으며 문서 결과 추가 후속 커밋의 최종 CI 상태는 PR에서 확인한다.
 - 기준 main `07f39936cddc56c5091fa0b6a973b5e765789b5a`, 독립 브랜치 `art/hero-eight-direction-reference-20261020`. 사용자가 기준 원화와 정지·걷기 구현 단계를 승인해 기존 [PR #15](https://github.com/yousay0526-sudo/Paldoyadam/pull/15)를 갱신했다. main 병합·Pages 배포·버전 변경 없음.
 - 승인 기준에서 정지 8포즈를 분리하고 내장 ImageGen으로 방향별 8프레임 걷기 8장을 신규 제작. `art/hero/directions/walk/`에 실제 원본·전체 프롬프트·북쪽 여백 교정 프롬프트를 보존한다. 오른손 환도/빈 왼손/왼쪽 칼집·붉은 천 허리띠 유지, 혈흔 없음. 반대 방향을 반전해 만들지 않았다.
 - 실행 PNG는 `assets/warrior-idle-8dir-v1.png` 및 `warrior-walk-{n,ne,e,se,s,sw,w,nw}-v1.png` 9장, 각 768×384 RGBA/4×2/192px 셀. `scripts/prepare_direction_assets.py`와 `art/hero/directions/preparation.json`에 준비 절차·SHA-256·알파·선택 영역·발 기준점 `(96,176)`을 보존한다. 72포즈/실제 알파/셀 여백 4px 이상 검사 통과.
