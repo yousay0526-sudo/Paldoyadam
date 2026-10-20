@@ -7,6 +7,12 @@
 /* Uniform world zoom enlarges actors and scenery together; UI stays unchanged. */
 #define WORLD_ZOOM 1.20f
 
+/* Clockwise, starting at the back view. Each view is independently authored. */
+typedef enum {
+    HERO_N, HERO_NE, HERO_E, HERO_SE, HERO_S, HERO_SW, HERO_W, HERO_NW,
+    HERO_DIRECTIONS
+} HeroDirection;
+
 typedef struct {
     SDL_Texture *texture;
     int w, h;
@@ -27,6 +33,7 @@ typedef struct {
     SDL_Renderer *renderer;
     Picture map, hero, hero_walk, hero_attack, messenger, boss, boar, npcs, prologue[3];
     Picture hero_techniques[TECH_COUNT];
+    Picture hero_idle_directions, hero_walk_directions[HERO_DIRECTIONS];
     Typeface fonts[2];
     int face;
 } Gfx;
@@ -53,6 +60,7 @@ void gfx_sprite(Gfx *gfx, Picture *picture, Vec2 p, float box_w, float box_h, bo
 void gfx_hit_sprite(Gfx *gfx, Picture *picture, Vec2 p, float box_w, float box_h, bool flip, float remaining);
 void gfx_attack_trace(Gfx *gfx, const Game *game, Vec2 feet);
 void gfx_hero(Gfx *gfx, const Game *game, Vec2 feet);
+HeroDirection gfx_hero_direction(Vec2 direction);
 void gfx_story(Gfx *gfx, int image, float width, float height, float elapsed, float footer_height);
 void gfx_collision(Gfx *gfx, Vec2 camera);
 void gfx_world(Gfx *gfx, const Game *game, float width, float height, Vec2 camera,

@@ -2,6 +2,8 @@
 
 **C11 + SDL2로 만드는 픽셀 스토리 RPG 시제품입니다.** 전투·퀘스트·상점·대화·지형·화면 렌더링을 C로 구현했습니다. 같은 소스로 PC용 실행 파일과 브라우저 테스트용 WebAssembly를 빌드합니다. 브라우저의 HTML/JavaScript는 화면과 로더 역할만 맡습니다.
 
+정지·걷기 8방향 후보: 상향 뒷모습·대각선·마지막 정지 방향을 표시하고 방향별 오른손 원화를 사용합니다. [SDL 걷기](docs/hero-eight-direction-walk.gif), [구현·남은 범위](docs/HERO_DIRECTIONS.md). [PR #15](https://github.com/yousay0526-sudo/Paldoyadam/pull/15) 검토 대기이며 공개 게임에는 아직 반영하지 않았습니다. 공격 8방향은 다음 단계입니다.
+
 ## 0.8.0 — 장비창 · 수동 공격 · 스와이프 무공
 
 마을 배경 원화 리메이크 1차 후보(사용자 리뷰 대기): 기존 배치와 조선풍을 유지하며 배경 재질 묘사를 개선하고, 로딩 시 샤픈 처리를 제거했습니다. 생성 결과와 실행 이미지는 원본과 같은 1536×1024입니다. [전후 비교](docs/village-remake-pass1-comparison.png), [실제 게임 비교](docs/village-remake-pass1-gameplay.png), [검증과 남은 확인](docs/VILLAGE_REMAKE_PASS1.md)을 참고하세요. 충돌·가림·퀘스트·조작은 유지하며 병합·배포는 별도 승인 대기입니다.

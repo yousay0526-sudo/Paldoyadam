@@ -7,7 +7,16 @@
 - 현재 버전: `0.8.0` (C11/SDL2 기반 게임 및 Emscripten 웹 빌드)
 - 정본: `src/*.c`, `src/*.h`; 주요 문서: `README.md`, `docs/CONTROLS.md`, `docs/VALIDATION.md`, `docs/WEB.md`
 
-## 이번 작업: 오른손 고정·8방향 기준 원화 검토
+## 이번 작업: 승인된 정지·걷기 8방향 구현 · PR #15 검토 대기
+- 기준 main `07f39936cddc56c5091fa0b6a973b5e765789b5a`, 독립 브랜치 `art/hero-eight-direction-reference-20261020`. 사용자가 기준 원화와 정지·걷기 구현 단계를 승인해 기존 [PR #15](https://github.com/yousay0526-sudo/Paldoyadam/pull/15)를 갱신했다. main 병합·Pages 배포·버전 변경 없음.
+- 승인 기준에서 정지 8포즈를 분리하고 내장 ImageGen으로 방향별 8프레임 걷기 8장을 신규 제작. `art/hero/directions/walk/`에 실제 원본·전체 프롬프트·북쪽 여백 교정 프롬프트를 보존한다. 오른손 환도/빈 왼손/왼쪽 칼집·붉은 천 허리띠 유지, 혈흔 없음. 반대 방향을 반전해 만들지 않았다.
+- 실행 PNG는 `assets/warrior-idle-8dir-v1.png` 및 `warrior-walk-{n,ne,e,se,s,sw,w,nw}-v1.png` 9장, 각 768×384 RGBA/4×2/192px 셀. `scripts/prepare_direction_assets.py`와 `art/hero/directions/preparation.json`에 준비 절차·SHA-256·알파·선택 영역·발 기준점 `(96,176)`을 보존한다. 72포즈/실제 알파/셀 여백 4px 이상 검사 통과.
+- `src/draw.c/h`: 기존 `Hero.dir`에서 N/NE/E/SE/S/SW/W/NW를 선택. 정지·걷기는 반전 없이 표시하고 마지막 이동 입력 방향을 유지한다. 상향은 등, 대각선은 해당 시점이다. `src/game.c/h`, `src/main.c`, 이동 거리 기반 주기·속도·충돌, NPC/퀘스트/맵과 공격/기술 원화·타이밍·판정·입력 버퍼·콤보·전진/후퇴 변경 없음.
+- Windows Zig/SDL 전체 CMake/CTest **9/9 통과**, 조건 검사 합계 **444,287**. 렌더링 438,545, SDL 입력 747, UI 1,835 및 기존 게임/지형/수련/전투/피드백 통과. 실제 터치 드래그·목적지 이동 8방향과 정지/메뉴 후 방향 유지 추가 검사. 훈련 3개 크기 및 전후 8장면 성공; 시간 고정 평타·3개 기술 장면 픽셀 일치. 정지 장면의 변경은 캐릭터와 가림 표시 범위 안으로 제한된다. 북동쪽 걷기 검 끝을 포함하도록 가림 폭을 56으로 맞췄으며 기존 지붕·나무 폴리곤은 유지했다. 상세는 `docs/VALIDATION.md`.
+- [SDL 정지](docs/hero-eight-direction-idle.png), [걷기](docs/hero-eight-direction-walk.gif), [게임 전후/가림](docs/hero-eight-direction-gameplay.png), [표시 계약](docs/HERO_DIRECTIONS.md). 실제 3D 전환이 아닌 방향별 2D 원화다.
+- 남은 범위: 평타·4무공은 기존 좌우 반전 표시여서 공격 중 무기 손/시점이 전환될 수 있다. 공격 8방향은 다음 독립 단계. 이번 변경의 브라우저 실행·실제 iPhone/Android/APK·모바일 성능은 미검증. GAME_BIBLE.md 없음.
+
+## 이전 작업: 오른손 고정·8방향 기준 원화 검토 (구현 전 기록)
 - 기준 main `07f39936cddc56c5091fa0b6a973b5e765789b5a`, 독립 브랜치 `art/hero-eight-direction-reference-20261020`. PR #14는 사용자 승인으로 병합·배포됐으며 현재 공개 게임은 기술별 원화를 사용한다. 이 단계는 그 다음에 요청한 방향 표현의 기준 원화다.
 - 실제 코드 확인: `Hero.dir` 및 이동/충돌은 이미 2D 벡터로 상하·대각선을 처리한다. 표시의 `face/attack_face`만 좌우 두 값이고 `gfx_hero`에서 수평 반전하므로 무기 든 손까지 바뀐다. 방향별 새 원화와 표시 선택이 필요하며 현재 맵을 3D로 재구성할 필요는 없다.
 - 내장 ImageGen으로 승인 주인공을 참조해 8방향 정지 기준 원화 제작. 원본·초기 전체 프롬프트·북서 방향 오른손 교정 프롬프트는 `art/hero/directions/`에 보존한다. 해부학적 오른손 칼/빈 왼손/왼쪽 칼집, 앞·뒤·옆·대각선을 시각 검토했다. 붉은 허리띠 유지, 혈흔 없음.

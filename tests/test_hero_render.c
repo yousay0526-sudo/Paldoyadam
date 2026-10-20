@@ -193,6 +193,80 @@ static void feedback_pixels(Gfx *gfx, SDL_Surface *surface, Uint32 *pixels, Uint
         SDL_SetTextureColorMod(picture->texture, 255,255,255); SDL_SetTextureAlphaMod(picture->texture, 255);
     }
 }
+/* Exercise movement-derived views and pixel-compare with unreflected authored
+ * cells. Legacy left/right face must never change the idle/walk sword hand. */
+static void eight_direction_motion(Gfx *gfx, SDL_Surface *surface, Uint32 *pixels,
+                                   Uint32 *expected, Uint32 *idle) {
+    const Vec2 inputs[] = {{0,-1},{1,-1},{1,0},{1,1},{0,1},{-1,1},{-1,0},{-1,-1}};
+    const size_t bytes = (size_t)surface->pitch * surface->h;
+    Uint32 background = SDL_MapRGBA(surface->format, 11,15,19,255);
+    Uint32 *last = malloc(bytes);
+    CHECK(last != NULL);
+    CHECK(gfx_hero_direction((Vec2){0,0}) == HERO_S);
+    CHECK(gfx_hero_direction((Vec2){NAN,1}) == HERO_S);
+    for (int d = 0; d < HERO_DIRECTIONS; d++) {
+        /* Real movement sets a persistent heading; stopping and menus keep it.
+         * Analog inputs near both sector edges must still select this view. */
+        for (int edge = -1; edge <= 1; edge++) {
+            float a = d * .785398163f + edge * .38f;
+            CHECK(gfx_hero_direction((Vec2){sinf(a)*.12f,-cosf(a)*.12f}) == (HeroDirection)d);
+        }
+        Game game; game_reset(&game); game_start(&game);
+        Vec2 start = game.hero.pos;
+        game_tick(&game, .05f, inputs[d]);
+        CHECK(game.hero.walking && gfx_hero_direction(game.hero.dir) == (HeroDirection)d);
+        CHECK(fabsf(distance(start,game.hero.pos) - 155 * .05f) < .001f);
+        game_tick(&game, .05f, (Vec2){0,0});
+        CHECK(!game.hero.walking && gfx_hero_direction(game.hero.dir) == (HeroDirection)d);
+        Picture *walk = &gfx->hero_walk_directions[d];
+        CHECK(walk->texture && walk->w == 768 && walk->h == 384);
+        SDL_ScaleMode mode; CHECK(SDL_GetTextureScaleMode(walk->texture,&mode) == 0);
+        CHECK(mode == SDL_ScaleModeNearest);
+        for (int scale = 1; scale <= 3; scale++) {
+            SDL_RenderSetScale(gfx->renderer,(float)scale,(float)scale);
+            game.phase = PH_PLAY; game.hero.walking = false;
+            capture(gfx,&game,surface,idle);
+            for (int frame = -1; frame < HERO_WALK_FRAMES; frame++) {
+                game.hero.walking = frame >= 0;
+                game.hero.walk_cycle = (frame + .1f) / HERO_WALK_FRAMES;
+                game.hero.face = 1;
+                capture(gfx,&game,surface,pixels);
+                Picture *p = frame < 0 ? &gfx->hero_idle_directions : walk;
+                int cell = frame < 0 ? d : frame;
+                SDL_Rect source = {cell%4*192,cell/4*192,192,192};
+                SDL_FRect dest = {20,72-176.0f/192*56,56,56};
+                SDL_SetRenderDrawColor(gfx->renderer,11,15,19,255); SDL_RenderClear(gfx->renderer);
+                SDL_RenderCopyExF(gfx->renderer,p->texture,&source,&dest,0,NULL,SDL_FLIP_NONE);
+                CHECK(SDL_RenderReadPixels(gfx->renderer,NULL,surface->format->format,expected,surface->pitch) == 0);
+                CHECK(memcmp(pixels,expected,bytes) == 0);
+                if (frame >= 0) CHECK(memcmp(pixels,idle,bytes) != 0);
+                if (frame > 0) CHECK(memcmp(pixels,last,bytes) != 0);
+                memcpy(last,pixels,bytes);
+                game.hero.face = -1;
+                capture(gfx,&game,surface,expected);
+                CHECK(memcmp(pixels,expected,bytes) == 0);
+                int visible = 0, outside = 0;
+                for (int y=0;y<surface->h;y++) for (int x=0;x<surface->w;x++) {
+                    if (pixels[y*surface->w+x] == background) continue;
+                    visible++;
+                    if (x<20*scale || x>=76*scale || y<20*scale || y>=77*scale) outside++;
+                }
+                CHECK(visible>100 && outside==0);
+                game.hero.hurt_time=HIT_FLASH_SECONDS;
+                capture(gfx,&game,surface,expected);
+                CHECK(memcmp(pixels,expected,bytes) != 0);
+                game.hero.hurt_time=0;
+                capture(gfx,&game,surface,expected);
+                CHECK(memcmp(pixels,expected,bytes) == 0);
+            }
+            game.phase=PH_PAUSED;
+            capture(gfx,&game,surface,pixels);
+            CHECK(memcmp(pixels,idle,bytes) == 0);
+        }
+    }
+    free(last);
+    SDL_RenderSetScale(gfx->renderer,1,1);
+}
 int main(int argc, char **argv) {
     SDL_SetMainReady();
     SDL_setenv("SDL_VIDEODRIVER", "dummy", 1);
@@ -215,48 +289,13 @@ int main(int argc, char **argv) {
     technique_atlases(gfx, surface, pixels, previous);
 
     feedback_pixels(gfx, surface, pixels, previous);
+    eight_direction_motion(gfx, surface, pixels, previous, idle);
     Uint32 background = SDL_MapRGBA(surface->format, 11, 15, 19, 255);
     for (int scale = 1; scale <= 3; scale++) {
         SDL_RenderSetScale(renderer, (float)scale, (float)scale);
         Game game;
         game_reset(&game); game_start(&game);
         capture(gfx, &game, surface, idle);
-        /* Source artwork faces left: right-facing idle must be its reflection. */
-        SDL_SetRenderDrawColor(renderer, 11, 15, 19, 255);
-        SDL_RenderClear(renderer);
-        SDL_Rect original = {0, 0, gfx->hero.w, gfx->hero.h};
-        SDL_FRect expected = {25, 26, 46, 46};
-        SDL_RenderCopyExF(renderer, gfx->hero.texture, &original, &expected,
-                          0, NULL, SDL_FLIP_HORIZONTAL);
-        CHECK(SDL_RenderReadPixels(renderer, NULL, surface->format->format,
-                                  pixels, surface->pitch) == 0);
-        CHECK(memcmp(pixels, idle, bytes) == 0);
-        for (int frame = 0; frame < HERO_WALK_FRAMES; frame++) {
-            game.hero.walking = true;
-            game.hero.walk_cycle = (frame+.1f)/HERO_WALK_FRAMES;
-            capture(gfx, &game, surface, pixels);
-            CHECK(memcmp(pixels, idle, bytes) != 0);
-            if (frame) CHECK(memcmp(pixels, previous, bytes) != 0);
-            memcpy(previous, pixels, bytes);
-            int inside = 0, outside = 0;
-            for (int y = 0; y < surface->h; y++)
-                for (int x = 0; x < surface->w; x++) {
-                    if (pixels[y*surface->w+x] == background) continue;
-                    if (x >= 25*scale && x < 71*scale && y >= 26*scale && y < 72*scale) inside++;
-                    else outside++;
-                }
-            CHECK(inside > 100 && outside == 0);
-            game.hero.face = -1;
-            capture(gfx, &game, surface, pixels);
-            CHECK(memcmp(pixels, previous, bytes) != 0);
-            game.hero.face = 1;
-        }
-        game.hero.walking = false;
-        capture(gfx, &game, surface, pixels);
-        CHECK(memcmp(pixels, idle, bytes) == 0);
-        game.hero.walking = true; game.phase = PH_PAUSED;
-        capture(gfx, &game, surface, pixels);
-        CHECK(memcmp(pixels, idle, bytes) == 0);
         game.phase = PH_PLAY; game.hero.walking = false;
         game.hero.attacking = true; game.hero.attack_face = 1;
         for (int frame = 0; frame < HERO_ATTACK_FRAMES; frame++) {
@@ -303,6 +342,6 @@ int main(int argc, char **argv) {
     free(pixels); free(previous); free(idle);
     gfx_free(gfx); free(gfx);
     SDL_DestroyRenderer(renderer); SDL_FreeSurface(surface); SDL_Quit();
-    printf("PASS: %d hero rendering checks: walk/attack/four techniques, bounds, flip and idle at 1/2/3x.\n", checks);
+    printf("PASS: %d hero rendering checks: eight-direction idle/walk, attack/four techniques, bounds and feedback at 1/2/3x.\n", checks);
     return 0;
 }

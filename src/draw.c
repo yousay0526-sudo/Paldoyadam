@@ -70,7 +70,12 @@ bool gfx_load(Gfx *g, SDL_Renderer *renderer, const char *root) {
     Picture *pictures[] = {&g->map, &g->hero, &g->hero_walk, &g->hero_attack, &g->messenger, &g->boss, &g->boar,
                            &g->npcs, &g->prologue[0], &g->prologue[1], &g->prologue[2],
                            &g->hero_techniques[TECH_CLEAVE], &g->hero_techniques[TECH_SWEEP],
-                           &g->hero_techniques[TECH_THRUST], &g->hero_techniques[TECH_RETREAT]};
+                           &g->hero_techniques[TECH_THRUST], &g->hero_techniques[TECH_RETREAT],
+                           &g->hero_idle_directions,
+                           &g->hero_walk_directions[HERO_N], &g->hero_walk_directions[HERO_NE],
+                           &g->hero_walk_directions[HERO_E], &g->hero_walk_directions[HERO_SE],
+                           &g->hero_walk_directions[HERO_S], &g->hero_walk_directions[HERO_SW],
+                           &g->hero_walk_directions[HERO_W], &g->hero_walk_directions[HERO_NW]};
     const char *names[] = {"village.png",
                            "warrior-v2.png",
                            "warrior-walk-v1.png",
@@ -85,7 +90,12 @@ bool gfx_load(Gfx *g, SDL_Renderer *renderer, const char *root) {
                            "warrior-cleave-v1.png",
                            "warrior-sweep-v1.png",
                            "warrior-thrust-v1.png",
-                           "warrior-retreat-v1.png"};
+                           "warrior-retreat-v1.png",
+                           "warrior-idle-8dir-v1.png",
+                           "warrior-walk-n-v1.png", "warrior-walk-ne-v1.png",
+                           "warrior-walk-e-v1.png", "warrior-walk-se-v1.png",
+                           "warrior-walk-s-v1.png", "warrior-walk-sw-v1.png",
+                           "warrior-walk-w-v1.png", "warrior-walk-nw-v1.png"};
     for (size_t i = 0; i < sizeof pictures / sizeof *pictures; i++) {
         asset_path(path, sizeof path, root, names[i]);
         *pictures[i] = load_picture(g, path);
@@ -125,6 +135,14 @@ bool gfx_load(Gfx *g, SDL_Renderer *renderer, const char *root) {
             return false;
         }
     }
+    for (int i = -1; i < HERO_DIRECTIONS; i++) {
+        const Picture *p = i < 0 ? &g->hero_idle_directions : &g->hero_walk_directions[i];
+        if (p->w != 768 || p->h != 384) {
+            SDL_Log("Hero direction atlas %d must contain eight 192px cells in a 4x2 grid", i);
+            gfx_free(g);
+            return false;
+        }
+    }
     const char *font_names[] = {"fonts/NanumMyeongjo-Bold.ttf", "fonts/NanumBrushScript-Regular.ttf"};
     for (int i = 0; i < 2; i++) {
         Typeface *face = &g->fonts[i];
@@ -149,7 +167,12 @@ void gfx_free(Gfx *g) {
     Picture *pictures[] = {&g->map, &g->hero, &g->hero_walk, &g->hero_attack, &g->messenger, &g->boss, &g->boar,
                            &g->npcs, &g->prologue[0], &g->prologue[1], &g->prologue[2],
                            &g->hero_techniques[TECH_CLEAVE], &g->hero_techniques[TECH_SWEEP],
-                           &g->hero_techniques[TECH_THRUST], &g->hero_techniques[TECH_RETREAT]};
+                           &g->hero_techniques[TECH_THRUST], &g->hero_techniques[TECH_RETREAT],
+                           &g->hero_idle_directions,
+                           &g->hero_walk_directions[HERO_N], &g->hero_walk_directions[HERO_NE],
+                           &g->hero_walk_directions[HERO_E], &g->hero_walk_directions[HERO_SE],
+                           &g->hero_walk_directions[HERO_S], &g->hero_walk_directions[HERO_SW],
+                           &g->hero_walk_directions[HERO_W], &g->hero_walk_directions[HERO_NW]};
     for (size_t i = 0; i < sizeof pictures / sizeof *pictures; i++) {
         if (pictures[i]->texture)
             SDL_DestroyTexture(pictures[i]->texture);
@@ -502,25 +525,37 @@ void gfx_attack_trace(Gfx *f, const Game *g, Vec2 feet) {
     }
     if (count == 2) gfx_line(f, centers[0], centers[1], ink);
 }
+HeroDirection gfx_hero_direction(Vec2 direction) {
+    if (!isfinite(direction.x) || !isfinite(direction.y) ||
+        (fabsf(direction.x) < .00001f && fabsf(direction.y) < .00001f))
+        return HERO_S;
+    float angle = atan2f(direction.x, -direction.y);
+    int sector = (int)floorf(angle / .7853981633974483f + .5f);
+    return (HeroDirection)((sector + HERO_DIRECTIONS) % HERO_DIRECTIONS);
+}
 void gfx_hero(Gfx *f, const Game *g, Vec2 feet) {
     int frame = game_hero_frame(g);
     int skill = game_hero_skill_frame(g);
     int attack = skill >= 0 ? skill : game_hero_attack_frame(g);
-    Picture *p = attack >= 0 ? &f->hero_attack : frame < 0 ? &f->hero : &f->hero_walk;
+    HeroDirection direction = gfx_hero_direction(g->hero.dir);
+    Picture *p = attack >= 0 ? &f->hero_attack : frame < 0 ?
+        &f->hero_idle_directions : &f->hero_walk_directions[direction];
     if (skill >= 0 && g->hero.technique >= 0 && g->hero.technique < TECH_COUNT)
         p = &f->hero_techniques[g->hero.technique];
     SDL_Rect source = {0, 0, p->w, p->h};
-    if (frame >= 0 || attack >= 0) {
+    {
         int columns = attack >= 0 ? HERO_ATTACK_COLUMNS : HERO_WALK_COLUMNS;
         int frames = attack >= 0 ? HERO_ATTACK_FRAMES : HERO_WALK_FRAMES;
-        int cell = attack >= 0 ? attack : frame;
+        int cell = attack >= 0 ? attack : frame >= 0 ? frame : (int)direction;
         source.w = p->w / columns;
         source.h = p->h / (frames / columns);
         source.x = cell % columns * source.w;
         source.y = cell / columns * source.h;
     }
-    bool flip = (attack >= 0 ? g->hero.attack_face : g->hero.face) > 0;
-    SDL_FRect dest = {feet.x - 23, feet.y - 46, 46, 46};
+    /* Idle/walk never reflect: the sword stays in the anatomical right hand.
+     * Hero.dir already retains the last movement input, including while idle. */
+    bool flip = attack >= 0 && g->hero.attack_face > 0;
+    SDL_FRect dest = {feet.x - 28, feet.y - 176.0f / 192 * 56, 56, 56};
     if (skill >= 0) {
         /* All prepared techniques share this foot root and scale. The source
          * poses already contain their lean; rotating them would move the feet. */
@@ -788,7 +823,7 @@ void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool has_ta
             /* A faint silhouette keeps the player readable behind tall scenery. */
             SDL_SetTextureAlphaMod(f->map.texture, 205);
             cover_actor(f, g->hero.pos, camera,
-                        g->hero.skilling ? 180 : g->hero.attacking ? 96 : 46,
+                        g->hero.skilling ? 180 : g->hero.attacking ? 96 : 56,
                         g->hero.skilling ? 110 : g->hero.attacking ? 64 : 48);
             SDL_SetTextureAlphaMod(f->map.texture, 255);
         }
