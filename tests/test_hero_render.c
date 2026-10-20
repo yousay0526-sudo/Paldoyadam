@@ -130,11 +130,69 @@ static void technique_atlases(Gfx *gfx, SDL_Surface *surface, Uint32 *pixels, Ui
                 }
             }
             CHECK(poses == (1u << HERO_ATTACK_FRAMES) - 1);
+            /* The latest main's contact flash must use the chosen skill
+             * silhouette, and leave its texture ready for the next draw. */
+            game.hero.hurt_time = HIT_FLASH_SECONDS;
+            capture(gfx, &game, surface, pixels);
+            CHECK(memcmp(pixels, expected, bytes) != 0);
+            Uint8 red, green, blue, alpha; SDL_BlendMode blend;
+            SDL_GetTextureColorMod(p->texture, &red, &green, &blue);
+            SDL_GetTextureAlphaMod(p->texture, &alpha);
+            SDL_GetTextureBlendMode(p->texture, &blend);
+            CHECK(red == 255 && green == 255 && blue == 255 && alpha == 255);
+            CHECK(blend == SDL_BLENDMODE_BLEND);
+            game.hero.hurt_time = 0;
+            capture(gfx, &game, surface, pixels);
+            CHECK(memcmp(pixels, expected, bytes) == 0);
         }
     }
     SDL_RenderSetScale(gfx->renderer, 1, 1);
 }
 
+
+static void feedback_pixels(Gfx *gfx, SDL_Surface *surface, Uint32 *pixels, Uint32 *baseline) {
+    SDL_RenderSetScale(gfx->renderer, 1, 1);
+    size_t bytes = (size_t)surface->pitch * surface->h;
+    Uint32 background = SDL_MapRGBA(surface->format, 11, 15, 19, 255);
+    Game game; game_reset(&game); game_start(&game);
+    capture(gfx, &game, surface, baseline);
+    game.hero.hurt_time = HIT_FLASH_SECONDS; game.hero.invul = .75f;
+    capture(gfx, &game, surface, pixels);
+    CHECK(memcmp(pixels, baseline, bytes) != 0);
+    for (int i = 0; i < surface->w * surface->h; i++)
+        if (baseline[i] == background) CHECK(pixels[i] == background);
+    game.hero.hurt_time = game.hero.invul = 0;
+    capture(gfx, &game, surface, pixels); CHECK(memcmp(pixels, baseline, bytes) == 0);
+    game.hero.hurt_time = HIT_FLASH_SECONDS; game.phase = PH_BAG;
+    capture(gfx, &game, surface, pixels); CHECK(memcmp(pixels, baseline, bytes) == 0);
+    Picture *actors[] = {&gfx->boar, &gfx->boss};
+    for (int actor = 0; actor < 2; actor++) {
+        Picture *picture = actors[actor];
+        SDL_SetTextureColorMod(picture->texture, 201, 211, 221);
+        SDL_SetTextureAlphaMod(picture->texture, 191);
+        SDL_SetRenderDrawColor(gfx->renderer, 11, 15, 19, 255); SDL_RenderClear(gfx->renderer);
+        gfx_hit_sprite(gfx, picture, (Vec2){144,200}, 83, 96, false, 0);
+        CHECK(SDL_RenderReadPixels(gfx->renderer, NULL, surface->format->format, baseline, surface->pitch) == 0);
+        SDL_SetRenderDrawColor(gfx->renderer, 11, 15, 19, 255); SDL_RenderClear(gfx->renderer);
+        gfx_hit_sprite(gfx, picture, (Vec2){144,200}, 83, 96, false, HIT_FLASH_SECONDS);
+        CHECK(SDL_RenderReadPixels(gfx->renderer, NULL, surface->format->format, pixels, surface->pitch) == 0);
+        CHECK(memcmp(pixels, baseline, bytes) != 0);
+        float fit = fminf(83.0f / picture->w, 96.0f / picture->h);
+        for (int y = 0; y < surface->h; y++) for (int x = 0; x < surface->w; x++)
+            if (x < 144 - picture->w * fit / 2 - 1 || x > 144 + picture->w * fit / 2 + 1 ||
+                y < 200 - picture->h * fit - 1 || y > 201)
+                CHECK(pixels[y * surface->w + x] == background);
+        Uint8 r, green, b, alpha; SDL_BlendMode blend;
+        SDL_GetTextureColorMod(picture->texture, &r, &green, &b);
+        SDL_GetTextureAlphaMod(picture->texture, &alpha); SDL_GetTextureBlendMode(picture->texture, &blend);
+        CHECK(r == 201 && green == 211 && b == 221 && alpha == 191 && blend == SDL_BLENDMODE_BLEND);
+        SDL_SetRenderDrawColor(gfx->renderer, 11, 15, 19, 255); SDL_RenderClear(gfx->renderer);
+        gfx_hit_sprite(gfx, picture, (Vec2){144,200}, 83, 96, false, 0);
+        CHECK(SDL_RenderReadPixels(gfx->renderer, NULL, surface->format->format, pixels, surface->pitch) == 0);
+        CHECK(memcmp(pixels, baseline, bytes) == 0);
+        SDL_SetTextureColorMod(picture->texture, 255,255,255); SDL_SetTextureAlphaMod(picture->texture, 255);
+    }
+}
 int main(int argc, char **argv) {
     SDL_SetMainReady();
     SDL_setenv("SDL_VIDEODRIVER", "dummy", 1);
@@ -155,6 +213,8 @@ int main(int argc, char **argv) {
     if (!pixels || !previous || !idle) return 1;
     directional_trails(gfx, surface, pixels);
     technique_atlases(gfx, surface, pixels, previous);
+
+    feedback_pixels(gfx, surface, pixels, previous);
     Uint32 background = SDL_MapRGBA(surface->format, 11, 15, 19, 255);
     for (int scale = 1; scale <= 3; scale++) {
         SDL_RenderSetScale(renderer, (float)scale, (float)scale);

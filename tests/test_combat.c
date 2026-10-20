@@ -1,3 +1,4 @@
+#include "test_simulation.h"
 #include "game.h"
 #include "world.h"
 #include <math.h>
@@ -8,7 +9,7 @@ static int checks;
 #define CHECK(c) do { checks++; if (!(c)) { \
     fprintf(stderr, "FAIL %s:%d: %s\n", __FILE__, __LINE__, #c); exit(1); } } while (0)
 static void advance(Game *g, int ticks) {
-    for (int i = 0; i < ticks; i++) game_tick(g, .01f, (Vec2){0});
+    for (int i = 0; i < ticks; i++) simulation_tick(g, .01f, (Vec2){0});
 }
 static void fixture(Game *g) {
     Game saved;
