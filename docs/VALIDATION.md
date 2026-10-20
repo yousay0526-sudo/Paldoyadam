@@ -9,6 +9,7 @@
 - 보존 확인: 기존 `assets/warrior-attack-v1.png`, 정지/이동/배경 PNG, `src/main.c`, `src/world.c/h`, 입력/전투/수련장 로직과 테스트, CMake·웹·Android·배포 설정 변경 없음. `src/game.c`의 변경은 `game_hero_skill_frame` 내부 파고들기 표시 키 한 줄뿐이다. 0.64초·0.24초 타이밍, 피해/방향/거리/벽, 한 칸 예약/명중 콤보, 전진·후퇴 이동량은 기존 회귀 검사로 확인.
 - 환경 문제와 복구: 제한 환경의 Zig 임시 파일 rename 권한 오류는 승인된 제한 밖 동일 검사로 해결. CMake 경로 인자 인식과 Zig `ar` 호출 문제는 무시되는 `build-techniques/`의 절대 경로·도구체인/아카이버 override로 복구했다. Windows SDL 시작 라이브러리 부재는 기존 방식의 검증용 `SDL_MAIN_HANDLED`/`SDL_SetMainReady` 래퍼로 처리. 제품 빌드 설정을 변경하지 않았다. 로컬 Git 업로드 인증 부재는 연결된 GitHub 도구로 해결한다.
 - PR #14 생성 시 최신 main이 바뀌어 문서·그리기 호출·렌더링 검사에서 충돌했다. 양쪽 기록/검사를 보존하고 최신 피격 오버레이가 전용 기술 텍스처와 같은 셀·발 기준점·반전을 사용하게 합쳤다. 새 시트별 피격 표시가 실제로 달라지고 종료 후 원래 픽셀로 돌아오며 텍스처 색/알파/블렌드가 복원되는 검사도 1/2/3배에서 추가 통과했다. 히트스톱·공격/이동·입력 처리와 기존 피격 검사에는 이번 작업의 변경 없음.
+- 코드 커밋 `ada1d4a8576c0df58cffce5d54860dea4a9e904c`의 [CI 39353122484](https://github.com/yousay0526-sudo/Paldoyadam/actions/runs/39353122484) 성공 확인: Linux CMake/CTest **9/9**, Emscripten 3.1.74 일반/단일 HTML 빌드 및 다운로드 아티팩트 생성 통과. Pages 준비·deploy skipped. 이 결과만 기록하는 문서 후속 커밋의 최종 상태는 [PR #14](https://github.com/yousay0526-sudo/Paldoyadam/pull/14)에서 확인한다.
 - 미검증: 이번 변경의 웹 브라우저 실행·실제 iPhone Safari/Android의 표시/조작감·APK. 기존 전체화면 브라우저 검사 문제는 수정하지 않았다. `GAME_BIBLE.md` 없음. main 병합·자동 병합·Pages 배포·버전 변경 없음.
 
 ## 2026-10-20 · 전투 고도화 2차: 피격 반응·히트스톱
