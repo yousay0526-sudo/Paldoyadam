@@ -7,6 +7,19 @@
 - 현재 버전: `0.8.0` (C11/SDL2 기반 게임 및 Emscripten 웹 빌드)
 - 정본: `src/*.c`, `src/*.h`; 주요 문서: `README.md`, `docs/CONTROLS.md`, `docs/VALIDATION.md`, `docs/WEB.md`
 
+## 이번 작업: 전투 고도화 2차 — 피격 시각 반응·히트스톱
+- 기준 main `45d636f70ad6f0b6b43246a3f6842abcd753dc4a`. 브랜치 `feat/combat-hit-feedback-pass2`. 시작 및 구현 후 확인 시 main 동일, 열린 PR 없음.
+- `src/game.c/h`: 실제 피해에만 짧은 정지(일반 35ms / 갈라베기 55ms / 바람만 20ms / 플레이어 피격 45ms)와 0.12초 피격 표시. 동시 타깃·바람 추가 피해는 최대 정지 하나를 공유한다. 정지 중 게임 시간은 함께 멈추고 부분 프레임 시간은 보존한다.
+- `src/draw.c/h`, `src/main.c`: 원래 그림의 투명 영역을 따르는 밝은 피격 표시·접촉 불꽃, 훈련장 정지/피격 ms 진단. 입력과 UI는 계속 처리하고 마지막 유효 예약을 보존한다. 메뉴·포커스·회전·훈련 복귀·회복 시 표시와 정지를 초기화한다.
+- 물리 좌표·이동/충돌·넉백·경직·공격 취소·원화·장비/증강 수치·정식 버전은 변경하지 않음. 히트스톱 동안 AI와 콤보/예약/무적/출혈/쿨타임도 함께 멈추므로 실제 시계상 진행은 그만큼 늦어진다.
+- Windows Zig 0.14.1 / SDL 2.32.10: 8개 테스트 프로그램 총 **440,691개 조건 통과**. 실제 시간 피드백 159, 기존 게임 528/지형 142/수련장 1,578/방향 전투 753, SDL 입력 643, UI 1,835, 렌더링 435,053. 훈련/명중 3종 해상도와 피격·상점 화면 출력 및 시각 확인. 상세 검증·한계는 `docs/VALIDATION.md`.
+- 리뷰 [PR #13](https://github.com/yousay0526-sudo/Paldoyadam/pull/13). 코드/문서 커밋 `676d7fe`의 [CI 39350445058](https://github.com/yousay0526-sudo/Paldoyadam/actions/runs/39350445058): native CTest 9종과 Emscripten 일반/단일 HTML 빌드 성공, Pages 준비·deploy skipped. 결과 기록만 추가한 문서 후속 커밋의 최종 CI는 PR에서 확인한다. 이번 2차의 main 병합·배포·버전 변경은 사용자 검토와 승인 대기. GAME_BIBLE.md 없음. 실제 모바일 체감과 브라우저 실행·APK, 경직/넉백은 후속 검증/설계 대상.
+
+## 승인 후 배포 완료 — 전투 고도화 1차 (2026-10-20)
+- [PR #12](https://github.com/yousay0526-sudo/Paldoyadam/pull/12)를 사용자 배포 요청에 따라 main에 병합했다. 커밋 `45d636f70ad6f0b6b43246a3f6842abcd753dc4a`.
+- [실행 39340986967](https://github.com/yousay0526-sudo/Paldoyadam/actions/runs/39340986967): native 8종·웹/단일 HTML·Pages 게시 성공. [플레이](https://yousay0526-sudo.github.io/Paldoyadam/)의 HTML/JS/Wasm/data HTTP 200 확인. 파일 게시 2026-10-20 08:22:50 KST. 정식 버전 0.8.0 유지.
+- 이전 채팅의 로컬 상태 기록과 PR의 배포 완료 기록을 이번 문서에 반영했다. 아래의 1차 승인/배포 대기 표현은 당시 구현 기록이다.
+
 ## 이번 작업: 전투 고도화 1차 — 공격 명중 판정 및 콤보 엔진
 - 기준: 최신 main `e6ffd0f7b01ef56a12ca24b12a20836663d75508` (수련장 PR #11 병합 포함). 시작 시 열린 PR 없음. 브랜치 `feat/combat-hit-combo-pass1`.
 - `src/game.c/h`: 기본 공격·4무공의 고정 공격 방향, 각도·거리·LOS 판정. 전진 검 궤적의 접촉과 후퇴 전 타격 위치 유지. 입력 연결과 명중 콤보를 분리해 미스는 보너스를 초기화하고, 명중 타격 사이 1.05초·직전 동작 중복·최대 3연계를 검사한다. 마지막 유효 입력 한 칸, 쿨타임·기존 피해·장비·증강·이동/충돌은 유지.

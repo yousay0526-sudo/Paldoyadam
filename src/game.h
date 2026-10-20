@@ -23,6 +23,11 @@
 #define HERO_SKILL_SECONDS .64f
 #define HERO_SKILL_IMPACT .24f
 #define COMBO_SECONDS 1.05f
+#define HIT_FLASH_SECONDS .12f
+#define HITSTOP_LIGHT_SECONDS .035f
+#define HITSTOP_HEAVY_SECONDS .055f
+#define HITSTOP_WIND_SECONDS .020f
+#define HITSTOP_HURT_SECONDS .045f
 #define MOVE_NONE -2
 #define MOVE_ATTACK -1
 /* One full left/right stride in world units, independent of frame rate. */
@@ -74,7 +79,7 @@ typedef enum { NOTICE_NONE = 0, NOTICE_BOSS = 1, NOTICE_DEATH = 2, NOTICE_VICTOR
 typedef struct {
     Vec2 pos, dir;
     int hp, max_hp, face;
-    float bleed, bleed_tick, invul;
+    float bleed, bleed_tick, invul, hurt_time;
     float walk_cycle;
     bool walking;
     /* The swing keeps its own target/facing while movement remains responsive. */
@@ -90,7 +95,7 @@ typedef struct {
     Vec2 pos, home;
     int hp, max_hp;
     AiState state;
-    float timer, angle;
+    float timer, angle, hit_time;
     Route route;
     float repath;
 } Enemy;
@@ -154,6 +159,9 @@ typedef struct {
            TRAIN_INVALID, TRAIN_BLOCKED } combat_request;
     int input_move;
     float request_time;
+    /* Wall time counts down the brief stop; all gameplay clocks share its
+     * remaining simulation time. Input requests are still accepted. */
+    float hitstop_time;
     unsigned notices;
     char toast[384];
     Effect effects[EFFECT_MAX];
@@ -181,6 +189,7 @@ void game_start(Game *g);
 bool game_enter_training(Game *game, Game *saved);
 bool game_leave_training(Game *game, const Game *saved);
 void game_tick(Game *g, float dt, Vec2 movement);
+void game_clear_hit_feedback(Game *g);
 /* -1 means the approved standing pose; 0..7 select walking atlas cells. */
 int game_hero_frame(const Game *g);
 int game_hero_attack_frame(const Game *g);
