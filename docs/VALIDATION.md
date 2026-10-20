@@ -1,3 +1,15 @@
+## 2026-10-20 · 기술 전용 6프레임 원화
+
+- 기준: 최신 main `45d636f70ad6f0b6b43246a3f6842abcd753dc4a`. `graphics/technique-sprites-20261020`에서만 변경. 다른 로컬 작업 트리는 보존했다. 참조 채팅 원화 접근 실패 후 이 채팅의 사용자 승인에 따라 내장 ImageGen으로 새 네 장을 제작했다.
+- 원화 4장 실제 RGBA/1536×1024, 최소 알파 0·최대 254 확인. 배경의 어두운 RGB가 보이는 미리보기와 실제 알파를 구분했고, 실행 PNG를 밝은 두 배경에 합성해 불투명 사각형·검은 테두리·혈흔을 점검했다. 원본·전체 프롬프트·SHA-256 보존. `scripts/prepare_technique_assets.py` 실제 실행 성공: 24포즈, 3×2/192px 정사각 셀, 가장자리 4px 이상, 칼/옷자락 전체 보존, 공통 발 기준점. 물러베기 준비 포즈 한 장 반전 기록. 픽셀 기준점은 수작업으로 선정했으며 모션 캡처 수준의 발 미끄러짐 제거를 주장하지 않는다.
+- Windows / Zig 0.14.1(Clang 19.1.7) / SDL 2.32.10, C11 `-O1 -Wall -Wextra -Wpedantic` 직접 빌드·실행: 게임 **528**, 지형 **142**, 수련장 **1,578**, 방향 전투 **753**, SDL 입력 **623**, UI **1,834**, 영웅·검 궤적·배경 렌더링 **202,207**, 총 **207,665개 조건 통과**. 기존 `test_controls.c:259` signed/unsigned 비교 경고 1건 외 제품 소스 경고 없음.
+- `tests/test_hero_render.c`: 1/2/3배에서 네 기술·8개 시간 키·양쪽 방향의 실제 픽셀을 해당 전용 텍스처/셀/발 기준점으로 직접 그린 결과와 비교한다. 각 아틀라스가 평타 및 다른 기술과 별개인지, 576×384/최근접 샘플링인지, 여섯 포즈가 모두 표시되는지, 실제 타격 직전에는 준비 그림·0.24초에는 타격 그림인지 검사. 기존 평타/이동/정지/메뉴/검 궤적 회귀 유지.
+- CMake **4.4.4**, Ninja **1.13.2**, 동일 Zig로 `cmake -S . -B build-cmake-core -G Ninja -DCMAKE_TOOLCHAIN_FILE=build-techniques/zig-toolchain.cmake -DCMAKE_USER_MAKE_RULES_OVERRIDE=build-techniques/archive-rules.cmake -DPALDO_BUILD_GAME=OFF`, `cmake --build build-cmake-core --parallel 2`, `ctest --test-dir build-cmake-core --output-on-failure`: **4/4 통과** (gameplay/world_navigation/isolated_training/directional_combat). 이 결과는 로컬 SDL 전체 CMake 실행을 의미하지 않는다. SDL 전체는 위 직접 빌드로 검사했으며 Linux 전체 CMake/CTest 및 웹 빌드는 PR CI에서 확인한다.
+- 실제 SDL 게임: 수련장 432×270/844×390/1100×650 렌더링 성공. 844×390에서 기본 공격·4무공·상점·나무 가림·지붕 가림의 전후 각 8장면 성공. 처음 화면 비교에는 초기 렌더링 시간차가 섞여 검증용 래퍼에서 시간만 고정해 재검사했다. **평타·상점·나무/지붕 가림은 픽셀 일치**, 4무공만 캐릭터 주변 그림 변경. 24포즈 리뷰와 네 기술의 실제 게임 확대 비교를 직접 확인했다.
+- 보존 확인: 기존 `assets/warrior-attack-v1.png`, 정지/이동/배경 PNG, `src/main.c`, `src/world.c/h`, 입력/전투/수련장 로직과 테스트, CMake·웹·Android·배포 설정 변경 없음. `src/game.c`의 변경은 `game_hero_skill_frame` 내부 파고들기 표시 키 한 줄뿐이다. 0.64초·0.24초 타이밍, 피해/방향/거리/벽, 한 칸 예약/명중 콤보, 전진·후퇴 이동량은 기존 회귀 검사로 확인.
+- 환경 문제와 복구: 제한 환경의 Zig 임시 파일 rename 권한 오류는 승인된 제한 밖 동일 검사로 해결. CMake 경로 인자 인식과 Zig `ar` 호출 문제는 무시되는 `build-techniques/`의 절대 경로·도구체인/아카이버 override로 복구했다. Windows SDL 시작 라이브러리 부재는 기존 방식의 검증용 `SDL_MAIN_HANDLED`/`SDL_SetMainReady` 래퍼로 처리. 제품 빌드 설정을 변경하지 않았다. 로컬 Git 업로드 인증 부재는 연결된 GitHub 도구로 해결한다.
+- 미검증: 이번 변경의 웹 브라우저 실행·실제 iPhone Safari/Android의 표시/조작감·APK. 기존 전체화면 브라우저 검사 문제는 수정하지 않았다. `GAME_BIBLE.md` 없음. main 병합·자동 병합·Pages 배포·버전 변경 없음.
+
 ## 2026-10-20 · 전투 고도화 1차: 방향 판정과 명중 콤보
 
 - 기준 main `e6ffd0f7b01ef56a12ca24b12a20836663d75508`; PR #11 병합 확인 및 시작 시 열린 PR 없음. `feat/combat-hit-combo-pass1`에서 작업. 1차 범위만 구현했으며 버전 0.8.0, 에셋, 월드 충돌, 퀘스트, 배포 설정 유지.

@@ -26,6 +26,7 @@ typedef struct {
 typedef struct {
     SDL_Renderer *renderer;
     Picture map, hero, hero_walk, hero_attack, messenger, boss, boar, npcs, prologue[3];
+    Picture hero_techniques[TECH_COUNT];
     Typeface fonts[2];
     int face;
 } Gfx;

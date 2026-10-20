@@ -68,7 +68,9 @@ bool gfx_load(Gfx *g, SDL_Renderer *renderer, const char *root) {
     g->renderer = renderer;
     char path[2048];
     Picture *pictures[] = {&g->map, &g->hero, &g->hero_walk, &g->hero_attack, &g->messenger, &g->boss, &g->boar,
-                           &g->npcs, &g->prologue[0], &g->prologue[1], &g->prologue[2]};
+                           &g->npcs, &g->prologue[0], &g->prologue[1], &g->prologue[2],
+                           &g->hero_techniques[TECH_CLEAVE], &g->hero_techniques[TECH_SWEEP],
+                           &g->hero_techniques[TECH_THRUST], &g->hero_techniques[TECH_RETREAT]};
     const char *names[] = {"village.png",
                            "warrior-v2.png",
                            "warrior-walk-v1.png",
@@ -79,7 +81,11 @@ bool gfx_load(Gfx *g, SDL_Renderer *renderer, const char *root) {
                            "npcs.png",
                            "prologue/01-homeward.png",
                            "prologue/02-hunger.png",
-                           "prologue/03-reflection.png"};
+                           "prologue/03-reflection.png",
+                           "warrior-cleave-v1.png",
+                           "warrior-sweep-v1.png",
+                           "warrior-thrust-v1.png",
+                           "warrior-retreat-v1.png"};
     for (size_t i = 0; i < sizeof pictures / sizeof *pictures; i++) {
         asset_path(path, sizeof path, root, names[i]);
         *pictures[i] = load_picture(g, path);
@@ -90,9 +96,9 @@ bool gfx_load(Gfx *g, SDL_Renderer *renderer, const char *root) {
         }
         /* World sprites keep crisp sampling. The hero image is prefiltered
          * at 3x its logical size; only the story illustrations use linear. */
-        if (i == 0)
+        if (i == 0 || i >= 11)
             SDL_SetTextureScaleMode(pictures[i]->texture, SDL_ScaleModeNearest);
-        else if (i >= 8)
+        else if (i >= 8 && i < 11)
             SDL_SetTextureScaleMode(pictures[i]->texture, SDL_ScaleModeLinear);
     }
     if (g->hero_walk.w % HERO_WALK_COLUMNS ||
@@ -110,6 +116,14 @@ bool gfx_load(Gfx *g, SDL_Renderer *renderer, const char *root) {
         SDL_Log("Hero attack atlas must contain six square cells in a 3x2 grid");
         gfx_free(g);
         return false;
+    }
+    for (int i = 0; i < TECH_COUNT; i++) {
+        const Picture *p = &g->hero_techniques[i];
+        if (p->w != 576 || p->h != 384) {
+            SDL_Log("Hero technique atlas %d must contain six 192px cells in a 3x2 grid", i);
+            gfx_free(g);
+            return false;
+        }
     }
     const char *font_names[] = {"fonts/NanumMyeongjo-Bold.ttf", "fonts/NanumBrushScript-Regular.ttf"};
     for (int i = 0; i < 2; i++) {
@@ -133,7 +147,9 @@ bool gfx_load(Gfx *g, SDL_Renderer *renderer, const char *root) {
 }
 void gfx_free(Gfx *g) {
     Picture *pictures[] = {&g->map, &g->hero, &g->hero_walk, &g->hero_attack, &g->messenger, &g->boss, &g->boar,
-                           &g->npcs, &g->prologue[0], &g->prologue[1], &g->prologue[2]};
+                           &g->npcs, &g->prologue[0], &g->prologue[1], &g->prologue[2],
+                           &g->hero_techniques[TECH_CLEAVE], &g->hero_techniques[TECH_SWEEP],
+                           &g->hero_techniques[TECH_THRUST], &g->hero_techniques[TECH_RETREAT]};
     for (size_t i = 0; i < sizeof pictures / sizeof *pictures; i++) {
         if (pictures[i]->texture)
             SDL_DestroyTexture(pictures[i]->texture);
@@ -426,7 +442,7 @@ void gfx_sprite(Gfx *g, Picture *p, Vec2 v, float w, float h, bool flip) {
                    (float)p->h * scale};
     SDL_RenderCopyExF(g->renderer, p->texture, NULL, &r, 0, NULL, flip ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE);
 }
-/* The upright atlas is unchanged. The directional sword trail uses exactly
+/* The directional sword trail uses exactly
  * the simulation heading, sector and collision-resolved impact positions. */
 void gfx_attack_trace(Gfx *f, const Game *g, Vec2 feet) {
     if (g->phase != PH_PLAY || (!g->hero.attacking && !g->hero.skilling)) return;
@@ -467,6 +483,8 @@ void gfx_hero(Gfx *f, const Game *g, Vec2 feet) {
     int skill = game_hero_skill_frame(g);
     int attack = skill >= 0 ? skill : game_hero_attack_frame(g);
     Picture *p = attack >= 0 ? &f->hero_attack : frame < 0 ? &f->hero : &f->hero_walk;
+    if (skill >= 0 && g->hero.technique >= 0 && g->hero.technique < TECH_COUNT)
+        p = &f->hero_techniques[g->hero.technique];
     SDL_Rect source = {0, 0, p->w, p->h};
     if (frame >= 0 || attack >= 0) {
         int columns = attack >= 0 ? HERO_ATTACK_COLUMNS : HERO_WALK_COLUMNS;
@@ -479,7 +497,13 @@ void gfx_hero(Gfx *f, const Game *g, Vec2 feet) {
     }
     bool flip = (attack >= 0 ? g->hero.attack_face : g->hero.face) > 0;
     SDL_FRect dest = {feet.x - 23, feet.y - 46, 46, 46};
-    if (attack >= 0) {
+    if (skill >= 0) {
+        /* All prepared techniques share this foot root and scale. The source
+         * poses already contain their lean; rotating them would move the feet. */
+        float root_x = 116.0f / 192;
+        if (flip) root_x = 1 - root_x;
+        dest = (SDL_FRect){feet.x - root_x * 80, feet.y - 176.0f / 192 * 80, 80, 80};
+    } else if (attack >= 0) {
         /* Atlas-space roots keep the supporting foot planted through the swing.
          * These anchors are also the alignment contract for future equipment layers. */
         const Vec2 roots[HERO_ATTACK_FRAMES] = {
@@ -491,19 +515,10 @@ void gfx_hero(Gfx *f, const Game *g, Vec2 feet) {
         dest = (SDL_FRect){feet.x - root_x * size,
                            feet.y - roots[attack].y / 512 * size, size, size};
     }
-    float body_angle = 0;
-    if (skill >= 0) {
-        float t = g->hero.skill_elapsed / HERO_SKILL_SECONDS;
-        float lean = t < .375f ? -5 : t < .65f ? 10 : 3;
-        if (g->hero.technique == TECH_SWEEP) lean *= 1.6f;
-        if (g->hero.technique == TECH_RETREAT) lean = -lean;
-        body_angle = lean * (flip ? 1 : -1);
-    }
-    SDL_FPoint pivot = {feet.x - dest.x, feet.y - dest.y};
     SDL_SetTextureAlphaMod(p->texture,
         g->hero.invul > 0 && ((int)(g->time * 18) % 2) ? 110 : 255);
-    SDL_RenderCopyExF(f->renderer, p->texture, &source, &dest, body_angle,
-                     body_angle == 0 ? NULL : &pivot, flip ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE);
+    SDL_RenderCopyExF(f->renderer, p->texture, &source, &dest, 0,
+                     NULL, flip ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE);
     SDL_SetTextureAlphaMod(p->texture, 255);
     gfx_attack_trace(f, g, feet);
 }

@@ -907,7 +907,7 @@ int game_hero_skill_frame(const Game *g) {
     if (g->phase != PH_PLAY || !g->hero.skilling) return -1;
     const int cleave[] = {0,1,1,2,3,4,5,5};
     const int sweep[] = {0,0,1,2,3,3,4,5};
-    const int thrust[] = {0,0,2,2,3,4,5,5};
+    const int thrust[] = {0,0,1,2,3,4,5,5};
     int tick = (int)clampf(g->hero.skill_elapsed / HERO_SKILL_SECONDS * 8, 0, 7);
     return g->hero.technique == TECH_SWEEP ? sweep[tick]
         : g->hero.technique == TECH_THRUST ? thrust[tick] : cleave[tick];

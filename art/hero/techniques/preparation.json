@@ -1,0 +1,494 @@
+{
+  "cell": 192,
+  "root": [
+    116,
+    176
+  ],
+  "scale": 0.27,
+  "techniques": {
+    "cleave": {
+      "master_sha256": "af39ddf4d8b879c75fdcdafbda2f627863f8e2c217a8a4f0f6e88fa844b6f60f",
+      "runtime_sha256": "4518eba4069973cd393dcacaab37b66f4f5955ba5a369f985f83ed90cceb63d5",
+      "alpha_zero_fraction": 0.6325,
+      "frames": [
+        {
+          "source_bounds": [
+            91,
+            96,
+            526,
+            528
+          ],
+          "source_root": [
+            282,
+            521
+          ],
+          "mirrored": false,
+          "runtime_bounds": [
+            64,
+            61,
+            181,
+            178
+          ]
+        },
+        {
+          "source_bounds": [
+            600,
+            23,
+            1033,
+            531
+          ],
+          "source_root": [
+            780,
+            523
+          ],
+          "mirrored": false,
+          "runtime_bounds": [
+            67,
+            41,
+            184,
+            178
+          ]
+        },
+        {
+          "source_bounds": [
+            1117,
+            71,
+            1526,
+            533
+          ],
+          "source_root": [
+            1324,
+            524
+          ],
+          "mirrored": false,
+          "runtime_bounds": [
+            60,
+            54,
+            170,
+            179
+          ]
+        },
+        {
+          "source_bounds": [
+            13,
+            642,
+            558,
+            983
+          ],
+          "source_root": [
+            340,
+            977
+          ],
+          "mirrored": false,
+          "runtime_bounds": [
+            28,
+            86,
+            175,
+            178
+          ]
+        },
+        {
+          "source_bounds": [
+            555,
+            592,
+            1046,
+            984
+          ],
+          "source_root": [
+            802,
+            978
+          ],
+          "mirrored": false,
+          "runtime_bounds": [
+            49,
+            72,
+            182,
+            178
+          ]
+        },
+        {
+          "source_bounds": [
+            1086,
+            553,
+            1526,
+            985
+          ],
+          "source_root": [
+            1322,
+            979
+          ],
+          "mirrored": false,
+          "runtime_bounds": [
+            52,
+            62,
+            171,
+            178
+          ]
+        }
+      ]
+    },
+    "sweep": {
+      "master_sha256": "08c08005c8d7b15e0d5a0c0d653a7a9665d1c328cd1f89e49f4f115d3e9d11da",
+      "runtime_sha256": "5f695c36035e231390add990454ceb5ebc362fe36d3824e7197a43ef3bbbc521",
+      "alpha_zero_fraction": 0.6257,
+      "frames": [
+        {
+          "source_bounds": [
+            86,
+            70,
+            498,
+            496
+          ],
+          "source_root": [
+            280,
+            487
+          ],
+          "mirrored": false,
+          "runtime_bounds": [
+            64,
+            63,
+            175,
+            178
+          ]
+        },
+        {
+          "source_bounds": [
+            544,
+            72,
+            1003,
+            496
+          ],
+          "source_root": [
+            780,
+            486
+          ],
+          "mirrored": false,
+          "runtime_bounds": [
+            52,
+            64,
+            176,
+            178
+          ]
+        },
+        {
+          "source_bounds": [
+            982,
+            85,
+            1518,
+            496
+          ],
+          "source_root": [
+            1324,
+            488
+          ],
+          "mirrored": false,
+          "runtime_bounds": [
+            24,
+            67,
+            169,
+            178
+          ]
+        },
+        {
+          "source_bounds": [
+            18,
+            588,
+            571,
+            982
+          ],
+          "source_root": [
+            335,
+            977
+          ],
+          "mirrored": false,
+          "runtime_bounds": [
+            30,
+            71,
+            179,
+            177
+          ]
+        },
+        {
+          "source_bounds": [
+            620,
+            572,
+            1060,
+            984
+          ],
+          "source_root": [
+            835,
+            977
+          ],
+          "mirrored": false,
+          "runtime_bounds": [
+            58,
+            67,
+            177,
+            178
+          ]
+        },
+        {
+          "source_bounds": [
+            1100,
+            569,
+            1515,
+            984
+          ],
+          "source_root": [
+            1340,
+            975
+          ],
+          "mirrored": false,
+          "runtime_bounds": [
+            51,
+            66,
+            163,
+            178
+          ]
+        }
+      ]
+    },
+    "thrust": {
+      "master_sha256": "289723607ddb91bfebd80d2a0f8afaa6b844474d9c7852ba9e276b85b0e60316",
+      "runtime_sha256": "5bca3f25794b7632d6fd7c5bde7333e86d5c6660ed72e85dba45f1e23ed2efd8",
+      "alpha_zero_fraction": 0.6427,
+      "frames": [
+        {
+          "source_bounds": [
+            65,
+            105,
+            512,
+            483
+          ],
+          "source_root": [
+            298,
+            475
+          ],
+          "mirrored": false,
+          "runtime_bounds": [
+            53,
+            76,
+            174,
+            178
+          ]
+        },
+        {
+          "source_bounds": [
+            584,
+            101,
+            971,
+            483
+          ],
+          "source_root": [
+            762,
+            473
+          ],
+          "mirrored": false,
+          "runtime_bounds": [
+            68,
+            76,
+            172,
+            179
+          ]
+        },
+        {
+          "source_bounds": [
+            912,
+            144,
+            1529,
+            483
+          ],
+          "source_root": [
+            1305,
+            474
+          ],
+          "mirrored": false,
+          "runtime_bounds": [
+            10,
+            87,
+            177,
+            179
+          ]
+        },
+        {
+          "source_bounds": [
+            17,
+            606,
+            559,
+            961
+          ],
+          "source_root": [
+            356,
+            953
+          ],
+          "mirrored": false,
+          "runtime_bounds": [
+            24,
+            82,
+            170,
+            178
+          ]
+        },
+        {
+          "source_bounds": [
+            575,
+            575,
+            1033,
+            962
+          ],
+          "source_root": [
+            836,
+            953
+          ],
+          "mirrored": false,
+          "runtime_bounds": [
+            46,
+            74,
+            170,
+            178
+          ]
+        },
+        {
+          "source_bounds": [
+            1078,
+            535,
+            1520,
+            964
+          ],
+          "source_root": [
+            1307,
+            953
+          ],
+          "mirrored": false,
+          "runtime_bounds": [
+            54,
+            63,
+            173,
+            179
+          ]
+        }
+      ]
+    },
+    "retreat": {
+      "master_sha256": "0f9ce77b1b865f0de6cfb6a7ca1f58c85b165dd70a40b1531104af834b29c0c0",
+      "runtime_sha256": "666f34c4cd2dc5418bb7042a84420bfa7e81736079521b5aad578f03de077b2b",
+      "alpha_zero_fraction": 0.6501,
+      "frames": [
+        {
+          "source_bounds": [
+            36,
+            67,
+            526,
+            483
+          ],
+          "source_root": [
+            302,
+            476
+          ],
+          "mirrored": false,
+          "runtime_bounds": [
+            44,
+            66,
+            176,
+            178
+          ]
+        },
+        {
+          "source_bounds": [
+            558,
+            49,
+            1015,
+            488
+          ],
+          "source_root": [
+            795,
+            479
+          ],
+          "mirrored": true,
+          "runtime_bounds": [
+            57,
+            60,
+            180,
+            179
+          ]
+        },
+        {
+          "source_bounds": [
+            1008,
+            107,
+            1534,
+            488
+          ],
+          "source_root": [
+            1270,
+            480
+          ],
+          "mirrored": false,
+          "runtime_bounds": [
+            45,
+            75,
+            187,
+            178
+          ]
+        },
+        {
+          "source_bounds": [
+            19,
+            553,
+            532,
+            962
+          ],
+          "source_root": [
+            325,
+            952
+          ],
+          "mirrored": false,
+          "runtime_bounds": [
+            33,
+            68,
+            172,
+            178
+          ]
+        },
+        {
+          "source_bounds": [
+            612,
+            565,
+            1004,
+            964
+          ],
+          "source_root": [
+            825,
+            956
+          ],
+          "mirrored": false,
+          "runtime_bounds": [
+            58,
+            70,
+            164,
+            178
+          ]
+        },
+        {
+          "source_bounds": [
+            1041,
+            551,
+            1526,
+            966
+          ],
+          "source_root": [
+            1315,
+            957
+          ],
+          "mirrored": false,
+          "runtime_bounds": [
+            42,
+            66,
+            173,
+            178
+          ]
+        }
+      ]
+    }
+  }
+}
