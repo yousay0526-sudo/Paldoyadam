@@ -426,6 +426,30 @@ void gfx_sprite(Gfx *g, Picture *p, Vec2 v, float w, float h, bool flip) {
                    (float)p->h * scale};
     SDL_RenderCopyExF(g->renderer, p->texture, NULL, &r, 0, NULL, flip ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE);
 }
+/* Add light only through authored sprite alpha, then restore all texture state.
+ * This is a contact flash, with no change to the actor's world position. */
+static void hit_flash(Gfx *g, Picture *p, const SDL_Rect *source, const SDL_FRect *dest,
+                      double angle, const SDL_FPoint *pivot, SDL_RendererFlip flip, float remaining) {
+    if (remaining <= 0) return;
+    Uint8 r, green, b, alpha;
+    SDL_BlendMode blend;
+    SDL_GetTextureColorMod(p->texture, &r, &green, &b);
+    SDL_GetTextureAlphaMod(p->texture, &alpha);
+    SDL_GetTextureBlendMode(p->texture, &blend);
+    SDL_SetTextureColorMod(p->texture, 255, 228, 180);
+    SDL_SetTextureAlphaMod(p->texture, (Uint8)(175 * clampf(remaining / HIT_FLASH_SECONDS, 0, 1)));
+    SDL_SetTextureBlendMode(p->texture, SDL_BLENDMODE_ADD);
+    SDL_RenderCopyExF(g->renderer, p->texture, source, dest, angle, pivot, flip);
+    SDL_SetTextureBlendMode(p->texture, blend);
+    SDL_SetTextureColorMod(p->texture, r, green, b);
+    SDL_SetTextureAlphaMod(p->texture, alpha);
+}
+void gfx_hit_sprite(Gfx *g, Picture *p, Vec2 v, float w, float h, bool flip, float remaining) {
+    gfx_sprite(g, p, v, w, h, flip);
+    float scale = fminf(w / (float)p->w, h / (float)p->h);
+    SDL_FRect dest = {v.x - p->w * scale / 2, v.y - p->h * scale, p->w * scale, p->h * scale};
+    hit_flash(g, p, NULL, &dest, 0, NULL, flip ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE, remaining);
+}
 /* The upright atlas is unchanged. The directional sword trail uses exactly
  * the simulation heading, sector and collision-resolved impact positions. */
 void gfx_attack_trace(Gfx *f, const Game *g, Vec2 feet) {
@@ -501,10 +525,13 @@ void gfx_hero(Gfx *f, const Game *g, Vec2 feet) {
     }
     SDL_FPoint pivot = {feet.x - dest.x, feet.y - dest.y};
     SDL_SetTextureAlphaMod(p->texture,
-        g->hero.invul > 0 && ((int)(g->time * 18) % 2) ? 110 : 255);
+        g->hero.hurt_time <= 0 && g->hero.invul > 0 && ((int)(g->time * 18) % 2) ? 110 : 255);
     SDL_RenderCopyExF(f->renderer, p->texture, &source, &dest, body_angle,
                      body_angle == 0 ? NULL : &pivot, flip ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE);
     SDL_SetTextureAlphaMod(p->texture, 255);
+    if (g->phase == PH_PLAY)
+        hit_flash(f, p, &source, &dest, body_angle, body_angle == 0 ? NULL : &pivot,
+                  flip ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE, g->hero.hurt_time);
     gfx_attack_trace(f, g, feet);
 }
 /* Preserve the entire illustration above the dialogue. A dimmed copy fills
@@ -710,7 +737,8 @@ void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool has_ta
             const Enemy *e = &g->boars[i];
             p = screen_pos(e->pos, camera);
             shadow(f, p, 17);
-            gfx_sprite(f, &f->boar, (Vec2){p.x, p.y + 3}, 55, 48, e->pos.x < g->hero.pos.x);
+            gfx_hit_sprite(f, &f->boar, (Vec2){p.x, p.y + 3}, 55, 48, e->pos.x < g->hero.pos.x,
+                           g->phase == PH_PLAY ? e->hit_time : 0);
             cover_actor(f, e->pos, camera, 55, 50);
             if (e->hp < e->max_hp) {
                 gfx_rect(f, (SDL_FRect){p.x - 20, p.y - 55, 40, 4}, INK);
@@ -721,7 +749,7 @@ void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool has_ta
             p = screen_pos(g->boss.pos, camera);
             shadow(f, p, 23);
             if (g->training.active) {
-                SDL_Color straw = g->training.hit_time > 0 ? PAPER : GOLD;
+                SDL_Color straw = g->boss.hit_time > 0 ? PAPER : GOLD;
                 float sway = g->training.hit_time > 0 ? sinf(g->training.hit_time * 55) * 3 : 0;
                 gfx_round(f, (SDL_FRect){p.x - 4, p.y - 45, 8, 45}, 3, (SDL_Color){104, 74, 47, 255});
                 gfx_round(f, (SDL_FRect){p.x - 26 + sway, p.y - 40, 52, 7}, 3, straw);
@@ -731,7 +759,8 @@ void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool has_ta
                 label(f, "허수아비", (Vec2){p.x, p.y - 78}, PAPER);
                 continue;
             }
-            gfx_sprite(f, &f->boss, (Vec2){p.x, p.y + 7}, 83, 96, g->boss.pos.x < g->hero.pos.x);
+            gfx_hit_sprite(f, &f->boss, (Vec2){p.x, p.y + 7}, 83, 96, g->boss.pos.x < g->hero.pos.x,
+                           g->phase == PH_PLAY ? g->boss.hit_time : 0);
             cover_actor(f, g->boss.pos, camera, 83, 98);
             if (g->boss.state == AI_RECOVER)
                 label(f, "빈틈", (Vec2){p.x, p.y - 98}, GOLD);
@@ -765,8 +794,17 @@ void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool has_ta
             gfx_line(f, (Vec2){p.x, p.y - 17}, (Vec2){q.x, q.y - 22}, (SDL_Color){204, 238, 203, 255});
         else if (e->kind == FX_BOSS_SWING)
             gfx_sector(f, p, 65, e->angle, 1.1f, (SDL_Color){244, 178, 154, 100});
-        else
-            gfx_line(f, (Vec2){q.x - 16, q.y - 35}, (Vec2){q.x + 17, q.y - 12}, PAPER);
+        else {
+            float fade = clampf(e->life / .25f, 0, 1), radius = 5 + 10 * (1 - fade);
+            Vec2 center = {q.x, q.y - 24};
+            SDL_Color light = e->damage ? (SDL_Color){255, 190, 155, (Uint8)(255 * fade)}
+                                       : (SDL_Color){255, 239, 195, (Uint8)(255 * fade)};
+            for (int ray = 0; ray < 6; ray++) {
+                float angle = e->angle + ray * PI / 3;
+                gfx_line(f, (Vec2){center.x + cosf(angle) * 3, center.y + sinf(angle) * 3},
+                            (Vec2){center.x + cosf(angle) * radius, center.y + sinf(angle) * radius}, light);
+            }
+        }
     }
     Vec2 objective = game_objective(g);
     if (!g->training.active && g->phase == PH_PLAY && g->quest != Q_COMBAT && distance(objective, g->hero.pos) > 70) {
