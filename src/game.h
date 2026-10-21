@@ -47,6 +47,13 @@
 #define KNOCK_HERO_BOSS 200.0f
 /* A technique that lands during a boar's windup breaks it into recovery. */
 #define BOAR_STAGGER_SECONDS .6f
+/* Bodies: overlapping circles separate with this time constant, split by
+ * mass, and at most this many boars wind up at once. */
+#define BODY_SEPARATE_SECONDS .06f
+#define BODY_MASS_HERO 1.0f
+#define BODY_MASS_BOAR 2.0f
+#define BODY_MASS_BOSS 6.0f
+#define BOAR_ATTACK_TOKENS 2
 #define MOVE_NONE -2
 #define MOVE_ATTACK -1
 /* One full left/right stride in world units, independent of frame rate. */

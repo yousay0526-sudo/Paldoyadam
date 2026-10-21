@@ -174,7 +174,7 @@ static void multiple_targets(void) {
     Game g; game_reset(&g); game_start(&g);
     g.traces[0] = g.traces[1] = true; g.quest = Q_RECOVER; g.hero.pos = BOSS_HOME;
     for (int i = 0; i < BOAR_COUNT; i++) {
-        g.boars[i].pos = polar(BOSS_HOME, i == 2 ? 3.14159265f : i * .4f, i == 0 ? 20 : 40);
+        g.boars[i].pos = polar(BOSS_HOME, i == 2 ? 3.14159265f : i * .7f, i == 0 ? 28 : 50); /* bodies apart */
         g.boars[i].timer = 99; g.boars[i].state = AI_RECOVER;
     }
     CHECK(game_technique(&g, TECH_SWEEP)); advance(&g, 25);
