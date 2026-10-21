@@ -31,7 +31,9 @@ static void stop_and_resume(void) {
     float remaining = g.hitstop_time, buffer = g.buffer_time;
     game_tick(&g, .05f, (Vec2){1, 0});
     float resumed = .05f - remaining;
-    CHECK(g.hitstop_time == 0 && near(g.hero.pos.x - before.hero.pos.x, resumed * 155));
+    float speed = HERO_SPEED * (before.hero.attacking || before.hero.skilling ? HERO_ATTACK_MOVE_SCALE : 1);
+    float run_up = speed * (resumed - HERO_ACCEL_SECONDS * (1 - expf(-resumed / HERO_ACCEL_SECONDS)));
+    CHECK(g.hitstop_time == 0 && near(g.hero.pos.x - before.hero.pos.x, run_up));
     CHECK(near(g.time - before.time, resumed) && near(g.combo_time, before.combo_time - resumed));
     CHECK(near(g.buffer_time, buffer - resumed) && g.queued_move == TECH_SWEEP);
     CHECK(g.training.hits == 1 && g.combo_count == 1);

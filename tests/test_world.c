@@ -75,7 +75,7 @@ static void walk_route(Vec2 from, Vec2 to, float dt) {
         if (route.cursor >= route.count)
             break;
         float d = distance(g.hero.pos, route.points[route.cursor]);
-        float strength = fminf(1, d / (155 * dt));
+        float strength = game_arrival_strength(&g, direction, d, dt);
         simulation_tick(&g, dt, (Vec2){direction.x * strength, direction.y * strength});
         if (!world_clear(g.hero.pos, HERO_RADIUS)) {
             fprintf(stderr, "Route entered solid at %.2f,%.2f\n", g.hero.pos.x, g.hero.pos.y);
