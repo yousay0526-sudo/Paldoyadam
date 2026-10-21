@@ -240,6 +240,7 @@
 - 사용자가 몬스터도 처음부터 8방향을 지정했다. 내장 ImageGen으로 기존 돼지·백정을 참조한 방향표 2장과 모션 원화 10장, 정지 16+모션 160=176포즈를 제작했다. 돼지 걷기/엄니 공격, 백정 걷기/짧은 베기/큰 내려찍기. 오른손 식칼, 혈흔 이펙트 없음. 원본·프롬프트·교정 기록은 `art/monsters/`.
 - `scripts/prepare_monster_assets.py`와 `preparation.json`: 실제 RGBA·알파 검사, 실루엣 분리·비율 유지 축소, 공통 발 기준점 `(96,176)`, 셀별 배율 보정 기록. 7개 PNG는 **검토용 `art/monsters/prepared/`에만 있으며 게임에서 불러오지 않는다**. 초기 돼지 걷기 시트의 주둥이 경계 잘림을 ImageGen 편집으로 교정 후 재검사했다.
 - 준비 검사 176포즈/7PNG 통과, 독립 자산 검사 `python tests/test_monster_assets.py` **1/1 통과**. 4px 투명 경계, 셀별 해시/알파, 네 모션 프레임 차이와 단순 반전 복제가 아님을 확인했다. 정지 PNG·다섯 모션 GIF를 밝은 배경에서 시각 검토했다. **SDL 게임 캡처/게임 타이밍 검증은 아니다.**
+- 원화/준비 코드 커밋 `ad8307367c6f66c87a97fee4f8dd1a28d2ae68eb`의 [CI 39539023282](https://github.com/yousay0526-sudo/Paldoyadam/actions/runs/39539023282): Linux 전체 CMake/CTest **9/9 통과**(게임·지형·수련·방향 전투·피드백·native_render·입력·UI·영웅 렌더링). Emscripten 3.1.74 일반/단일 HTML 웹 빌드와 다운로드 아티팩트 생성 성공. Pages 준비·deploy skipped. 새 시트는 미연결이므로 새 몬스터 게임 표시의 검증 결과는 아니다. 이 결과를 기록하는 후속 커밋은 문서만 변경한다.
 - `docs/MONSTER_ROSTER_RESEARCH.md`: 도깨비·범/창귀·여우·원귀/물귀신·불가사리·이무기 등을 포함한 10계열/29종 신규 창작 후보와 기관 자료를 구분했다. 출현 장·퀘스트·AI를 확정하거나 추가하지 않았다.
 - 실행 소스·현재 assets·배포 설정은 변경 없음. 로컬 게임 CMake/CTest·전투/입력/모바일/SDL 전후 장면 검증은 이 미술 단계에서 새로 실행하지 않았다. 사용자 원화 승인 후 별도 연결 단계에서 실행한다. 현재 백정 AI는 하나의 큰 공격 패턴이므로 평타 그림을 준비했다고 새 공격 규칙이 구현된 것은 아니다.
 - 남음: 원화 승인, 실제 게임 크기에서 발/배율·가림·피격/쓰러짐 전환과 기존 타이밍 연결, 관련 회귀·웹/모바일 검증. 상세 [원화 기록](docs/MONSTER_MOTION_ART.md), [정지](docs/monster-direction-candidates.png), [모션](docs/monster-motion-candidates.gif). GAME_BIBLE.md 없음. main 병합·자동 병합·Pages 배포·버전 변경 없음.
