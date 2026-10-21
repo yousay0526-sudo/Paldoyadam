@@ -491,39 +491,87 @@ void gfx_hit_sprite(Gfx *g, Picture *p, Vec2 v, float w, float h, bool flip, flo
 }
 /* The directional sword trail uses exactly
  * the simulation heading, sector and collision-resolved impact positions. */
+/* A crescent between two radii. Colour fades along the arc toward the tail
+ * and inward toward the hand, so the blade edge reads brightest. */
+static void slash_band(Gfx *f, Vec2 c, float inner, float outer, float from, float to,
+                       SDL_Color edge, float alpha) {
+    enum { STEPS = 24 };
+    SDL_Vertex vertices[(STEPS + 1) * 2];
+    int indices[STEPS * 6];
+    for (int i = 0; i <= STEPS; i++) {
+        float t = (float)i / STEPS, a = from + (to - from) * t;
+        SDL_Color lit = edge;
+        lit.a = (Uint8)(edge.a * alpha * t * t);
+        SDL_Color clear = lit;
+        clear.a = 0;
+        vertices[i * 2] = (SDL_Vertex){{c.x + cosf(a) * outer, c.y + sinf(a) * outer}, lit, {0, 0}};
+        vertices[i * 2 + 1] = (SDL_Vertex){{c.x + cosf(a) * inner, c.y + sinf(a) * inner}, clear, {0, 0}};
+        if (i < STEPS) {
+            int *k = indices + i * 6, o = i * 2;
+            k[0] = o; k[1] = o + 1; k[2] = o + 2;
+            k[3] = o + 1; k[4] = o + 3; k[5] = o + 2;
+        }
+    }
+    SDL_RenderGeometry(f->renderer, NULL, vertices, (STEPS + 1) * 2, indices, STEPS * 6);
+}
+/* A narrow streak for the thrust: bright at the point, clear at the hand. */
+static void slash_streak(Gfx *f, Vec2 c, float inner, float outer, float angle, float width,
+                         SDL_Color edge, float alpha) {
+    float x = cosf(angle), y = sinf(angle);
+    SDL_Color lit = edge, clear = edge;
+    lit.a = (Uint8)(edge.a * alpha);
+    clear.a = 0;
+    SDL_Vertex v[3] = {
+        {{c.x + x * outer, c.y + y * outer}, lit, {0, 0}},
+        {{c.x + x * inner - y * width, c.y + y * inner + x * width}, clear, {0, 0}},
+        {{c.x + x * inner + y * width, c.y + y * inner - x * width}, clear, {0, 0}}};
+    SDL_RenderGeometry(f->renderer, NULL, v, 3, NULL, 0);
+}
+/* The slash appears on the impact frame and stays inside the real hit sector
+ * (same origin, angle, half angle and range as the simulation). It sweeps
+ * across the sector, then the tail wipes toward the blade tip as it fades.
+ * Nothing is drawn while winding up, so no hitbox outline is ever shown. */
 void gfx_attack_trace(Gfx *f, const Game *g, Vec2 feet) {
     if (g->phase != PH_PLAY || (!g->hero.attacking && !g->hero.skilling)) return;
     const Hero *h = &g->hero;
+    bool struck = h->skilling ? h->skill_hit : h->attack_hit;
+    if (!struck) return;
     int move = h->skilling ? (int)h->technique : MOVE_ATTACK;
     float elapsed = h->skilling ? h->skill_elapsed : h->attack_elapsed;
-    float impact = h->skilling ? HERO_SKILL_IMPACT : HERO_ATTACK_IMPACT;
+    float since = elapsed - (h->skilling ? HERO_SKILL_IMPACT : HERO_ATTACK_IMPACT);
     float angle = h->skilling ? h->skill_angle : h->attack_angle;
-    bool struck = h->skilling ? h->skill_hit : h->attack_hit;
-    float fade = struck ? 1 - clampf((elapsed - impact) / .20f, 0, 1) : .23f;
+    float fade = 1 - clampf((since - .04f) / .18f, 0, 1);
     if (fade <= 0) return;
+    float reveal = 1 - clampf(.35f + since / .07f, 0, 1);
+    float sweep = 1 - reveal * reveal * reveal, wipe = (1 - fade) * .8f;
     float radius = game_attack_range(g, move), half = game_attack_half_angle(move);
-    Vec2 origin = struck ? h->impact_origin : h->pos;
-    Vec2 start = struck ? h->impact_start : origin;
-    Vec2 centers[] = {{feet.x + origin.x - h->pos.x, feet.y + origin.y - h->pos.y - 22},
-                      {feet.x + start.x - h->pos.x, feet.y + start.y - h->pos.y - 22}};
-    SDL_Color ink = {183, 222, 237, (Uint8)(205 * fade)};
-    int count = distance(origin, start) > .01f ? 2 : 1;
-    for (int k = 0; k < count; k++) {
-        Vec2 center = centers[k];
-        for (int j = 0; j < 48; j++) {
-            float a = angle - half + 2 * half * j / 48;
-            float b = angle - half + 2 * half * (j + 1) / 48;
-            gfx_line(f, (Vec2){center.x + cosf(a) * radius, center.y + sinf(a) * radius},
-                        (Vec2){center.x + cosf(b) * radius, center.y + sinf(b) * radius}, ink);
-        }
-        for (int side = -1; side <= 1; side += 2) {
-            float a = angle + side * half;
-            gfx_line(f, center, (Vec2){center.x + cosf(a) * radius, center.y + sinf(a) * radius}, ink);
-        }
-        if (move == TECH_THRUST)
-            gfx_line(f, center, (Vec2){center.x + cosf(angle) * radius, center.y + sinf(angle) * radius}, ink);
+    Vec2 origin = h->impact_origin, start = h->impact_start;
+    Vec2 center = {feet.x + origin.x - h->pos.x, feet.y + origin.y - h->pos.y - 22};
+    SDL_BlendMode previous;
+    SDL_GetRenderDrawBlendMode(f->renderer, &previous);
+    SDL_SetRenderDrawBlendMode(f->renderer, SDL_BLENDMODE_ADD);
+    const SDL_Color glow = {120, 170, 205, 190}, edge = {235, 248, 255, 255};
+    if (distance(origin, start) > .01f) {
+        /* Forward moves leave a short dash streak from where the step began. */
+        Vec2 from = {feet.x + start.x - h->pos.x, feet.y + start.y - h->pos.y - 22};
+        float dash = distance(from, center), along = atan2f(center.y - from.y, center.x - from.x);
+        if (dash > 1)
+            slash_streak(f, from, 0, dash, along, 5, glow, .55f * fade);
     }
-    if (count == 2) gfx_line(f, centers[0], centers[1], ink);
+    if (move == TECH_THRUST) {
+        float tip = radius * (.3f + .7f * sweep), tail = radius * (.15f + .6f * wipe);
+        slash_streak(f, center, tail, tip, angle, radius * .09f, glow, fade);
+        slash_streak(f, center, tail, tip, angle, radius * .03f, edge, fade);
+    } else {
+        /* Swing from the back hand toward the facing side; mirrored swings
+         * reverse the direction so the arc follows the blade. */
+        float direction = h->attack_face > 0 ? 1.0f : -1.0f;
+        float first = angle - direction * half, span = 2 * half * direction;
+        float to = first + span * sweep, from = first + span * fminf(wipe, sweep);
+        slash_band(f, center, radius * .68f, radius, from, to, glow, .6f * fade);
+        slash_band(f, center, radius * .9f, radius, from, to, edge, fade);
+    }
+    SDL_SetRenderDrawBlendMode(f->renderer, previous);
 }
 HeroDirection gfx_hero_direction(Vec2 direction) {
     if (!isfinite(direction.x) || !isfinite(direction.y) ||
