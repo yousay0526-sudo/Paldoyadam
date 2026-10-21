@@ -31,7 +31,9 @@ static void stop_and_resume(void) {
     float remaining = g.hitstop_time, buffer = g.buffer_time;
     game_tick(&g, .05f, (Vec2){1, 0});
     float resumed = .05f - remaining;
-    CHECK(g.hitstop_time == 0 && near(g.hero.pos.x - before.hero.pos.x, resumed * 155));
+    float speed = HERO_SPEED * (before.hero.attacking || before.hero.skilling ? HERO_ATTACK_MOVE_SCALE : 1);
+    float run_up = speed * (resumed - HERO_ACCEL_SECONDS * (1 - expf(-resumed / HERO_ACCEL_SECONDS)));
+    CHECK(g.hitstop_time == 0 && near(g.hero.pos.x - before.hero.pos.x, run_up));
     CHECK(near(g.time - before.time, resumed) && near(g.combo_time, before.combo_time - resumed));
     CHECK(near(g.buffer_time, buffer - resumed) && g.queued_move == TECH_SWEEP);
     CHECK(g.training.hits == 1 && g.combo_count == 1);
@@ -85,7 +87,10 @@ static void victims_and_enemy_timing(void) {
     CHECK(g.hero.hp == 100 && g.boars[0].timer == .4f && distance(enemy, g.boars[0].pos) == 0);
     tick(&g, .03f);
     CHECK(near(g.boars[0].timer, .385f));
-    CHECK(distance(hero, g.hero.pos) == 0 && distance(enemy, g.boars[0].pos) == 0);
+    /* Approved knockback: after the stop the boar slides away from the hero
+     * (the hero is not pushed by its own hit), within the decaying total. */
+    CHECK(distance(hero, g.hero.pos) == 0 && g.boars[0].pos.x > enemy.x &&
+          fabsf(g.boars[0].pos.y - enemy.y) < .01f && g.boars[0].pos.x - enemy.x < 70 / KNOCK_DECAY + .01f);
     real_frames(&g, 12); CHECK(g.boars[0].hit_time == 0);
     /* Death/reward stays one-shot; a rejected repeated hit cannot extend the stop. */
     g.boars[0].hp = 1; int coins = g.coins;

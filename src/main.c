@@ -1421,12 +1421,22 @@ static Vec2 input(App *a, float dt) {
     }
     if (a->target_set) {
         Vec2 direction = world_follow(&a->route, a->game.hero.pos);
+        Vec2 aim = a->route.count > 0 ? a->route.points[a->route.count - 1] : a->game.hero.pos;
+        float d = a->route.cursor < a->route.count ? distance(a->route.points[a->route.cursor], a->game.hero.pos) : 0;
         if (a->route.cursor >= a->route.count) {
-            a->target_set = false;
-            return (Vec2){0, 0};
+            /* The route counts 2 units as arrival; settle the rest along the
+             * current heading so the eased stop ends on the tapped point
+             * without turning the hero. */
+            Vec2 heading = a->game.hero.dir;
+            d = (aim.x - a->game.hero.pos.x) * heading.x + (aim.y - a->game.hero.pos.y) * heading.y;
+            if (d < .5f) {
+                a->target_set = false;
+                return (Vec2){0, 0};
+            }
+            direction = heading;
         }
-        float d = distance(a->route.points[a->route.cursor], a->game.hero.pos);
-        float strength = fminf(1, d / (155 * fmaxf(.001f, clampf(dt, 0, .05f))));
+        /* Ask only for a speed the hero can still shed before the point. */
+        float strength = game_arrival_strength(&a->game, direction, d, clampf(dt, 0, .05f));
         return (Vec2){direction.x * strength, direction.y * strength};
     }
     return (Vec2){0, 0};

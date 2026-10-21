@@ -4,9 +4,9 @@
 
 ## 범위와 현재 코드
 
-- 시작 main `753be50ec0f51ff387f30234f816fcae73066395`, 정리 기준 `a5a4390e846acde247ebce392e9005c9ac4eece1`. AGENTS.md, CURRENT_STATE.md, ART_DIRECTION.md, 실제 game.c/h·draw.c와 테스트를 확인했다. 독립 브랜치 `graphics/monster-eight-direction-pass1-20261021`에서 작업한다.
+- 시작 main `753be50ec0f51ff387f30234f816fcae73066395`, 원화 정리 기준 `a5a4390e846acde247ebce392e9005c9ac4eece1`, PR 정리 시 최신 main `5e72bb8400092ec2e3dd39848ea8f3b5570da0a6`을 합쳐 보존했다. AGENTS.md, CURRENT_STATE.md, ART_DIRECTION.md, 실제 game.c/h·draw.c와 테스트를 확인했다. 독립 브랜치 `graphics/monster-eight-direction-pass1-20261021`에서 작업한다.
 - 원형은 기존 변이 멧돼지와 백정이다. 제작 당시 assets의 원본을 참조했으며, 최신 main이 원본을 보존한 현재 경로는 `art/characters/minion.png`, `art/characters/butcher.png`다. 새 적·퀘스트·맵·전투 규칙·게임 버전은 추가하지 않는다.
-- 최신 main의 `gfx_enemy()`는 단일 이미지에 걷기 출렁임, 준비·공격·피격·쓰러짐을 절차적으로 적용한다. `Enemy.stride`·`dying`, 발 먼지·타격 파편·충격 고리·그림자는 이번 작업에서 수정하지 않았다. 후속 시트 연결 시 이 연출과 깊이 정렬·가림을 보존해야 한다.
+- 최신 main의 `gfx_enemy()`는 단일 이미지에 걷기 출렁임, 준비·공격·피격·쓰러짐을 절차적으로 적용한다. `Enemy.stride`·`dying`, 발 먼지·타격 파편·충격 고리·그림자는 이번 작업에서 수정하지 않았다. 후속 시트 연결 시 이 연출과 깊이 정렬·가림을 보존해야 한다. PR 정리 중 추가된 넉백·멧돼지 무공 경직(PR #30)과 주인공 이동 가감속/공격 중 감속(PR #31)도 원본 그대로 합쳤다. 멧돼지 준비가 무공 피격으로 취소되는 전환도 후속 검증 대상이다.
 - 돼지의 현재 공격은 준비 0.6초 뒤 거리 73 이내/시야 조건에서 피해 9, 회복 1.15초다. 백정은 준비 0.95초·휘두르기 0.2초·회복 1.25초, 거리 109/각도 오차 1.15 이내/시야 조건에서 피해 18이다. 현재 백정 AI에는 **별도의 평타와 스킬 두 패턴이 없다**. 두 종류의 그림은 준비하되 새 전투 패턴이 구현됐다고 주장하지 않는다.
 
 ## 생성물

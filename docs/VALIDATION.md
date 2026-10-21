@@ -1,6 +1,6 @@
 ## 2026-10-21 · 몬스터 8방향 원화 준비 단계
 
-- 기준 main `a5a4390e846acde247ebce392e9005c9ac4eece1`, 독립 브랜치 `graphics/monster-eight-direction-pass1-20261021`. AGENTS/CURRENT_STATE/ART_DIRECTION 및 실제 game.c/h·draw.c와 테스트를 확인했다. 실행 소스·현재 assets·CMake·워크플로·버전 변경 없음.
+- 원화 기준 main `a5a4390e846acde247ebce392e9005c9ac4eece1`, PR 정리 시 `5e72bb8400092ec2e3dd39848ea8f3b5570da0a6`의 넉백·경직·이동 가감속을 합쳐 보존했다. 독립 브랜치 `graphics/monster-eight-direction-pass1-20261021`. AGENTS/CURRENT_STATE/ART_DIRECTION 및 실제 game.c/h·draw.c와 테스트를 확인했다. 실행 소스·현재 assets·CMake·워크플로·버전 변경 없음.
 - 내장 ImageGen 원본 12장: 돼지 방향표 1225×1284, 백정 방향표 1286×1223, 모션 10장 각 1254×1254, 모두 실제 RGBA/알파 0..255. 초안 돼지 걷기 E방향 주둥이 경계 잘림은 ImageGen 편집으로 여백을 확보해 교체했다. 최종 원본·프롬프트·교정 프롬프트·SHA-256을 보존했다.
 - Windows / bundled Python / Pillow: `python scripts/prepare_monster_assets.py` 성공, **176포즈/7PNG**. 연결 실루엣 선택·알파 1..4 잡점 제거·알파 사전 곱 Lanczos, 반전/색 교체/보간 없음. 192px 셀, 공통 기준점 `(96,176)`, 네 가장자리 최소 4px 투명 여유. 원본 강한 실루엣 외곽 잘림 검사 통과. 배율/몸 크기 보정은 `preparation.json`에 기록했다.
 - `python tests/test_monster_assets.py`: **1/1 통과**. 별도 검사로 원본 12개/아틀라스 7개/셀 176개의 해시·치수·RGBA·투명 비율·4px 경계·네 프레임 차이·반대 방향의 단순 반전 복제가 아님을 확인했다. `python scripts/preview_monster_assets.py` 성공. [정지](monster-direction-candidates.png)·[모션 GIF](monster-motion-candidates.gif)를 밝은 배경에서 직접 검토했다. 혈흔 이펙트를 추가하지 않았으며 주인공 원화는 변경하지 않았다.
