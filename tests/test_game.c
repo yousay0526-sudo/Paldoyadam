@@ -688,6 +688,19 @@ static void dust_events(void) {
 /* Knockback and stagger (approved): pushes decay to speed / KNOCK_DECAY,
  * a technique breaks a boar windup, the butcher keeps its swing and barely
  * moves, and a boar strike shoves the hero back through terrain rules. */
+static void effects_keep_order(void) {
+    Game g; game_reset(&g); game_start(&g);
+    g.effect_count = 0;
+    EffectKind kinds[4] = {FX_HIT, FX_WIND, FX_SKILL, FX_DUST};
+    float lives[4] = {.5f, .1f, .5f, .5f};
+    for (int i = 0; i < 4; i++) g.effects[g.effect_count++] = (Effect){.kind = kinds[i], .life = lives[i]};
+    game_tick(&g, .05f, (Vec2){0, 0});
+    game_tick(&g, .05f, (Vec2){0, 0});
+    game_tick(&g, .05f, (Vec2){0, 0});
+    /* The ended second effect leaves the others in spawn order. */
+    CHECK(g.effect_count == 3 && g.effects[0].kind == FX_HIT && g.effects[1].kind == FX_SKILL &&
+          g.effects[2].kind == FX_DUST);
+}
 static void bodies_and_attack_tokens(void) {
     Game g; game_reset(&g); game_start(&g);
     g.traces[0] = g.traces[1] = true; g.quest = Q_RECOVER;
@@ -785,6 +798,7 @@ int main(void) {
     dust_events();
     knockback_and_stagger();
     bodies_and_attack_tokens();
+    effects_keep_order();
     attack_motion();
     boar_strike_reach();
     printf(

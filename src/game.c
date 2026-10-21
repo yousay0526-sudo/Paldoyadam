@@ -541,9 +541,11 @@ bool game_begin_boss(Game *g) {
     game_toast(g, "붉은 범위 밖으로 · 공격 뒤가 기회");
     return true;
 }
-void game_recover(Game *g) {
+/* Shared by recovery and retry: a fresh, full-health hero at `pos` with
+ * no combat state, cooldowns, effects or pending notices left over. */
+static void reset_fight(Game *g, Vec2 pos) {
     game_clear_hit_feedback(g);
-    g->hero.pos = HOME;
+    g->hero.pos = pos;
     g->hero.walking = false;
     g->hero.walk_cycle = 0;
     g->hero.attacking = false;
@@ -557,6 +559,12 @@ void game_recover(Game *g) {
     g->hero.hp = g->hero.max_hp;
     g->hero.bleed = g->hero.invul = 0;
     g->hero.knock = g->hero.vel = (Vec2){0, 0};
+    g->cooldown = g->item_cooldown = 0;
+    g->effect_count = 0;
+    g->notices = 0;
+}
+void game_recover(Game *g) {
+    reset_fight(g, HOME);
     if (g->quest == Q_COMBAT) {
         g->boss = make_enemy(BOSS_HOME, 240);
         g->quest = Q_HUNT;
@@ -566,32 +574,12 @@ void game_recover(Game *g) {
             g->boars[i] = make_enemy(g->boars[i].home, 38);
     g->phase = PH_PLAY;
     g->shop = -1;
-    g->cooldown = g->item_cooldown = 0;
-    g->effect_count = 0;
-    g->notices = 0;
     game_toast(g, "마을에서 회복 · 여정 진행 유지");
 }
 void game_retry(Game *g) {
-    game_clear_hit_feedback(g);
-    g->hero.pos = add(BOSS_HOME, (Vec2){-145, 0});
-    g->hero.walking = false;
-    g->hero.walk_cycle = 0;
-    g->hero.attacking = false;
-    g->hero.attack_elapsed = 0;
-    g->hero.skilling = false; g->hero.skill_elapsed = 0;
-    g->combo_count = g->input_count = 0;
-    g->combo_time = g->input_time = g->buffer_time = g->request_time = 0;
-    g->queued_move = g->last_move = g->last_hit_move = g->input_move = MOVE_NONE;
-    g->last_impact = IMPACT_NONE; g->combat_request = TRAIN_READY;
-    memset(g->technique_cooldowns, 0, sizeof g->technique_cooldowns);
-    g->hero.hp = 100;
-    g->hero.bleed = g->hero.invul = 0;
-    g->hero.knock = g->hero.vel = (Vec2){0, 0};
+    reset_fight(g, add(BOSS_HOME, (Vec2){-145, 0}));
     g->boss = make_enemy(BOSS_HOME, 240);
-    g->cooldown = g->item_cooldown = 0;
     g->attack_cooldown = .4f;
-    g->effect_count = 0;
-    g->notices = 0;
     g->quest = Q_HUNT;
     game_begin_boss(g);
 }
@@ -638,28 +626,40 @@ static int boars_winding_up(const Game *g) {
         n += g->boars[i].hp > 0 && g->boars[i].state == AI_WINDUP;
     return n;
 }
+/* Enemy behaviour numbers in one place (distances in world units, speeds
+ * per second, times in seconds). Windup and strike reach live in game.h
+ * because drawing shares them. */
+typedef struct {
+    float speed, notice, give_up, close_to, wait_at, strike_from, recover, rest;
+    int damage;
+} EnemyTuning;
+static const EnemyTuning BOAR_TUNING = {.speed = 64, .notice = 180, .give_up = 270, .close_to = 43, .wait_at = 80,
+                                        .strike_from = 65, .recover = BOAR_RECOVER_SECONDS, .rest = .4f, .damage = 9};
+static const EnemyTuning BOSS_TUNING = {.speed = 45, .close_to = 57, .strike_from = 138, .recover = 1.25f,
+                                        .rest = .9f, .damage = 18};
 static void tick_boar(Game *g, Enemy *e, float dt) {
+    const EnemyTuning *t = &BOAR_TUNING;
     float d = distance(e->pos, g->hero.pos);
     e->timer -= dt;
     switch (e->state) {
     case AI_IDLE:
-        if (d < 180)
+        if (d < t->notice)
             e->state = AI_CHASE;
         break;
     case AI_CHASE:
-        if (d > 270) {
+        if (d > t->give_up) {
             e->state = AI_RETURN;
             break;
         }
         {
             /* Without a free attack slot, wait just outside striking reach. */
             bool turn = boars_winding_up(g) < BOAR_ATTACK_TOKENS;
-            if (d > (turn ? 43 : 80))
-                move_toward(e, g->hero.pos, 64 * dt, BOAR_RADIUS, dt);
+            if (d > (turn ? t->close_to : t->wait_at))
+                move_toward(e, g->hero.pos, t->speed * dt, BOAR_RADIUS, dt);
             if (!turn)
                 break;
         }
-        if (d < 65 && e->timer <= 0 && world_segment(e->pos, g->hero.pos, 0)) {
+        if (d < t->strike_from && e->timer <= 0 && world_segment(e->pos, g->hero.pos, 0)) {
             e->state = AI_WINDUP;
             e->angle = atan2f(g->hero.pos.y - e->pos.y, g->hero.pos.x - e->pos.x);
             e->timer = BOAR_WINDUP_SECONDS;
@@ -668,22 +668,22 @@ static void tick_boar(Game *g, Enemy *e, float dt) {
     case AI_WINDUP:
         if (e->timer <= 0) {
             if (d < BOAR_STRIKE_RANGE && world_segment(e->pos, g->hero.pos, 0))
-                hurt_from(g, 9, false, e->pos, KNOCK_HERO_BOAR);
+                hurt_from(g, t->damage, false, e->pos, KNOCK_HERO_BOAR);
             e->state = AI_RECOVER;
-            e->timer = BOAR_RECOVER_SECONDS;
+            e->timer = t->recover;
         }
         break;
     case AI_RECOVER:
         if (e->timer <= 0) {
             e->state = AI_CHASE;
-            e->timer = .4f;
+            e->timer = t->rest;
         }
         break;
     case AI_RETURN:
         if (distance(e->pos, e->home) < 4)
             e->state = AI_IDLE;
         else
-            move_toward(e, e->home, 64 * dt, BOAR_RADIUS, dt);
+            move_toward(e, e->home, t->speed * dt, BOAR_RADIUS, dt);
         break;
     default:
         break;
@@ -691,13 +691,14 @@ static void tick_boar(Game *g, Enemy *e, float dt) {
 }
 static void tick_boss(Game *g, float dt) {
     Enemy *e = &g->boss;
+    const EnemyTuning *t = &BOSS_TUNING;
     float d = distance(g->hero.pos, e->pos);
     e->timer -= dt;
     switch (e->state) {
     case AI_CHASE:
-        if (d > 57)
-            move_toward(e, g->hero.pos, 45 * dt, BOSS_RADIUS, dt);
-        if (e->timer <= 0 && d < 138 && world_segment(e->pos, g->hero.pos, 0)) {
+        if (d > t->close_to)
+            move_toward(e, g->hero.pos, t->speed * dt, BOSS_RADIUS, dt);
+        if (e->timer <= 0 && d < t->strike_from && world_segment(e->pos, g->hero.pos, 0)) {
             e->state = AI_WINDUP;
             e->timer = BOSS_WINDUP_SECONDS;
             e->angle = atan2f(g->hero.pos.y - e->pos.y, g->hero.pos.x - e->pos.x);
@@ -710,19 +711,19 @@ static void tick_boss(Game *g, float dt) {
             effect(g, (Effect){.kind = FX_BOSS_SWING, .pos = e->pos, .angle = e->angle, .life = .25f});
             float a = atan2f(g->hero.pos.y - e->pos.y, g->hero.pos.x - e->pos.x) - e->angle;
             if (d < BOSS_STRIKE_RANGE && fabsf(atan2f(sinf(a), cosf(a))) < BOSS_STRIKE_HALF && world_segment(e->pos, g->hero.pos, 0))
-                hurt_from(g, 18, true, e->pos, KNOCK_HERO_BOSS);
+                hurt_from(g, t->damage, true, e->pos, KNOCK_HERO_BOSS);
         }
         break;
     case AI_SWING:
         if (e->timer <= 0) {
             e->state = AI_RECOVER;
-            e->timer = 1.25f;
+            e->timer = t->recover;
         }
         break;
     case AI_RECOVER:
         if (e->timer <= 0) {
             e->state = AI_CHASE;
-            e->timer = .9f;
+            e->timer = t->rest;
         }
         break;
     default:
@@ -772,9 +773,16 @@ static int next_combo(const Game *g, int move) {
 static int combo_damage(const Game *g, int move, int damage) {
     return (damage * (100 + 10 * (next_combo(g, move) - 1)) + 50) / 100;
 }
+/* Basic attack reach: the blade, and the wind blade that extends it. */
+#define BLADE_RANGE 58.0f
+#define BLADE_RANGE_STEEL 76.0f
+#define WIND_RANGE 120.0f
+static float blade_range(const Game *g) {
+    return g->augment == AUG_STEEL ? BLADE_RANGE_STEEL : BLADE_RANGE;
+}
 float game_attack_range(const Game *g, int move) {
     if (move == MOVE_ATTACK)
-        return g->augment == AUG_WIND ? 120 : g->augment == AUG_STEEL ? 76 : 58;
+        return g->augment == AUG_WIND ? WIND_RANGE : blade_range(g);
     return move >= 0 && move < TECH_COUNT ? TECHNIQUES[move].range : 0;
 }
 float game_attack_half_angle(int move) {
@@ -890,8 +898,7 @@ static bool request_move(Game *g, int move) {
     }
     if (move == MOVE_ATTACK) {
         Enemy *e = nearest_enemy(g);
-        float range = g->augment == AUG_WIND ? 120 : g->augment == AUG_STEEL ? 76 : 58;
-        if (e && distance(e->pos, g->hero.pos) >= range + 22) e = NULL;
+        if (e && distance(e->pos, g->hero.pos) >= game_attack_range(g, MOVE_ATTACK) + 22) e = NULL;
         begin_attack(g, e);
     } else begin_technique(g, (Technique)move);
     combat_feedback(g, move, TRAIN_STARTED);
@@ -938,10 +945,9 @@ static void tick_attack(Game *g, float dt) {
         if (e && active_enemy(g, e) && e->hp > 0 &&
             game_attack_contains(h->pos, h->attack_angle, game_attack_range(g, MOVE_ATTACK), MOVE_ATTACK, e->pos)) {
             float d = distance(h->pos, e->pos);
-            float range = g->augment == AUG_STEEL ? 76 : 58;
-            if (d < range)
+            if (d < blade_range(g))
                 hit |= game_damage(g, e, combo_damage(g, MOVE_ATTACK, (g->augment == AUG_STEEL ? 13 : 9) + (g->sword ? 5 : 0)), FX_HIT);
-            if (g->augment == AUG_WIND && d < 120)
+            if (g->augment == AUG_WIND && d < WIND_RANGE)
                 hit |= game_damage(g, e, 6, FX_WIND);
         }
         finish_impact(g, MOVE_ATTACK, hit);
@@ -1129,13 +1135,15 @@ void game_tick(Game *g, float dt, Vec2 input) {
     g->boss.hit_time = fmaxf(0, g->boss.hit_time - dt);
     for (int i = 0; i < BOAR_COUNT; i++)
         g->boars[i].hit_time = fmaxf(0, g->boars[i].hit_time - dt);
-    for (int i = 0; i < g->effect_count;) {
+    /* Compact in place, keeping spawn order so overlapping effects never
+     * swap drawing order when an older one ends. */
+    int kept = 0;
+    for (int i = 0; i < g->effect_count; i++) {
         g->effects[i].life -= dt;
-        if (g->effects[i].life <= 0)
-            g->effects[i] = g->effects[--g->effect_count];
-        else
-            i++;
+        if (g->effects[i].life > 0)
+            g->effects[kept++] = g->effects[i];
     }
+    g->effect_count = kept;
     if (!g->training.active && g->quest == Q_HUNT && distance(g->hero.pos, g->boss.pos) < 165 &&
         world_segment(g->hero.pos, g->boss.pos, 0)) {
         g->phase = PH_DIALOGUE;
