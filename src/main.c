@@ -1098,7 +1098,8 @@ static void combat_tick(App *a, float dt) {
     if(a->game.phase!=PH_PLAY || a->width<=a->height) return;
     if(a->attack_key_down) {
         a->target_set=false;
-        game_attack(&a->game);
+        /* The held repeat is not a new input: never replace a queued technique. */
+        if(a->game.queued_move<0) game_attack(&a->game);
     }
     if(a->attack_pointer_down && !a->attack_swiping) {
         a->attack_hold+=clampf(dt,0,.05f);

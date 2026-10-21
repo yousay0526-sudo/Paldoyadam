@@ -155,6 +155,30 @@ static void combat_inputs(App *a) {
     key_up(a,SDLK_z);
     attack_fixture(a);
 }
+static void combat_frames(App *a, int count);
+/* Holding Z repeats the basic attack, but never replaces a technique the
+ * player queued explicitly during the current move. */
+static void held_attack_keeps_queued_technique(App *a) {
+    attack_fixture(a); key(a,SDLK_z,false);
+    CHECK(a->attack_key_down && a->game.hero.attacking);
+    combat_frames(a,10);
+    key(a,SDLK_r,false);
+    CHECK(a->game.hero.skilling && a->game.hero.technique==TECH_SWEEP);
+    key(a,SDLK_q,false);
+    CHECK(a->game.queued_move==TECH_CLEAVE);
+    for(int i=0;i<6;i++) {
+        combat_frames(a,1);
+        CHECK(a->game.queued_move==TECH_CLEAVE);
+    }
+    CHECK(a->game.attack_cooldown==0); /* The repeat was eligible but held back. */
+    for(int i=0;i<20 && a->game.hero.technique!=TECH_CLEAVE;i++) combat_frames(a,1);
+    CHECK(a->game.hero.skilling && a->game.hero.technique==TECH_CLEAVE);
+    /* With nothing queued, the held key still queues and resumes basic attacks. */
+    combat_frames(a,1); CHECK(a->game.queued_move==MOVE_ATTACK);
+    for(int i=0;i<20 && !a->game.hero.attacking;i++) combat_frames(a,1);
+    CHECK(a->game.hero.attacking && !a->game.hero.skilling);
+    key_up(a,SDLK_z); CHECK(!a->attack_key_down);
+}
 static void bag_actions(App *a) {
     attack_fixture(a); dispatch(a,ACT_BAG,0);
     CHECK(a->game.phase==PH_BAG && a->bag_tab==0);
@@ -511,6 +535,7 @@ int main(void) {
     pickup(a);
     zoomed_destination(a);
     combat_inputs(a);
+    held_attack_keeps_queued_technique(a);
     continuous_swipes(a);
     all_direction_pairs(a);
     swipe_thresholds(a);
