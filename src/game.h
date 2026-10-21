@@ -39,6 +39,14 @@
 #define BOSS_SWING_SECONDS .2f
 /* A defeated enemy stays on screen this long while it falls. */
 #define ENEMY_DEATH_SECONDS .6f
+/* Knockback: initial speeds (world units/s) decaying at KNOCK_DECAY per
+ * second, so the total push is speed / KNOCK_DECAY. The butcher is heavy. */
+#define KNOCK_DECAY 10.0f
+#define KNOCK_BOSS_SCALE .25f
+#define KNOCK_HERO_BOAR 120.0f
+#define KNOCK_HERO_BOSS 200.0f
+/* A technique that lands during a boar's windup breaks it into recovery. */
+#define BOAR_STAGGER_SECONDS .6f
 #define MOVE_NONE -2
 #define MOVE_ATTACK -1
 /* One full left/right stride in world units, independent of frame rate. */
@@ -94,6 +102,8 @@ typedef struct {
     float bleed, bleed_tick, invul, hurt_time;
     float walk_cycle;
     bool walking;
+    /* Knockback velocity from the last hit taken; decays every tick. */
+    Vec2 knock;
     /* The swing keeps its own target/facing while movement remains responsive. */
     float attack_elapsed, attack_angle;
     Vec2 impact_origin, impact_start;
@@ -112,6 +122,8 @@ typedef struct {
     float repath;
     /* Presentation only: distance walked (drives the gait) and fall time. */
     float stride, dying;
+    /* Knockback velocity, decaying; it moves pos through terrain collision. */
+    Vec2 knock;
 } Enemy;
 typedef struct {
     Vec2 pos;
