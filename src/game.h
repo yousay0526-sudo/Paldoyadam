@@ -137,6 +137,10 @@ typedef struct {
     float repath;
     /* Presentation only: distance walked (drives the gait) and fall time. */
     float stride, dying;
+    /* Authored view: last self-propelled heading, and whether this tick walked.
+     * These never steer AI, knockback, body separation or hit tests. */
+    Vec2 facing;
+    bool walking;
     /* Knockback velocity, decaying; it moves pos through terrain collision. */
     Vec2 knock;
 } Enemy;
