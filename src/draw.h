@@ -36,6 +36,7 @@ typedef struct {
     Picture hero_idle_directions, hero_walk_directions[HERO_DIRECTIONS];
     Typeface fonts[2];
     int face;
+    char root[1024];
 } Gfx;
 extern const SDL_Color INK, PAPER, GOLD, MUTED, RED;
 bool gfx_load(Gfx *gfx, SDL_Renderer *renderer, const char *asset_root);
@@ -61,7 +62,10 @@ void gfx_hit_sprite(Gfx *gfx, Picture *picture, Vec2 p, float box_w, float box_h
 void gfx_attack_trace(Gfx *gfx, const Game *game, Vec2 feet);
 void gfx_hero(Gfx *gfx, const Game *game, Vec2 feet);
 HeroDirection gfx_hero_direction(Vec2 direction);
+/* Loads the requested prologue illustration on first use and frees the others. */
 void gfx_story(Gfx *gfx, int image, float width, float height, float elapsed, float footer_height);
+/* Frees every prologue illustration; gfx_story loads them again when needed. */
+void gfx_story_release(Gfx *gfx);
 void gfx_collision(Gfx *gfx, Vec2 camera);
 void gfx_world(Gfx *gfx, const Game *game, float width, float height, Vec2 camera,
                bool target_set, Vec2 target);

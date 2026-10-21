@@ -96,8 +96,21 @@ bool gfx_load(Gfx *g, SDL_Renderer *renderer, const char *root) {
                            "warrior-walk-e-v1.png", "warrior-walk-se-v1.png",
                            "warrior-walk-s-v1.png", "warrior-walk-sw-v1.png",
                            "warrior-walk-w-v1.png", "warrior-walk-nw-v1.png"};
+    snprintf(g->root, sizeof g->root, "%s", root);
     for (size_t i = 0; i < sizeof pictures / sizeof *pictures; i++) {
         asset_path(path, sizeof path, root, names[i]);
+        /* Story illustrations are decoded only while the prologue shows them
+         * (gfx_story); here they must merely exist, as before. */
+        if (i >= 8 && i < 11) {
+            SDL_RWops *rw = SDL_RWFromFile(path, "rb");
+            if (!rw) {
+                SDL_Log("Cannot load %s: %s", path, SDL_GetError());
+                gfx_free(g);
+                return false;
+            }
+            SDL_RWclose(rw);
+            continue;
+        }
         *pictures[i] = load_picture(g, path);
         if (!pictures[i]->texture) {
             SDL_Log("Cannot load %s: %s", path, SDL_GetError());
@@ -108,8 +121,6 @@ bool gfx_load(Gfx *g, SDL_Renderer *renderer, const char *root) {
          * at 3x its logical size; only the story illustrations use linear. */
         if (i == 0 || i >= 11)
             SDL_SetTextureScaleMode(pictures[i]->texture, SDL_ScaleModeNearest);
-        else if (i >= 8 && i < 11)
-            SDL_SetTextureScaleMode(pictures[i]->texture, SDL_ScaleModeLinear);
     }
     if (g->hero_walk.w % HERO_WALK_COLUMNS ||
         g->hero_walk.h % (HERO_WALK_FRAMES / HERO_WALK_COLUMNS) ||
@@ -632,10 +643,32 @@ void gfx_hero(Gfx *f, const Game *g, Vec2 feet) {
                   flip ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE, g->hero.hurt_time);
     gfx_attack_trace(f, g, feet);
 }
+void gfx_story_release(Gfx *f) {
+    for (int i = 0; i < 3; i++) {
+        if (f->prologue[i].texture)
+            SDL_DestroyTexture(f->prologue[i].texture);
+        f->prologue[i] = (Picture){0};
+    }
+}
 /* Preserve the entire illustration above the dialogue. A dimmed copy fills
  * the widescreen background, so even the reflected wolf stays in view. */
 void gfx_story(Gfx *f, int index, float w, float h, float elapsed, float footer_height) {
+    static const char *names[3] = {"prologue/01-homeward.png", "prologue/02-hunger.png",
+                                   "prologue/03-reflection.png"};
     Picture *p = &f->prologue[index];
+    if (!p->texture) {
+        /* Hold one illustration at a time: each is 9 MiB once decoded. */
+        gfx_story_release(f);
+        char path[2048];
+        asset_path(path, sizeof path, f->root, names[index]);
+        *p = load_picture(f, path);
+        if (!p->texture) {
+            SDL_Log("Cannot load %s: %s", path, SDL_GetError());
+            *p = (Picture){0};
+            return;
+        }
+        SDL_SetTextureScaleMode(p->texture, SDL_ScaleModeLinear);
+    }
     float cover = fmaxf(w / p->w, h / p->h);
     SDL_FRect backdrop = {(w - p->w * cover) / 2, (h - p->h * cover) / 2, p->w * cover, p->h * cover};
     SDL_RenderCopyF(f->renderer, p->texture, NULL, &backdrop);

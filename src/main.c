@@ -1065,6 +1065,8 @@ static void draw(App *a) {
     if (a->game.phase == PH_PROLOGUE && a->story_index < 4) {
         const int pictures[4] = {0, 1, 1, 2};
         gfx_story(&a->gfx, pictures[a->story_index], a->width, a->height, a->story_elapsed, narrative_rect(a, STORY_TEXT[a->story_index]).h);
+    } else {
+        gfx_story_release(&a->gfx);
     }
     if (a->game.phase == PH_PLAY || a->game.phase == PH_DIALOGUE)
         draw_hud(a);

@@ -306,6 +306,32 @@ static void eight_direction_motion(Gfx *gfx, SDL_Surface *surface, Uint32 *pixel
     free(last);
     SDL_RenderSetScale(gfx->renderer,1,1);
 }
+/* Prologue art stays out of memory until shown, and only one page is held. */
+static void prologue_on_demand(Gfx *gfx, SDL_Surface *surface) {
+    for (int i = 0; i < 3; i++)
+        CHECK(gfx->prologue[i].texture == NULL);
+    for (int index = 0; index < 3; index++) {
+        SDL_SetRenderDrawColor(gfx->renderer, 0, 0, 0, 255);
+        SDL_RenderClear(gfx->renderer);
+        gfx_story(gfx, index, (float)surface->w, (float)surface->h, 1, 40);
+        SDL_Texture *shown = gfx->prologue[index].texture;
+        CHECK(shown != NULL && gfx->prologue[index].w > 0 && gfx->prologue[index].h > 0);
+        for (int i = 0; i < 3; i++)
+            CHECK((gfx->prologue[i].texture != NULL) == (i == index));
+        SDL_ScaleMode mode;
+        CHECK(SDL_GetTextureScaleMode(shown, &mode) == 0 && mode == SDL_ScaleModeLinear);
+        Uint8 rgba[4];
+        SDL_Rect centre = {surface->w / 2, surface->h / 3, 1, 1};
+        CHECK(SDL_RenderReadPixels(gfx->renderer, &centre, SDL_PIXELFORMAT_RGBA32, rgba, 4) == 0);
+        CHECK(rgba[0] || rgba[1] || rgba[2]);
+        /* A page that stays on screen is not decoded again. */
+        gfx_story(gfx, index, (float)surface->w, (float)surface->h, 1, 40);
+        CHECK(gfx->prologue[index].texture == shown);
+    }
+    gfx_story_release(gfx);
+    for (int i = 0; i < 3; i++)
+        CHECK(gfx->prologue[i].texture == NULL && gfx->prologue[i].w == 0);
+}
 int main(int argc, char **argv) {
     SDL_SetMainReady();
     SDL_setenv("SDL_VIDEODRIVER", "dummy", 1);
@@ -321,6 +347,7 @@ int main(int argc, char **argv) {
     CHECK(SDL_GetTextureScaleMode(gfx->map.texture, &village_mode) == 0);
     CHECK(village_mode == SDL_ScaleModeNearest);
     check_map_pixels(gfx, surface, argc > 1 ? argv[1] : "assets");
+    prologue_on_demand(gfx, surface);
     size_t bytes = (size_t)surface->pitch * surface->h;
     Uint32 *pixels = malloc(bytes), *previous = malloc(bytes), *idle = malloc(bytes);
     if (!pixels || !previous || !idle) return 1;
