@@ -61,6 +61,21 @@ static void geometry(void) {
     }
 }
 
+/* A 35° forest edge: pushing sideways into it slides along it; pushing
+ * almost straight into it stays put rather than drifting. */
+static void slanted_wall_slide(void) {
+    Vec2 n = {.572f, .820f}, t = {-.820f, .572f}, start = {815.1f, 213.4f};
+    CHECK(world_clear(start, HERO_RADIUS));
+    CHECK(!world_clear((Vec2){start.x - n.x * 4, start.y - n.y * 4}, HERO_RADIUS));
+    Vec2 end = world_move(start, (Vec2){-40, 0}, HERO_RADIUS);
+    float along = (end.x - start.x) * t.x + (end.y - start.y) * t.y;
+    float off = (end.x - start.x) * n.x + (end.y - start.y) * n.y;
+    CHECK(world_clear(end, HERO_RADIUS));
+    CHECK(along > 25 && fabsf(off) < 2);
+    Vec2 push = {-n.x * 40 + t.x * 4, -n.y * 40 + t.y * 4};
+    end = world_move(start, push, HERO_RADIUS);
+    CHECK(distance(start, end) < 2 && world_clear(end, HERO_RADIUS));
+}
 static void walk_route(Vec2 from, Vec2 to, float dt) {
     Route route;
     CHECK(world_route(from, to, HERO_RADIUS, &route));
@@ -185,6 +200,7 @@ static void combat_respects_walls(void) {
 int main(void) {
     prepared_routes();
     geometry();
+    slanted_wall_slide();
     quests_reachable();
     combat_respects_walls();
     printf("PASS: %d terrain, gate, route, dash and wall-combat checks.\n", checks);

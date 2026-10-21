@@ -229,6 +229,31 @@ bool world_segment(Vec2 a, Vec2 b, float r) {
     }
     return true;
 }
+/* Shortest share of a step, along the wall, that still slides (sin 20°). */
+#define WORLD_SLIDE_MIN .34f
+/* Outward normal of the nearest solid edge within reach of p, if any. */
+static bool contact_normal(Vec2 p, float reach, Vec2 *normal) {
+    float best = reach;
+    bool found = false;
+    for (int i = 0; i < WORLD_SOLID_COUNT; i++) {
+        Bounds b = bounds[i];
+        if (p.x < b.left - reach || p.x > b.right + reach || p.y < b.top - reach || p.y > b.bottom + reach)
+            continue;
+        const WorldShape *s = &WORLD_SOLIDS[i];
+        for (int j = 0; j < s->count; j++) {
+            Vec2 a = s->points[j], c = s->points[(j + 1) % s->count];
+            float x = c.x - a.x, y = c.y - a.y, n = x * x + y * y;
+            float t = n > 0 ? clampf(((p.x - a.x) * x + (p.y - a.y) * y) / n, 0, 1) : 0;
+            float dx = p.x - a.x - t * x, dy = p.y - a.y - t * y, d = hypotf(dx, dy);
+            if (d < best && d > .0001f) {
+                best = d;
+                *normal = (Vec2){dx / d, dy / d};
+                found = true;
+            }
+        }
+    }
+    return found;
+}
 Vec2 world_move(Vec2 p, Vec2 delta, float radius) {
     if (!isfinite(delta.x) || !isfinite(delta.y) || !world_clear(p, radius))
         return p;
@@ -246,8 +271,24 @@ Vec2 world_move(Vec2 p, Vec2 delta, float radius) {
             p = q;
             continue;
         }
-        /* Axis sliding lets the thumb keep moving along a wall. Segment tests
-         * also cover dashes and narrow walls between two legal endpoints. */
+        /* Collide and slide: drop the part of the step that pushes into the
+         * nearest wall and keep the part along it, at any wall angle. Pushing
+         * almost straight into a wall stays put instead of drifting. */
+        Vec2 n = {0, 0};
+        if (contact_normal(p, radius + 4, &n)) {
+            float into = delta.x * n.x + delta.y * n.y, step = hypotf(delta.x, delta.y);
+            if (into < 0 && hypotf(delta.x - n.x * into, delta.y - n.y * into) >= WORLD_SLIDE_MIN * step) {
+                Vec2 along = {clampf(p.x + delta.x - n.x * into, 28, WORLD_W - 28),
+                              clampf(p.y + delta.y - n.y * into, 28, WORLD_H - 28)};
+                if (world_segment(p, along, radius)) {
+                    p = along;
+                    continue;
+                }
+            }
+        }
+        /* Corners and the map border: fall back to sliding along each axis.
+         * Segment tests also cover dashes and narrow walls between two legal
+         * endpoints. */
         Vec2 x = {q.x, p.y}, y = {p.x, q.y};
         if (world_segment(p, x, radius))
             p = x;
