@@ -632,6 +632,46 @@ static void boar_strike_reach(void) {
 }
 /* Presentation state: chasing enemies accumulate walked distance, and a
  * defeated enemy keeps a short fall that menus pause and hitstop holds. */
+static void enemy_authored_headings(void) {
+    const Vec2 dirs[]={{0,-1},{1,-1},{1,0},{1,1},{0,1},{-1,1},{-1,0},{-1,-1}};
+    Vec2 center={0}; bool found=false;
+    for(int y=400;y<1300&&!found;y+=100) for(int x=400;x<2100&&!found;x+=100) {
+        Vec2 p={(float)x,(float)y}; bool clear=true;
+        for(int d=0;d<8;d++) {
+            float n=hypotf(dirs[d].x,dirs[d].y);
+            Vec2 target={p.x+dirs[d].x/n*120,p.y+dirs[d].y/n*120};
+            clear=clear&&world_segment(p,target,BOSS_RADIUS);
+        }
+        if(clear) { center=p;found=true; }
+    }
+    CHECK(found);
+    for(int boss=0;boss<2;boss++) for(int d=0;d<8;d++) {
+        Game g;game_reset(&g);game_start(&g);g.quest=boss?Q_COMBAT:Q_RECOVER;
+        g.traces[0]=g.traces[1]=true;
+        for(int i=0;i<BOAR_COUNT;i++)g.boars[i].hp=0;
+        Enemy *e=boss?&g.boss:&g.boars[0];
+        e->hp=e->max_hp=100;e->pos=e->home=center;e->state=AI_CHASE;e->timer=10;
+        float n=hypotf(dirs[d].x,dirs[d].y);
+        g.hero.pos=(Vec2){center.x+dirs[d].x/n*120,center.y+dirs[d].y/n*120};
+        game_tick(&g,.05f,(Vec2){0});
+        CHECK(e->walking);
+        CHECK(fabsf(e->facing.x-dirs[d].x/n)<.0001f&&fabsf(e->facing.y-dirs[d].y/n)<.0001f);
+        CHECK(fabsf(distance(center,e->pos)-(boss?45:64)*.05f)<.001f);
+        Vec2 held=e->facing;e->state=AI_IDLE;game_tick(&g,.05f,(Vec2){0});
+        CHECK(!e->walking&&e->facing.x==held.x&&e->facing.y==held.y);
+        Enemy paused=*e;g.phase=PH_BAG;game_tick(&g,.05f,(Vec2){0});
+        CHECK(memcmp(e,&paused,sizeof *e)==0);
+        g.phase=PH_PLAY;g.hitstop_time=.1f;game_tick(&g,.05f,(Vec2){0});
+        CHECK(memcmp(e,&paused,sizeof *e)==0);
+        if(!boss) {
+            g.hitstop_time=0;e->state=AI_RETURN;e->home=center;
+            e->pos=(Vec2){center.x+dirs[d].x/n*60,center.y+dirs[d].y/n*60};
+            game_tick(&g,.05f,(Vec2){0});
+            CHECK(e->walking);
+            CHECK(fabsf(e->facing.x+dirs[d].x/n)<.0001f&&fabsf(e->facing.y+dirs[d].y/n)<.0001f);
+        }
+    }
+}
 static void enemy_motion_and_falls(void) {
     Game g; game_reset(&g); game_start(&g);
     g.traces[0] = g.traces[1] = true; g.quest = Q_RECOVER;
@@ -795,6 +835,7 @@ int main(void) {
     automatic_magnet();
     walking_motion();
     enemy_motion_and_falls();
+    enemy_authored_headings();
     dust_events();
     knockback_and_stagger();
     bodies_and_attack_tokens();

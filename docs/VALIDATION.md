@@ -1,3 +1,24 @@
+## 2026-10-21 · 승인된 몬스터 8방향 게임 연결
+
+- 기준 main `649b02f087e7a016378756ec1ac72861c997d30b`, 기존 독립 브랜치/PR #32에서 원화 승인 후 진행. 최신 몸 분리·고정 시간/위치 보간·벽 미끄러짐 변경을 보존했다. 실행 PNG 6개를 설치했고 백정의 짧은 평타 후보는 미설치다. 현재 백정의 단일 큰 공격 패턴을 바꾸지 않았다.
+- Windows / CMake 4.4.4 / Ninja 1.13.2 / Zig 0.14.1(Clang 19.1.7) / SDL 2.32.10. 전체 configure/build 및 최종 CTest **10/10 통과**: 게임 714, 지형 157, 수련 1,578, 방향 전투 753, 피드백 159, SDL 입력 911, UI 1,842, 영웅 7,065,056, 몬스터 렌더링 13,290,216개 조건 및 native_render. `cmake --build build-monsters/cmake --parallel 2`, `ctest --test-dir build-monsters/cmake --output-on-failure -V`. 로컬 구성은 무시되는 build-monsters의 Zig 도구체인/아카이버 규칙과 SDL import library를 사용한다. Windows 진입점용 `-DSDL_MAIN_HANDLED`와 기존 검사 파일의 빈 선언 사이 재정의 경고가 있었고 제품 소스 경고는 없었다.
+- 새 `monster_animation`은 실제 SDL 1/2/3배 출력과 원본 방향/셀·발 `(96,176)`·배율·반전 없음의 픽셀 일치를 검사한다. 준비 마지막 틱은 타격 포즈가 아니며, 돼지 경직 0.6초 회복도 타격을 재생하지 않는다. 공격 시작 방향, 쓰러짐 범위/알파/정지, 피격 뒤 텍스처 색·알파·블렌드 복원을 확인했다. 게임 검사에는 양 몬스터 8방향 실제 이동 속도·정지 방향·메뉴/히트스톱 동결과 돼지 귀환 방향을 추가했다.
+- `python tests/test_monster_assets.py` **2/2 통과**. 12개 원본·176포즈·7개 후보 검증에 더해 설치본 6개(144포즈)가 후보와 바이트 일치하며 생성 C 배율 표/설치 해시가 메타데이터와 같음을 확인했다. 원본·현재 다른 assets PNG를 바꾸지 않았고 혈흔 이펙트는 추가하지 않았다.
+- 실제 SDL 수련장 432×270/844×390/1100×650 성공. 시계만 고정한 실제 게임 검증 실행본으로 기준/후보 11장면 전후 총 22장 출력. 마을·상점·수련·지붕·수목·skill0/2/3은 전체 픽셀 일치. boss 변경 경계 `(484,96)..(583,203)`, recover `(515,89)..(791,290)`, attack3 `(449,89)..(725,290)`는 적 주변이다. [전후](monster-gameplay-comparison.png), [실제 SDL 8방향](monster-eight-direction-sdl.gif), [지붕/수목 경계 32장 리뷰](monster-cover-review.png). GIF는 표시 키를 묶은 리뷰이며 실제 게임 전체 동영상/모든 이동 속도를 대표하지 않는다. 가림 장면은 검증용으로 위치를 직접 놓은 것이며 새로운 통행 가능 경로를 만들지 않았다.
+- 복구: 초기 configure 완료 전 build 요청은 CMakeCache 부재로 실패해 configure 종료 후 다시 빌드했다. 첫 가림 fixture의 흔적 플래그 누락으로 돼지가 비활성인 것을 확인해 검증 setup만 수정하고 32장 모두 다시 출력했다. 게임 퀘스트 조건을 바꾸지 않았다. 상세 [표시/에셋/검증 계약](MONSTER_MOTION_RUNTIME.md).
+- 남음: 실제 iPhone/Android/APK·브라우저 실행 표시, 추가 20.25MiB RGBA의 실기기 성능/장시간 메모리, 미술 수준의 발 미끄러짐 조정. 웹 빌드는 PR CI에서 별도 확인한다. 공격 판정·시간·입력/버퍼·콤보·NPC/퀘스트/맵·버전·배포 설정 변경 없음. GAME_BIBLE.md 없음. main 병합·자동 병합·Pages 배포 없음.
+
+## 2026-10-21 · 몬스터 8방향 원화 준비 단계 (당시 기록)
+
+- 원화 기준 main `a5a4390e846acde247ebce392e9005c9ac4eece1`, PR 정리 시 `5e72bb8400092ec2e3dd39848ea8f3b5570da0a6`의 넉백·경직·이동 가감속을 합쳐 보존했다. 독립 브랜치 `graphics/monster-eight-direction-pass1-20261021`. AGENTS/CURRENT_STATE/ART_DIRECTION 및 실제 game.c/h·draw.c와 테스트를 확인했다. 실행 소스·현재 assets·CMake·워크플로·버전 변경 없음.
+- 내장 ImageGen 원본 12장: 돼지 방향표 1225×1284, 백정 방향표 1286×1223, 모션 10장 각 1254×1254, 모두 실제 RGBA/알파 0..255. 초안 돼지 걷기 E방향 주둥이 경계 잘림은 ImageGen 편집으로 여백을 확보해 교체했다. 최종 원본·프롬프트·교정 프롬프트·SHA-256을 보존했다.
+- Windows / bundled Python / Pillow: `python scripts/prepare_monster_assets.py` 성공, **176포즈/7PNG**. 연결 실루엣 선택·알파 1..4 잡점 제거·알파 사전 곱 Lanczos, 반전/색 교체/보간 없음. 192px 셀, 공통 기준점 `(96,176)`, 네 가장자리 최소 4px 투명 여유. 원본 강한 실루엣 외곽 잘림 검사 통과. 배율/몸 크기 보정은 `preparation.json`에 기록했다.
+- `python tests/test_monster_assets.py`: **1/1 통과**. 별도 검사로 원본 12개/아틀라스 7개/셀 176개의 해시·치수·RGBA·투명 비율·4px 경계·네 프레임 차이·반대 방향의 단순 반전 복제가 아님을 확인했다. `python scripts/preview_monster_assets.py` 성공. [정지](monster-direction-candidates.png)·[모션 GIF](monster-motion-candidates.gif)를 밝은 배경에서 직접 검토했다. 혈흔 이펙트를 추가하지 않았으며 주인공 원화는 변경하지 않았다.
+- 원화/준비 코드 커밋 `ad8307367c6f66c87a97fee4f8dd1a28d2ae68eb`의 [CI 39539023282](https://github.com/yousay0526-sudo/Paldoyadam/actions/runs/39539023282): Linux 전체 CMake/CTest **9/9 통과**(게임·지형·수련·방향 전투·피드백·native_render·입력·UI·영웅 렌더링). Emscripten 3.1.74 일반/단일 HTML 웹 빌드와 다운로드 아티팩트 생성 성공. Pages 준비·deploy skipped. 새 시트는 미연결이므로 새 몬스터 게임 표시의 검증 결과는 아니다. 이 결과를 기록하는 후속 커밋은 문서만 변경한다.
+- 후보 PNG는 `art/monsters/prepared/`에만 있으며 **아직 게임이 불러오지 않는다**. GIF는 220ms/포즈의 미술 리뷰 합성으로 SDL 캡처·게임 공격 타이밍 검증이 아니다. 기준점은 임시 픽셀 정렬이며 골격 검증·완전한 발 고정이 아니다.
+- 이번에는 게임 CMake/CTest·영웅/전투/입력/모바일 회귀·SDL 전후 장면을 새로 실행하지 않았다. 이유는 원화 검토와 렌더링 연결을 AGENTS의 단계별 승인에 따라 분리했고 실행 파일을 변경하지 않았기 때문이다. 아래 이전 작업의 테스트 수치는 이번 결과가 아니다. 후속 연결 단계에서 새 방향 표시, 기존 공격 판정·시간, 최신 stride/dying/먼지·피격 연출과 가림을 함께 검사해야 한다.
+- 현재 백정은 하나의 큰 공격 패턴이다. 별도의 짧은 공격 원화가 있다고 AI에 새 평타가 추가된 것은 아니다. 기관 자료 기반 후속 후보 10계열/29종 조사도 제안 단계이며 새 적·장·퀘스트를 구현하지 않았다. [원화 상세](MONSTER_MOTION_ART.md), [조사](MONSTER_ROSTER_RESEARCH.md). main 병합·자동 병합·Pages 배포 없음. GAME_BIBLE.md 없음.
+
 ## 2026-10-20 · 승인된 정지·걷기 8방향
 - 코드 커밋 `a2eb53a`의 [CI 39386598981](https://github.com/yousay0526-sudo/Paldoyadam/actions/runs/39386598981): Linux CMake/CTest **9/9**, Emscripten 3.1.74 일반 웹·단일 HTML 빌드 성공. Pages 준비와 deploy skipped. 아래 로컬 결과와 별도로 확인했으며 문서 결과 추가 후속 커밋의 최종 CI 상태는 PR에서 확인한다.
 - 기준 main `07f3993`, PR #15 작업 브랜치에서만 변경. 게임/입력/월드 로직과 기존 공격 PNG는 변경 없음. 표시 방향은 `Hero.dir`에서 파생하며 `face/attack_face` 전투 상태를 바꾸지 않는다.

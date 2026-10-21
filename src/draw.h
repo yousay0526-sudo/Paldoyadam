@@ -21,6 +21,12 @@ typedef enum {
     HERO_DIRECTIONS
 } HeroDirection;
 
+typedef enum {
+    MONSTER_BOAR_IDLE, MONSTER_BOAR_WALK, MONSTER_BOAR_ATTACK,
+    MONSTER_BUTCHER_IDLE, MONSTER_BUTCHER_WALK, MONSTER_BUTCHER_SKILL,
+    MONSTER_ATLAS_COUNT
+} MonsterAtlas;
+
 typedef struct {
     SDL_Texture *texture;
     int w, h;
@@ -42,6 +48,7 @@ typedef struct {
     Picture map, hero, hero_walk, hero_attack, messenger, boss, boar, npcs, prologue[3];
     Picture hero_techniques[TECH_COUNT];
     Picture hero_idle_directions, hero_walk_directions[HERO_DIRECTIONS];
+    Picture monster_atlases[MONSTER_ATLAS_COUNT];
     Typeface fonts[2];
     int face;
     char root[1024];
@@ -70,6 +77,8 @@ void gfx_hit_sprite(Gfx *gfx, Picture *picture, Vec2 p, float box_w, float box_h
 void gfx_attack_trace(Gfx *gfx, const Game *game, Vec2 feet);
 void gfx_hero(Gfx *gfx, const Game *game, Vec2 feet);
 HeroDirection gfx_hero_direction(Vec2 direction);
+/* Returns the complete rotated picture bounds for roof/canopy restoration. */
+SDL_FRect gfx_enemy(Gfx *gfx, const Enemy *enemy, Vec2 feet, bool boss, float time, bool live, bool fall_left);
 /* Loads the requested prologue illustration on first use and frees the others. */
 void gfx_story(Gfx *gfx, int image, float width, float height, float elapsed, float footer_height);
 /* Frees every prologue illustration; gfx_story loads them again when needed. */

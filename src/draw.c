@@ -11,6 +11,7 @@
 #define STB_TRUETYPE_IMPLEMENTATION
 #include "stb_truetype.h"
 #define PI 3.14159265358979323846f
+#include "monster_atlas_data.h"
 
 const SDL_Color INK = {16, 34, 38, 244}, PAPER = {238, 227, 202, 255}, GOLD = {227, 193, 131, 255},
                 MUTED = {174, 194, 172, 255}, RED = {190, 89, 80, 255};
@@ -158,6 +159,22 @@ bool gfx_load(Gfx *g, SDL_Renderer *renderer, const char *root) {
             return false;
         }
     }
+    const char *monster_names[MONSTER_ATLAS_COUNT] = {
+        "monsters/boar-idle-8dir-v1.png", "monsters/boar-walk-8dir-v1.png",
+        "monsters/boar-attack-8dir-v1.png", "monsters/butcher-idle-8dir-v1.png",
+        "monsters/butcher-walk-8dir-v1.png", "monsters/butcher-skill-8dir-v1.png"};
+    for (int i = 0; i < MONSTER_ATLAS_COUNT; i++) {
+        Picture *p = &g->monster_atlases[i];
+        asset_path(path, sizeof path, root, monster_names[i]);
+        *p = load_picture(g, path);
+        int height = i == MONSTER_BOAR_IDLE || i == MONSTER_BUTCHER_IDLE ? 384 : 1536;
+        if (!p->texture || p->w != 768 || p->h != height) {
+            SDL_Log("Invalid monster atlas %s (expected 768x%d)", path, height);
+            gfx_free(g);
+            return false;
+        }
+        SDL_SetTextureScaleMode(p->texture, SDL_ScaleModeLinear);
+    }
     const char *font_names[] = {"fonts/NanumMyeongjo-Bold.ttf", "fonts/NanumBrushScript-Regular.ttf"};
     for (int i = 0; i < 2; i++) {
         Typeface *face = &g->fonts[i];
@@ -179,6 +196,11 @@ bool gfx_load(Gfx *g, SDL_Renderer *renderer, const char *root) {
     return true;
 }
 void gfx_free(Gfx *g) {
+    for (int i = 0; i < MONSTER_ATLAS_COUNT; i++) {
+        if (g->monster_atlases[i].texture)
+            SDL_DestroyTexture(g->monster_atlases[i].texture);
+        g->monster_atlases[i] = (Picture){0};
+    }
     Picture *pictures[] = {&g->map, &g->hero, &g->hero_walk, &g->hero_attack, &g->messenger, &g->boss, &g->boar,
                            &g->npcs, &g->prologue[0], &g->prologue[1], &g->prologue[2],
                            &g->hero_techniques[TECH_CLEAVE], &g->hero_techniques[TECH_SWEEP],
@@ -504,43 +526,56 @@ void gfx_hit_sprite(Gfx *g, Picture *p, Vec2 v, float w, float h, bool flip, flo
     SDL_FRect dest = {v.x - p->w * scale / 2, v.y - p->h * scale, p->w * scale, p->h * scale};
     hit_flash(g, p, NULL, &dest, 0, NULL, flip ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE, remaining);
 }
-/* Procedural motion for single-image enemies. Everything here moves only
- * the picture around the feet; positions and hit tests are untouched. */
-typedef struct {
-    float windup, swing, lunge;
-} EnemyTiming;
-static void gfx_enemy(Gfx *f, Picture *p, Vec2 feet, float w, float h, bool flip, const Enemy *e,
-                      EnemyTiming timing, float time, bool live) {
-    w *= ACTOR_SCALE;
-    h *= ACTOR_SCALE;
-    float scale = fminf(w / (float)p->w, h / (float)p->h);
-    float width = p->w * scale, height = p->h * scale, sx = 1, sy = 1, dx = 0, dy = 0, tilt = 0;
-    Uint8 alpha = 255;
+/* Independently authored views, with the existing presentation-only squash,
+ * lunge, hit flash and fall. Nothing here changes world positions or clocks. */
+SDL_FRect gfx_enemy(Gfx *f, const Enemy *e, Vec2 feet, bool boss, float time, bool live, bool fall_left) {
+    bool attacking = e->hp > 0 && (e->state == AI_WINDUP || e->state == AI_SWING || e->state == AI_RECOVER);
     Vec2 aim = {cosf(e->angle), sinf(e->angle)};
+    HeroDirection direction = gfx_hero_direction(attacking ? aim : e->facing);
+    int atlas = boss ? MONSTER_BUTCHER_IDLE : MONSTER_BOAR_IDLE, frame = 0;
+    if (attacking) {
+        atlas = boss ? MONSTER_BUTCHER_SKILL : MONSTER_BOAR_ATTACK;
+        if (e->state == AI_WINDUP)
+            frame = e->timer > (boss ? BOSS_WINDUP_SECONDS : BOAR_WINDUP_SECONDS) * .5f ? 0 : 1;
+        else if (e->state == AI_SWING || (!boss && e->timer > BOAR_RECOVER_SECONDS - .15f))
+            frame = 2;
+        else
+            frame = 3;
+    } else if (e->hp > 0 && e->walking) {
+        atlas = boss ? MONSTER_BUTCHER_WALK : MONSTER_BOAR_WALK;
+        frame = (int)floorf(fmodf(fmaxf(0, e->stride), 52) / 13);
+    }
+    Picture *p = &f->monster_atlases[atlas];
+    bool idle = atlas == MONSTER_BOAR_IDLE || atlas == MONSTER_BUTCHER_IDLE;
+    SDL_Rect source = {idle ? direction % 4 * 192 : frame * 192,
+                       idle ? direction / 4 * 192 : direction * 192, 192, 192};
+    float size = (boss ? 110 : 60) * ACTOR_SCALE * monster_draw_scale[atlas][direction];
+    float sx = 1, sy = 1, dx = 0, dy = 0, tilt = 0;
+    Uint8 alpha = 255;
     if (e->hp <= 0) {
         /* Topple away from the hero, sink a little and fade out. */
         float t = 1 - clampf(e->dying / ENEMY_DEATH_SECONDS, 0, 1), ease = 1 - (1 - t) * (1 - t);
-        tilt = (flip ? -1 : 1) * 78 * ease;
+        tilt = (fall_left ? -1 : 1) * 78 * ease;
         dy += 4 * t;
         alpha = (Uint8)(255 * clampf(1 - t * t, 0, 1));
     } else if (e->state == AI_WINDUP) {
         /* Crouch and draw back from the target, trembling just before. */
-        float t = 1 - clampf(e->timer / timing.windup, 0, 1);
+        float t = 1 - clampf(e->timer / (boss ? BOSS_WINDUP_SECONDS : BOAR_WINDUP_SECONDS), 0, 1);
         dx -= aim.x * 4 * t;
         dy -= aim.y * 2 * t;
         sx += .05f * t;
         sy -= .06f * t;
         if (t > .5f) dx += sinf(time * 70) * (t - .5f) * 2;
-    } else if (e->state == AI_SWING || (e->state == AI_RECOVER && timing.swing <= 0 &&
-                                        e->timer > timing.lunge - .15f)) {
+    } else if (e->state == AI_SWING || (e->state == AI_RECOVER && !boss &&
+                                        e->timer > BOAR_RECOVER_SECONDS - .15f)) {
         /* Snap forward on the strike, then settle back. */
-        float t = e->state == AI_SWING ? clampf(e->timer / timing.swing, 0, 1)
-                                       : clampf((e->timer - (timing.lunge - .15f)) / .15f, 0, 1);
+        float t = e->state == AI_SWING ? clampf(e->timer / BOSS_SWING_SECONDS, 0, 1)
+                                       : clampf((e->timer - (BOAR_RECOVER_SECONDS - .15f)) / .15f, 0, 1);
         dx += aim.x * 9 * t;
         dy += aim.y * 5 * t;
         sx -= .04f * t;
         sy += .06f * t;
-    } else {
+    } else if (e->walking && !attacking) {
         /* Bob and squash with each step actually walked. */
         float bob = fabsf(sinf(e->stride * PI / 26));
         dy -= bob * 2.5f;
@@ -552,14 +587,25 @@ static void gfx_enemy(Gfx *f, Picture *p, Vec2 feet, float w, float h, bool flip
         sx += .08f * k;
         sy -= .08f * k;
     }
-    SDL_FRect dest = {feet.x - width * sx / 2 + dx, feet.y - height * sy + dy, width * sx, height * sy};
-    SDL_FPoint pivot = {dest.w / 2, dest.h};
-    SDL_RendererFlip mirror = flip ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
+    SDL_FRect dest = {feet.x - size * sx * .5f + dx, feet.y - size * sy * 176 / 192 + dy, size * sx, size * sy};
+    SDL_FPoint pivot = {dest.w / 2, dest.h * 176 / 192};
+    Uint8 previous_alpha;
+    SDL_GetTextureAlphaMod(p->texture, &previous_alpha);
     SDL_SetTextureAlphaMod(p->texture, alpha);
-    SDL_RenderCopyExF(f->renderer, p->texture, NULL, &dest, tilt, &pivot, mirror);
-    SDL_SetTextureAlphaMod(p->texture, 255);
+    SDL_RenderCopyExF(f->renderer, p->texture, &source, &dest, tilt, &pivot, SDL_FLIP_NONE);
+    SDL_SetTextureAlphaMod(p->texture, previous_alpha);
     if (live && e->hp > 0)
-        hit_flash(f, p, NULL, &dest, tilt, &pivot, mirror, e->hit_time);
+        hit_flash(f, p, &source, &dest, tilt, &pivot, SDL_FLIP_NONE, e->hit_time);
+    /* Include every corner when restoring roofs over a rotated dying actor. */
+    float cs = cosf((float)tilt * PI / 180), sn = sinf((float)tilt * PI / 180);
+    float left = 1e6f, top = 1e6f, right = -1e6f, bottom = -1e6f;
+    for (int k = 0; k < 4; k++) {
+        float x = (k & 1 ? dest.w : 0) - pivot.x, y = (k & 2 ? dest.h : 0) - pivot.y;
+        float xx = dest.x + pivot.x + x * cs - y * sn, yy = dest.y + pivot.y + x * sn + y * cs;
+        left = fminf(left, xx); right = fmaxf(right, xx);
+        top = fminf(top, yy); bottom = fmaxf(bottom, yy);
+    }
+    return (SDL_FRect){left - 1, top - 1, right - left + 2, bottom - top + 2};
 }
 /* The directional sword trail uses exactly
  * the simulation heading, sector and collision-resolved impact positions. */
@@ -799,9 +845,9 @@ static void dust(Gfx *f, const Effect *e, Vec2 p) {
 }
 /* Restore only the canopy/roof pixels over this actor. Scanline spans also
  * support concave polygons, without drawing an opaque rectangular cutout. */
-static void cover_actor(Gfx *f, Vec2 feet, Vec2 camera, float width, float height) {
-    float left = feet.x - width / 2, right = feet.x + width / 2;
-    float top = feet.y - height, bottom = feet.y + 8;
+static void cover_region(Gfx *f, Vec2 feet, Vec2 camera, SDL_FRect bounds) {
+    float left = bounds.x, right = bounds.x + bounds.w;
+    float top = bounds.y, bottom = bounds.y + bounds.h;
     SDL_Rect previous_clip;
     bool had_clip = SDL_RenderIsClipEnabled(f->renderer);
     SDL_RenderGetClipRect(f->renderer, &previous_clip);
@@ -851,6 +897,9 @@ static void cover_actor(Gfx *f, Vec2 feet, Vec2 camera, float width, float heigh
         }
     }
     SDL_RenderSetClipRect(f->renderer, had_clip ? &previous_clip : NULL);
+}
+static void cover_actor(Gfx *f, Vec2 feet, Vec2 camera, float width, float height) {
+    cover_region(f, feet, camera, (SDL_FRect){feet.x - width / 2, feet.y - height, width, height + 8});
 }
 void gfx_collision(Gfx *f, Vec2 camera) {
     for (int i = 0; i < WORLD_SOLID_COUNT; i++) {
@@ -987,10 +1036,9 @@ void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool has_ta
             const Enemy *e = &g->boars[i];
             p = screen_pos(e->pos, camera);
             shadow(f, p, 17 * ACTOR_SCALE, e->hp > 0 ? 1 : clampf(e->dying / ENEMY_DEATH_SECONDS, 0, 1));
-            gfx_enemy(f, &f->boar, (Vec2){p.x, p.y + 3}, 55, 48, e->pos.x < g->hero.pos.x, e,
-                      (EnemyTiming){BOAR_WINDUP_SECONDS, 0, BOAR_RECOVER_SECONDS}, g->time,
-                      g->phase == PH_PLAY);
-            cover_actor(f, e->pos, camera, 55 * ACTOR_SCALE, 50 * ACTOR_SCALE);
+            SDL_FRect bounds = gfx_enemy(f, e, (Vec2){p.x, p.y + 3}, false, g->time, g->phase == PH_PLAY, e->pos.x < g->hero.pos.x);
+            bounds.x += camera.x; bounds.y += camera.y;
+            cover_region(f, e->pos, camera, bounds);
             if (e->hp <= 0) continue;
             if (e->hp < e->max_hp) {
                 float bar = p.y - 50 * ACTOR_SCALE - 5;
@@ -1012,10 +1060,9 @@ void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool has_ta
                 label(f, "허수아비", (Vec2){p.x, p.y - 78}, PAPER);
                 continue;
             }
-            gfx_enemy(f, &f->boss, (Vec2){p.x, p.y + 7}, 83, 96, g->boss.pos.x < g->hero.pos.x, &g->boss,
-                      (EnemyTiming){BOSS_WINDUP_SECONDS, BOSS_SWING_SECONDS, 0}, g->time,
-                      g->phase == PH_PLAY);
-            cover_actor(f, g->boss.pos, camera, 83 * ACTOR_SCALE, 98 * ACTOR_SCALE);
+            SDL_FRect bounds = gfx_enemy(f, &g->boss, (Vec2){p.x, p.y + 7}, true, g->time, g->phase == PH_PLAY, g->boss.pos.x < g->hero.pos.x);
+            bounds.x += camera.x; bounds.y += camera.y;
+            cover_region(f, g->boss.pos, camera, bounds);
             if (g->boss.hp <= 0) continue;
             if (g->boss.state == AI_RECOVER)
                 label(f, "빈틈", (Vec2){p.x, p.y - 98 * ACTOR_SCALE}, GOLD);

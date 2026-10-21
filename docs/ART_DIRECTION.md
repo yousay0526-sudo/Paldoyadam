@@ -123,9 +123,13 @@ python3 scripts/prepare_hero_asset.py
 
 `art/characters/`에 원본(백정·멧돼지·전령 1254×1254, NPC 띠 2172×724)을 보존하고, `scripts/prepare_character_assets.py`가 화면 크기의 약 3배(백정 320, 멧돼지 192, 전령 160, NPC 띠 543×181)로 Lanczos(알파 사전 곱) 축소한 실행본을 `assets/`에 만든다. 이 네 텍스처만 선형 샘플링으로 그린다. 그림 자체는 바꾸지 않았다. 비교 `docs/character-sampling-review.png`(왼쪽부터 기존 1.2배, 새 1.2배, 기존 2.4배, 새 2.4배).
 
+## 2026-10-21 · 승인된 돼지·백정 8방향 모션
+
+사용자 지정에 따라 N/NE/E/SE/S/SW/W/NW를 독립 원화로 제작했다. 원화 승인 후 돼지 정지·걷기·엄니 공격, 백정 정지·걷기·기존 큰 내려찍기 **여섯 시트**를 `assets/monsters/`에 설치하고 연결했다. 백정의 식칼은 오른손 기준이며 반전하지 않는다. 피/혈흔 이펙트는 넣지 않는다. 원본 12장과 176포즈/7개 후보 시트는 `art/monsters/`에 보존한다. 현재 백정 AI는 큰 공격 하나이므로 짧은 가로베기 후보는 미설치 상태로 남기며 새 평타 규칙을 만들지 않는다. 공통 발 `(96,176)`·192px 셀과 방향별 표시 배율 보정을 함께 쓴다. 기존 피격/쓰러짐 연출과 가림을 유지하며 실제 SDL 출력으로 검사한다. [연결·표시·검증 계약](MONSTER_MOTION_RUNTIME.md), [원화 기록](MONSTER_MOTION_ART.md), [SDL 모션](monster-eight-direction-sdl.gif), [게임 전후](monster-gameplay-comparison.png), [후속 몬스터 조사](MONSTER_ROSTER_RESEARCH.md).
+
 ## Screen scale (2026-10-21)
 
 - World zoom follows the screen height: `world_zoom(h) = clamp(h / 450, 1, 3)` in CSS/logical pixels. A 390-tall phone stays at 1.0 and shows 844×390 world units at 844×390. 720p gets 1.6, 1080p gets 2.4. The zoom used to be a fixed 1.20, so the hero was about 13% of the screen height on phones but only 5% at 1080p.
-- `ACTOR_SCALE` = 1.4 draws the hero, NPCs, the messenger, boars and the butcher larger than the scenery's own scale, so they match the painted doors, steps and tables. The hero is about 60 units tall (was 43). Shadows, roof/canopy occlusion boxes, name labels, the boar HP bar and chest-height effects (sword trail, hit sparks, wind line, technique ring) scale with it.
+- `ACTOR_SCALE` = 1.4 draws the hero, NPCs, the messenger, boars and the butcher (all eight-direction monster sheets) larger than the scenery's own scale, so they match the painted doors, steps and tables. The hero is about 60 units tall (was 43). Shadows, roof/canopy occlusion boxes, name labels, the boar HP bar and chest-height effects (sword trail, hit sparks, wind line, technique ring) scale with it.
 - Only drawing changes. Hitboxes, attack ranges and sectors, collision radius, movement speed and knockback stay in world units. The training dummy keeps its drawn size.
 - Comparison: `docs/screen-scale-review.png`.

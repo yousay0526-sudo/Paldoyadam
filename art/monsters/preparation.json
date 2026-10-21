@@ -1,0 +1,5330 @@
+{
+  "status": "art candidate; not loaded by game",
+  "direction_order": [
+    "n",
+    "ne",
+    "e",
+    "se",
+    "s",
+    "sw",
+    "w",
+    "nw"
+  ],
+  "cell": 192,
+  "foot_root": [
+    96,
+    176
+  ],
+  "alpha_noise_cutoff": 4,
+  "atlases": {
+    "boar-idle": {
+      "sources": [
+        {
+          "path": "art/monsters/boar-directions-master.png",
+          "sha256": "f422febec959a5d47608f73c8b7907f73552553b97a97b0755bc3dd847408ae0",
+          "size": [
+            1225,
+            1284
+          ],
+          "alpha_range": [
+            0,
+            255
+          ],
+          "alpha_zero_fraction": 0.4963100006357683
+        }
+      ],
+      "runtime_sha256": "f390d19ebf31a0452d98ae93cd618c3d709ec15eb866531c1be399f2ddd8cd66",
+      "frames": [
+        {
+          "source_bounds": [
+            486,
+            8,
+            738,
+            409
+          ],
+          "source_visible_bounds": [
+            486,
+            8,
+            737,
+            409
+          ],
+          "source_root_in_crop": [
+            126.0,
+            400
+          ],
+          "scale": 0.33915211970074816,
+          "planned_scale": 0.33915211970074816,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            53,
+            40,
+            138,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "bce13a4628e53c89891d1687f96b9914bc5edb123aaf80973a175ba8c38654bc"
+        },
+        {
+          "source_bounds": [
+            830,
+            12,
+            1210,
+            409
+          ],
+          "source_visible_bounds": [
+            831,
+            12,
+            1209,
+            408
+          ],
+          "source_root_in_crop": [
+            192.0,
+            396
+          ],
+          "scale": 0.3425692695214106,
+          "planned_scale": 0.3425692695214106,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            30,
+            40,
+            160,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "4b22b17f3d59b7c9123efe03f2b40c3d527e8f64e664634da65a8081c9a8f27b"
+        },
+        {
+          "source_bounds": [
+            760,
+            473,
+            1217,
+            813
+          ],
+          "source_visible_bounds": [
+            760,
+            473,
+            1216,
+            812
+          ],
+          "source_root_in_crop": [
+            226.0,
+            339
+          ],
+          "scale": 0.3939393939393939,
+          "planned_scale": 0.4,
+          "draw_scale_compensation": 1.0153846153846156,
+          "runtime_bounds": [
+            7,
+            42,
+            187,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "9e7d227dd031b86ca6e82144153dd0d47a98f42d39a59c734de4d152494887db"
+        },
+        {
+          "source_bounds": [
+            787,
+            846,
+            1215,
+            1254
+          ],
+          "source_visible_bounds": [
+            788,
+            846,
+            1215,
+            1254
+          ],
+          "source_root_in_crop": [
+            214.0,
+            407
+          ],
+          "scale": 0.3333333333333333,
+          "planned_scale": 0.3333333333333333,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            25,
+            40,
+            168,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "e4e6314b6561f61ddc8b3748c9fed46619ed339f632c7c7ae83bc0f59b38245e"
+        },
+        {
+          "source_bounds": [
+            478,
+            849,
+            747,
+            1255
+          ],
+          "source_visible_bounds": [
+            479,
+            849,
+            746,
+            1255
+          ],
+          "source_root_in_crop": [
+            134.0,
+            405
+          ],
+          "scale": 0.33497536945812806,
+          "planned_scale": 0.33497536945812806,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            51,
+            40,
+            141,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "5d49f8bb842d9e11d547199d361ad2b5bd4705dc38279cedee79150332d68839"
+        },
+        {
+          "source_bounds": [
+            13,
+            845,
+            440,
+            1257
+          ],
+          "source_visible_bounds": [
+            14,
+            846,
+            439,
+            1257
+          ],
+          "source_root_in_crop": [
+            216,
+            411
+          ],
+          "scale": 0.3300970873786408,
+          "planned_scale": 0.3300970873786408,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            25,
+            40,
+            166,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "3170b38cd4c6c41f743b5da6346682d658ea2141fe0e9fc0387b584952fba123"
+        },
+        {
+          "source_bounds": [
+            10,
+            474,
+            465,
+            814
+          ],
+          "source_visible_bounds": [
+            11,
+            474,
+            465,
+            813
+          ],
+          "source_root_in_crop": [
+            229,
+            339
+          ],
+          "scale": 0.39737991266375544,
+          "planned_scale": 0.4,
+          "draw_scale_compensation": 1.0065934065934068,
+          "runtime_bounds": [
+            5,
+            41,
+            186,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "4c803fdaeae40cbe19ab6c72b0f08a5a7c0ba70cf362d825085251be05bb6bb4"
+        },
+        {
+          "source_bounds": [
+            18,
+            11,
+            395,
+            409
+          ],
+          "source_visible_bounds": [
+            18,
+            11,
+            394,
+            408
+          ],
+          "source_root_in_crop": [
+            185,
+            397
+          ],
+          "scale": 0.3417085427135678,
+          "planned_scale": 0.3417085427135678,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            33,
+            40,
+            162,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "1f9546d4e1395a63134d084abf1decb7b92498ccdcc1a42f4ec553e6052e3903"
+        }
+      ]
+    },
+    "boar-walk": {
+      "sources": [
+        {
+          "path": "art/monsters/boar-walk-0-master.png",
+          "sha256": "ec8130031b8cba459a3199b889af6c18f710b91c0cb64926d696833fb03a0675",
+          "size": [
+            1254,
+            1254
+          ],
+          "alpha_range": [
+            0,
+            255
+          ],
+          "alpha_zero_fraction": 0.6316558941212681
+        },
+        {
+          "path": "art/monsters/boar-walk-1-master.png",
+          "sha256": "c1c10573ce607aba91d4bc3be87131b2be03b216451aace52371ed3d341ffbd9",
+          "size": [
+            1254,
+            1254
+          ],
+          "alpha_range": [
+            0,
+            255
+          ],
+          "alpha_zero_fraction": 0.4948878103625019
+        }
+      ],
+      "runtime_sha256": "5342ae33a158ed12c0c15b9e8a7af08fe9370756549b5f7e17ed710a27bf221e",
+      "frames": [
+        {
+          "source_bounds": [
+            119,
+            92,
+            274,
+            336
+          ],
+          "source_visible_bounds": [
+            120,
+            92,
+            274,
+            336
+          ],
+          "source_root_in_crop": [
+            77.0,
+            243
+          ],
+          "scale": 0.5429141716566867,
+          "planned_scale": 0.5429141716566867,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            54,
+            44,
+            138,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "9020476bdef1fc7693b076bcc72014d397f6bad675b5b6a8fe25f9737a731039"
+        },
+        {
+          "source_bounds": [
+            406,
+            89,
+            561,
+            340
+          ],
+          "source_visible_bounds": [
+            407,
+            89,
+            561,
+            340
+          ],
+          "source_root_in_crop": [
+            77,
+            250
+          ],
+          "scale": 0.5429141716566867,
+          "planned_scale": 0.5429141716566867,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            54,
+            40,
+            138,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "108b14b81d573ecf995d5ce82187385c33d2511083d06291393dbde8b45c55df"
+        },
+        {
+          "source_bounds": [
+            691,
+            90,
+            847,
+            342
+          ],
+          "source_visible_bounds": [
+            692,
+            90,
+            846,
+            342
+          ],
+          "source_root_in_crop": [
+            77,
+            251
+          ],
+          "scale": 0.5429141716566867,
+          "planned_scale": 0.5429141716566867,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            54,
+            40,
+            139,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "ef0f2587f2a65f9a46d8ac4cda32e6c75797a5de2e53e0c01a9f9bd1f08ba3b4"
+        },
+        {
+          "source_bounds": [
+            975,
+            89,
+            1131,
+            339
+          ],
+          "source_visible_bounds": [
+            975,
+            90,
+            1131,
+            338
+          ],
+          "source_root_in_crop": [
+            77,
+            249
+          ],
+          "scale": 0.5429141716566867,
+          "planned_scale": 0.5429141716566867,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            54,
+            41,
+            139,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "a3d4060370c5668cff778fdec1c47bb6cbd48200a3c65eb216c310322cb52a5d"
+        },
+        {
+          "source_bounds": [
+            78,
+            381,
+            311,
+            627
+          ],
+          "source_visible_bounds": [
+            78,
+            381,
+            311,
+            627
+          ],
+          "source_root_in_crop": [
+            114.0,
+            245
+          ],
+          "scale": 0.5483870967741935,
+          "planned_scale": 0.5483870967741935,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            33,
+            42,
+            161,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "a4130370bccb2b3d92a550fa4f439d52c8d0436fe16a1c5e66b4f85cea411e18"
+        },
+        {
+          "source_bounds": [
+            369,
+            380,
+            598,
+            630
+          ],
+          "source_visible_bounds": [
+            370,
+            380,
+            597,
+            630
+          ],
+          "source_root_in_crop": [
+            112.0,
+            249
+          ],
+          "scale": 0.5483870967741935,
+          "planned_scale": 0.5483870967741935,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            35,
+            39,
+            161,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "9fc5fc5c2263f91dd67046cee64c602d4a2e8d9512ef99d888fc97fac965ab1b"
+        },
+        {
+          "source_bounds": [
+            655,
+            380,
+            886,
+            630
+          ],
+          "source_visible_bounds": [
+            656,
+            381,
+            885,
+            630
+          ],
+          "source_root_in_crop": [
+            115.0,
+            249
+          ],
+          "scale": 0.5483870967741935,
+          "planned_scale": 0.5483870967741935,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            33,
+            39,
+            160,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "1a7d877568eb9bac38d6fa32ee6f6240d250cf57c780cf6e136804abee15c583"
+        },
+        {
+          "source_bounds": [
+            944,
+            384,
+            1176,
+            616
+          ],
+          "source_visible_bounds": [
+            945,
+            384,
+            1176,
+            616
+          ],
+          "source_root_in_crop": [
+            119.0,
+            231
+          ],
+          "scale": 0.5483870967741935,
+          "planned_scale": 0.5483870967741935,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            31,
+            49,
+            158,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "fc7cdda573e4e0261e1e880f738b9a400ab0ccc2dc918846f64923c223a7cb6f"
+        },
+        {
+          "source_bounds": [
+            50,
+            682,
+            323,
+            888
+          ],
+          "source_visible_bounds": [
+            51,
+            683,
+            323,
+            887
+          ],
+          "source_root_in_crop": [
+            138.0,
+            205
+          ],
+          "scale": 0.6546762589928058,
+          "planned_scale": 0.6666666666666666,
+          "draw_scale_compensation": 1.0183150183150182,
+          "runtime_bounds": [
+            6,
+            42,
+            185,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "da8890cbca5f5d84c0198e60da53d7f63562c8e3d8851f5f0af1e8d1b8f506c9"
+        },
+        {
+          "source_bounds": [
+            351,
+            684,
+            627,
+            885
+          ],
+          "source_visible_bounds": [
+            352,
+            684,
+            627,
+            885
+          ],
+          "source_root_in_crop": [
+            137.0,
+            200
+          ],
+          "scale": 0.6546762589928058,
+          "planned_scale": 0.6666666666666666,
+          "draw_scale_compensation": 1.0183150183150182,
+          "runtime_bounds": [
+            6,
+            45,
+            187,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "fed82fe102deb75a199baba951586ebf75c4f77c21fdc0d9e4dff4dd5427b896"
+        },
+        {
+          "source_bounds": [
+            646,
+            683,
+            917,
+            891
+          ],
+          "source_visible_bounds": [
+            647,
+            683,
+            917,
+            891
+          ],
+          "source_root_in_crop": [
+            138,
+            207
+          ],
+          "scale": 0.6546762589928058,
+          "planned_scale": 0.6666666666666666,
+          "draw_scale_compensation": 1.0183150183150182,
+          "runtime_bounds": [
+            6,
+            40,
+            183,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "11031e097e746144c492a623821ea85d9f6354d48e5f60e94f71701660427ab4"
+        },
+        {
+          "source_bounds": [
+            942,
+            683,
+            1214,
+            885
+          ],
+          "source_visible_bounds": [
+            943,
+            683,
+            1213,
+            885
+          ],
+          "source_root_in_crop": [
+            136.0,
+            201
+          ],
+          "scale": 0.6546762589928058,
+          "planned_scale": 0.6666666666666666,
+          "draw_scale_compensation": 1.0183150183150182,
+          "runtime_bounds": [
+            7,
+            44,
+            185,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "0288c0b81a8ed80a95e7944b23fd30727ae76681d05d689dc4682cb7e9dfae02"
+        },
+        {
+          "source_bounds": [
+            65,
+            934,
+            313,
+            1169
+          ],
+          "source_visible_bounds": [
+            65,
+            934,
+            313,
+            1169
+          ],
+          "source_root_in_crop": [
+            124.0,
+            234
+          ],
+          "scale": 0.5874730021598272,
+          "planned_scale": 0.5874730021598272,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            23,
+            39,
+            169,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "bd19d4fbfde701deeed04c23d4f652bf049b69bada7fbecf0c32e8757d809f6f"
+        },
+        {
+          "source_bounds": [
+            363,
+            936,
+            606,
+            1165
+          ],
+          "source_visible_bounds": [
+            364,
+            937,
+            605,
+            1165
+          ],
+          "source_root_in_crop": [
+            120.0,
+            228
+          ],
+          "scale": 0.5874730021598272,
+          "planned_scale": 0.5874730021598272,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            26,
+            42,
+            169,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "8ac246316024e6770569dbad65dff507cbd13ca991bb13021f83cc288aeecaa1"
+        },
+        {
+          "source_bounds": [
+            651,
+            938,
+            898,
+            1172
+          ],
+          "source_visible_bounds": [
+            652,
+            939,
+            898,
+            1172
+          ],
+          "source_root_in_crop": [
+            123.0,
+            233
+          ],
+          "scale": 0.5874730021598272,
+          "planned_scale": 0.5874730021598272,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            24,
+            39,
+            169,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "b89999727385dabe6ea61f69f650e3507a477f29a4acf85043e295f6af669fd1"
+        },
+        {
+          "source_bounds": [
+            949,
+            936,
+            1194,
+            1163
+          ],
+          "source_visible_bounds": [
+            949,
+            936,
+            1194,
+            1163
+          ],
+          "source_root_in_crop": [
+            122,
+            226
+          ],
+          "scale": 0.5874730021598272,
+          "planned_scale": 0.5874730021598272,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            24,
+            43,
+            168,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "7bc5354f9fe8f2c01a598db61fa1aad4177e29b2a75a41206fe4f62bb195e6d4"
+        },
+        {
+          "source_bounds": [
+            62,
+            29,
+            256,
+            316
+          ],
+          "source_visible_bounds": [
+            62,
+            29,
+            255,
+            316
+          ],
+          "source_root_in_crop": [
+            96,
+            286
+          ],
+          "scale": 0.48312611012433393,
+          "planned_scale": 0.48312611012433393,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            50,
+            38,
+            144,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "304b2805d660e0dfe1cc896563c3b58aa84e6e1b8a0f3b574901e755ab04e472"
+        },
+        {
+          "source_bounds": [
+            376,
+            30,
+            568,
+            310
+          ],
+          "source_visible_bounds": [
+            376,
+            30,
+            567,
+            310
+          ],
+          "source_root_in_crop": [
+            96.0,
+            279
+          ],
+          "scale": 0.48312611012433393,
+          "planned_scale": 0.48312611012433393,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            50,
+            41,
+            143,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "9ff12f3bb9b8ca669ce35df2a2915fbf2b4aa37db837deddf7888ecb3119b93a"
+        },
+        {
+          "source_bounds": [
+            689,
+            30,
+            881,
+            313
+          ],
+          "source_visible_bounds": [
+            689,
+            30,
+            881,
+            313
+          ],
+          "source_root_in_crop": [
+            95.0,
+            282
+          ],
+          "scale": 0.48312611012433393,
+          "planned_scale": 0.48312611012433393,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            50,
+            40,
+            143,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "8b539f504e5df23a0e716d79e9589a008bac4635f5c40d99409f7712d8927d7d"
+        },
+        {
+          "source_bounds": [
+            1004,
+            31,
+            1195,
+            308
+          ],
+          "source_visible_bounds": [
+            1004,
+            31,
+            1194,
+            308
+          ],
+          "source_root_in_crop": [
+            95.0,
+            276
+          ],
+          "scale": 0.48312611012433393,
+          "planned_scale": 0.48312611012433393,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            50,
+            43,
+            142,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "78826f5d3a9247e665726bd0df1b60caee31a584ed9ea5f77ba1608229961a47"
+        },
+        {
+          "source_bounds": [
+            29,
+            342,
+            303,
+            605
+          ],
+          "source_visible_bounds": [
+            29,
+            343,
+            303,
+            604
+          ],
+          "source_root_in_crop": [
+            137.0,
+            262
+          ],
+          "scale": 0.5171102661596958,
+          "planned_scale": 0.5171102661596958,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            25,
+            41,
+            167,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "bf0969e33b815a785f70a4655c1d2f669b8b4b81be0905979fc35f96f9985324"
+        },
+        {
+          "source_bounds": [
+            341,
+            341,
+            620,
+            604
+          ],
+          "source_visible_bounds": [
+            341,
+            342,
+            619,
+            604
+          ],
+          "source_root_in_crop": [
+            140.0,
+            262
+          ],
+          "scale": 0.5171102661596958,
+          "planned_scale": 0.5171102661596958,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            24,
+            41,
+            168,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "a9196f7bc9f36c5aac48a598c3274aeb6d6cc86a2b6c80c9f70471bd21a2aee3"
+        },
+        {
+          "source_bounds": [
+            655,
+            342,
+            929,
+            606
+          ],
+          "source_visible_bounds": [
+            655,
+            343,
+            929,
+            606
+          ],
+          "source_root_in_crop": [
+            138,
+            263
+          ],
+          "scale": 0.5171102661596958,
+          "planned_scale": 0.5171102661596958,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            25,
+            40,
+            167,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "f72168ace57de47f2e542f85fe83f0f8a1d9ae44f45ac64b7313b83c09e948c4"
+        },
+        {
+          "source_bounds": [
+            966,
+            341,
+            1239,
+            604
+          ],
+          "source_visible_bounds": [
+            966,
+            342,
+            1239,
+            603
+          ],
+          "source_root_in_crop": [
+            136.0,
+            262
+          ],
+          "scale": 0.5171102661596958,
+          "planned_scale": 0.5171102661596958,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            26,
+            41,
+            167,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "7e8259876c9b8d0d0a2afb157284c1b54f5f8c56e52e1ebaf36774466d4990e8"
+        },
+        {
+          "source_bounds": [
+            12,
+            645,
+            316,
+            894
+          ],
+          "source_visible_bounds": [
+            13,
+            646,
+            315,
+            894
+          ],
+          "source_root_in_crop": [
+            154.0,
+            248
+          ],
+          "scale": 0.5472837022132797,
+          "planned_scale": 0.5472837022132797,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            12,
+            40,
+            178,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "91a704f9b01927ad9684d5d013b359fe406eb7189090259bdb17e09a15960541"
+        },
+        {
+          "source_bounds": [
+            324,
+            645,
+            627,
+            893
+          ],
+          "source_visible_bounds": [
+            324,
+            645,
+            626,
+            892
+          ],
+          "source_root_in_crop": [
+            154,
+            247
+          ],
+          "scale": 0.5472837022132797,
+          "planned_scale": 0.5472837022132797,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            12,
+            41,
+            178,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "c792851e8c65e24c75bed06943992aedcbfd2f294abacae425b227e3eb8bf0d6"
+        },
+        {
+          "source_bounds": [
+            637,
+            645,
+            942,
+            894
+          ],
+          "source_visible_bounds": [
+            637,
+            645,
+            941,
+            894
+          ],
+          "source_root_in_crop": [
+            154,
+            248
+          ],
+          "scale": 0.5472837022132797,
+          "planned_scale": 0.5472837022132797,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            12,
+            40,
+            179,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "6347c8bf66917abdb4a7fb999d58d27b6f2e5861916fa8cb24e5b65f8d616f68"
+        },
+        {
+          "source_bounds": [
+            949,
+            649,
+            1252,
+            888
+          ],
+          "source_visible_bounds": [
+            949,
+            650,
+            1251,
+            888
+          ],
+          "source_root_in_crop": [
+            154,
+            238
+          ],
+          "scale": 0.5472837022132797,
+          "planned_scale": 0.5472837022132797,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            12,
+            46,
+            178,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "d1a4a4afab35efcf3e98997d1d1e6fdb817dd1fc3aa67bdfcee8a6a7111836ab"
+        },
+        {
+          "source_bounds": [
+            26,
+            929,
+            304,
+            1216
+          ],
+          "source_visible_bounds": [
+            27,
+            929,
+            303,
+            1215
+          ],
+          "source_root_in_crop": [
+            139,
+            286
+          ],
+          "scale": 0.4780316344463972,
+          "planned_scale": 0.4780316344463972,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            30,
+            39,
+            163,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "c159bb0a5965eceffe8d3cd4b437ecb68472b80a6675cf4f1fb2a3350ccc354a"
+        },
+        {
+          "source_bounds": [
+            341,
+            925,
+            616,
+            1214
+          ],
+          "source_visible_bounds": [
+            342,
+            926,
+            616,
+            1213
+          ],
+          "source_root_in_crop": [
+            139,
+            288
+          ],
+          "scale": 0.4780316344463972,
+          "planned_scale": 0.4780316344463972,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            30,
+            38,
+            161,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "6e1cd9494d29e726499ecbd9f1fff43e42be580bdf3a44f8cb2e64d6bc2bf74c"
+        },
+        {
+          "source_bounds": [
+            659,
+            925,
+            934,
+            1206
+          ],
+          "source_visible_bounds": [
+            659,
+            925,
+            933,
+            1206
+          ],
+          "source_root_in_crop": [
+            129,
+            280
+          ],
+          "scale": 0.4780316344463972,
+          "planned_scale": 0.4780316344463972,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            34,
+            42,
+            165,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "3a31332abdda37c8533c225bb3269a35667384737bbe520d7e0cd2cccc10dcd4"
+        },
+        {
+          "source_bounds": [
+            973,
+            927,
+            1242,
+            1209
+          ],
+          "source_visible_bounds": [
+            973,
+            928,
+            1241,
+            1209
+          ],
+          "source_root_in_crop": [
+            135.0,
+            281
+          ],
+          "scale": 0.4780316344463972,
+          "planned_scale": 0.4780316344463972,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            31,
+            42,
+            160,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "1ca5fef3715affb1c27fba88e96335ad2a022d6733b1edf02b9a96819e9faf03"
+        }
+      ]
+    },
+    "boar-attack": {
+      "sources": [
+        {
+          "path": "art/monsters/boar-attack-0-master.png",
+          "sha256": "17a375b6b4521d03fcb0542547c41d0c0b588bb90bf20d5eb600aea6985f3bb8",
+          "size": [
+            1254,
+            1254
+          ],
+          "alpha_range": [
+            0,
+            255
+          ],
+          "alpha_zero_fraction": 0.5091662024424553
+        },
+        {
+          "path": "art/monsters/boar-attack-1-master.png",
+          "sha256": "aefad774c8f21ffd47b044e6586569214fe19f283070030815a7a70b80dd50da",
+          "size": [
+            1254,
+            1254
+          ],
+          "alpha_range": [
+            0,
+            255
+          ],
+          "alpha_zero_fraction": 0.4943523627104589
+        }
+      ],
+      "runtime_sha256": "8c12c957862ef1f504779c9a9eb302f252eb61a5ca305a62ec23798407436bd0",
+      "frames": [
+        {
+          "source_bounds": [
+            65,
+            39,
+            255,
+            313
+          ],
+          "source_visible_bounds": [
+            65,
+            40,
+            255,
+            313
+          ],
+          "source_root_in_crop": [
+            95.0,
+            273
+          ],
+          "scale": 0.5171102661596958,
+          "planned_scale": 0.5171102661596958,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            47,
+            35,
+            145,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "cb92774ac6e31cabb471b9726cc47d09f655f1bd0bbcac6f26f95bf4092f224f"
+        },
+        {
+          "source_bounds": [
+            380,
+            64,
+            570,
+            313
+          ],
+          "source_visible_bounds": [
+            381,
+            64,
+            569,
+            313
+          ],
+          "source_root_in_crop": [
+            95,
+            248
+          ],
+          "scale": 0.5171102661596958,
+          "planned_scale": 0.5171102661596958,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            47,
+            48,
+            145,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "e002a958a45f03ae761a755a5cd62d05dfd65ae7a37d624700896696b88ef263"
+        },
+        {
+          "source_bounds": [
+            670,
+            58,
+            897,
+            313
+          ],
+          "source_visible_bounds": [
+            670,
+            58,
+            896,
+            313
+          ],
+          "source_root_in_crop": [
+            126,
+            254
+          ],
+          "scale": 0.5171102661596958,
+          "planned_scale": 0.5171102661596958,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            31,
+            45,
+            148,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "366b19a2ae0349405a4733d005cdb5087091509414b34cd3162b0f5cb9be6cc8"
+        },
+        {
+          "source_bounds": [
+            1004,
+            42,
+            1193,
+            313
+          ],
+          "source_visible_bounds": [
+            1004,
+            42,
+            1193,
+            313
+          ],
+          "source_root_in_crop": [
+            94,
+            270
+          ],
+          "scale": 0.5171102661596958,
+          "planned_scale": 0.5171102661596958,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            47,
+            36,
+            145,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "b99656977523ebebf1ee0384d19c4b2d9e463007df5946c3c9820caadf632fc7"
+        },
+        {
+          "source_bounds": [
+            24,
+            343,
+            293,
+            611
+          ],
+          "source_visible_bounds": [
+            24,
+            343,
+            293,
+            610
+          ],
+          "source_root_in_crop": [
+            138,
+            267
+          ],
+          "scale": 0.5506072874493927,
+          "planned_scale": 0.5506072874493927,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            20,
+            29,
+            168,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "41633c114dd7ecb961630e5081433ed2b74ec430b3c8337168a20b84d9a3b35a"
+        },
+        {
+          "source_bounds": [
+            331,
+            368,
+            608,
+            611
+          ],
+          "source_visible_bounds": [
+            331,
+            369,
+            607,
+            610
+          ],
+          "source_root_in_crop": [
+            142,
+            242
+          ],
+          "scale": 0.5506072874493927,
+          "planned_scale": 0.5506072874493927,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            18,
+            43,
+            171,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "86608236fcfd000446e8623d7f6d2f9f9977b6da3d87ec860a7774268626fae8"
+        },
+        {
+          "source_bounds": [
+            635,
+            376,
+            950,
+            610
+          ],
+          "source_visible_bounds": [
+            636,
+            376,
+            950,
+            610
+          ],
+          "source_root_in_crop": [
+            162.0,
+            233
+          ],
+          "scale": 0.5506072874493927,
+          "planned_scale": 0.5506072874493927,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            7,
+            48,
+            180,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "5ce43f381d87af63c65781863f9ff4bfe908ba271d53c20b74e519287550eb05"
+        },
+        {
+          "source_bounds": [
+            970,
+            359,
+            1226,
+            610
+          ],
+          "source_visible_bounds": [
+            971,
+            360,
+            1225,
+            610
+          ],
+          "source_root_in_crop": [
+            131,
+            250
+          ],
+          "scale": 0.5506072874493927,
+          "planned_scale": 0.5506072874493927,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            24,
+            38,
+            165,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "0b7e350f7fb4176cd0c96d08c7118d2e587a93a16995b863ded752f6dfacba24"
+        },
+        {
+          "source_bounds": [
+            17,
+            646,
+            322,
+            894
+          ],
+          "source_visible_bounds": [
+            17,
+            647,
+            321,
+            894
+          ],
+          "source_root_in_crop": [
+            133,
+            247
+          ],
+          "scale": 0.5290697674418605,
+          "planned_scale": 0.6167800453514739,
+          "draw_scale_compensation": 1.1657820637412473,
+          "runtime_bounds": [
+            26,
+            45,
+            187,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "8f94ebbc7ad4eb6eb06c2ef4976f19da56a6f112656a5fb2caa9de44fbe73173"
+        },
+        {
+          "source_bounds": [
+            328,
+            677,
+            623,
+            886
+          ],
+          "source_visible_bounds": [
+            328,
+            678,
+            622,
+            886
+          ],
+          "source_root_in_crop": [
+            150.0,
+            208
+          ],
+          "scale": 0.5290697674418605,
+          "planned_scale": 0.6167800453514739,
+          "draw_scale_compensation": 1.1657820637412473,
+          "runtime_bounds": [
+            17,
+            66,
+            173,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "86cb5d0d43ac0491805f6fa39b36028445b3d0a062ac6c09ec7cdbae89547a80"
+        },
+        {
+          "source_bounds": [
+            635,
+            686,
+            969,
+            886
+          ],
+          "source_visible_bounds": [
+            635,
+            687,
+            968,
+            886
+          ],
+          "source_root_in_crop": [
+            169,
+            199
+          ],
+          "scale": 0.5290697674418605,
+          "planned_scale": 0.6167800453514739,
+          "draw_scale_compensation": 1.1657820637412473,
+          "runtime_bounds": [
+            7,
+            71,
+            184,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "7d5ca74cbf6220f3b6ebef1cd387d6b2bd30c3fee4fcad4882475160a865e5b8"
+        },
+        {
+          "source_bounds": [
+            958,
+            661,
+            1248,
+            893
+          ],
+          "source_visible_bounds": [
+            958,
+            662,
+            1247,
+            893
+          ],
+          "source_root_in_crop": [
+            144.0,
+            231
+          ],
+          "scale": 0.5290697674418605,
+          "planned_scale": 0.6167800453514739,
+          "draw_scale_compensation": 1.1657820637412473,
+          "runtime_bounds": [
+            20,
+            54,
+            173,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "fe457b5687ede033ba409d404d2bc86a85def7e4d5e52fb82e8c9b9cf745465d"
+        },
+        {
+          "source_bounds": [
+            23,
+            926,
+            304,
+            1191
+          ],
+          "source_visible_bounds": [
+            24,
+            926,
+            304,
+            1191
+          ],
+          "source_root_in_crop": [
+            133.0,
+            264
+          ],
+          "scale": 0.5261121856866537,
+          "planned_scale": 0.5261121856866537,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            26,
+            37,
+            174,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "5686dd70d11e16c0ae8818050ebd469b6655717f80545834b895ad03f845082e"
+        },
+        {
+          "source_bounds": [
+            327,
+            942,
+            610,
+            1199
+          ],
+          "source_visible_bounds": [
+            328,
+            943,
+            610,
+            1198
+          ],
+          "source_root_in_crop": [
+            143,
+            256
+          ],
+          "scale": 0.5261121856866537,
+          "planned_scale": 0.5261121856866537,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            21,
+            41,
+            170,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "d2a7b56e0b47854d6e31aaf865318d91b1e62e5c5c4230880c9dafbc760c452b"
+        },
+        {
+          "source_bounds": [
+            630,
+            955,
+            950,
+            1207
+          ],
+          "source_visible_bounds": [
+            631,
+            955,
+            950,
+            1207
+          ],
+          "source_root_in_crop": [
+            161.0,
+            251
+          ],
+          "scale": 0.5261121856866537,
+          "planned_scale": 0.5261121856866537,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            11,
+            44,
+            179,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "5d76547990505f08732271114aa222ab1ba264ef08897597b03758cfa6b803eb"
+        },
+        {
+          "source_bounds": [
+            960,
+            933,
+            1237,
+            1193
+          ],
+          "source_visible_bounds": [
+            961,
+            934,
+            1237,
+            1193
+          ],
+          "source_root_in_crop": [
+            138,
+            259
+          ],
+          "scale": 0.5261121856866537,
+          "planned_scale": 0.5261121856866537,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            23,
+            40,
+            169,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "c81b132a1905b1537bc4f9cbc7134647da30076a3302e4d0c3bf4883cb4e7849"
+        },
+        {
+          "source_bounds": [
+            65,
+            30,
+            272,
+            298
+          ],
+          "source_visible_bounds": [
+            66,
+            30,
+            271,
+            298
+          ],
+          "source_root_in_crop": [
+            103.0,
+            267
+          ],
+          "scale": 0.5343811394891945,
+          "planned_scale": 0.5343811394891945,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            41,
+            33,
+            152,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "fa395365a71b11883da97f746d755f67372d204693fb29b71b83e0c35da1bb50"
+        },
+        {
+          "source_bounds": [
+            370,
+            42,
+            578,
+            296
+          ],
+          "source_visible_bounds": [
+            371,
+            43,
+            578,
+            296
+          ],
+          "source_root_in_crop": [
+            101,
+            253
+          ],
+          "scale": 0.5343811394891945,
+          "planned_scale": 0.5343811394891945,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            42,
+            41,
+            153,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "aee0c568206b53df432821bfc84ce5971a3f5bfda0dd681c7370afef23c7e531"
+        },
+        {
+          "source_bounds": [
+            646,
+            60,
+            913,
+            306
+          ],
+          "source_visible_bounds": [
+            647,
+            60,
+            912,
+            306
+          ],
+          "source_root_in_crop": [
+            134.0,
+            245
+          ],
+          "scale": 0.5343811394891945,
+          "planned_scale": 0.5343811394891945,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            24,
+            45,
+            167,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "247b58edcfcbea116cdbc687da5cacf51c10c057518f2914ac9e903c75504287"
+        },
+        {
+          "source_bounds": [
+            993,
+            42,
+            1198,
+            297
+          ],
+          "source_visible_bounds": [
+            994,
+            42,
+            1197,
+            297
+          ],
+          "source_root_in_crop": [
+            101,
+            254
+          ],
+          "scale": 0.5343811394891945,
+          "planned_scale": 0.5343811394891945,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            42,
+            40,
+            152,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "03d44a85e7ce8194591ff24746d59762aa7d8c5f5679012ab4c9da17b354ba0a"
+        },
+        {
+          "source_bounds": [
+            35,
+            324,
+            304,
+            602
+          ],
+          "source_visible_bounds": [
+            36,
+            325,
+            303,
+            601
+          ],
+          "source_root_in_crop": [
+            138,
+            277
+          ],
+          "scale": 0.5161290322580645,
+          "planned_scale": 0.5161290322580645,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            25,
+            33,
+            164,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "0a56e9d1aa65034c3bb921c143fc364349acb7bf9b0a3febb7731657460e8566"
+        },
+        {
+          "source_bounds": [
+            342,
+            339,
+            614,
+            600
+          ],
+          "source_visible_bounds": [
+            342,
+            339,
+            614,
+            600
+          ],
+          "source_root_in_crop": [
+            140.0,
+            260
+          ],
+          "scale": 0.5161290322580645,
+          "planned_scale": 0.5161290322580645,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            24,
+            42,
+            164,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "9978cb9c623087ab6087ad44685a399d1a2bbaf07065d9215c658e4f97beaee8"
+        },
+        {
+          "source_bounds": [
+            631,
+            371,
+            960,
+            609
+          ],
+          "source_visible_bounds": [
+            632,
+            372,
+            960,
+            609
+          ],
+          "source_root_in_crop": [
+            168,
+            237
+          ],
+          "scale": 0.5161290322580645,
+          "planned_scale": 0.5161290322580645,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            9,
+            54,
+            179,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "5cbd06063cd5a11bfff7441671911df952d02777e01e6c78df24514f489c9c40"
+        },
+        {
+          "source_bounds": [
+            986,
+            334,
+            1239,
+            600
+          ],
+          "source_visible_bounds": [
+            986,
+            335,
+            1239,
+            600
+          ],
+          "source_root_in_crop": [
+            125,
+            265
+          ],
+          "scale": 0.5161290322580645,
+          "planned_scale": 0.5161290322580645,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            31,
+            39,
+            162,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "c0e19b573eed4597530038a8b934e00724d33fd5d47f5f412b4dea4c9a3abe59"
+        },
+        {
+          "source_bounds": [
+            23,
+            641,
+            316,
+            894
+          ],
+          "source_visible_bounds": [
+            24,
+            641,
+            315,
+            894
+          ],
+          "source_root_in_crop": [
+            152,
+            252
+          ],
+          "scale": 0.5170454545454546,
+          "planned_scale": 0.5528455284552846,
+          "draw_scale_compensation": 1.0692397033860448,
+          "runtime_bounds": [
+            17,
+            46,
+            168,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "22134c1ecf95e4ba0b72e2b23075c7513667aaeeab2256528e88ce4c6aeecdf5"
+        },
+        {
+          "source_bounds": [
+            332,
+            660,
+            621,
+            900
+          ],
+          "source_visible_bounds": [
+            332,
+            661,
+            620,
+            900
+          ],
+          "source_root_in_crop": [
+            154,
+            239
+          ],
+          "scale": 0.5170454545454546,
+          "planned_scale": 0.5528455284552846,
+          "draw_scale_compensation": 1.0692397033860448,
+          "runtime_bounds": [
+            16,
+            52,
+            165,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "649f15aba2c4d907024cfba2e36ce39956ef5747421b8e88fb1ee484042400ed"
+        },
+        {
+          "source_bounds": [
+            618,
+            696,
+            968,
+            904
+          ],
+          "source_visible_bounds": [
+            618,
+            696,
+            968,
+            904
+          ],
+          "source_root_in_crop": [
+            174.0,
+            207
+          ],
+          "scale": 0.5170454545454546,
+          "planned_scale": 0.5528455284552846,
+          "draw_scale_compensation": 1.0692397033860448,
+          "runtime_bounds": [
+            6,
+            69,
+            187,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "cc74055e2a92766f64db49490d145ec5c7df9785ad82b0c2e32359f4e0b73e54"
+        },
+        {
+          "source_bounds": [
+            980,
+            649,
+            1240,
+            901
+          ],
+          "source_visible_bounds": [
+            980,
+            650,
+            1239,
+            900
+          ],
+          "source_root_in_crop": [
+            128,
+            251
+          ],
+          "scale": 0.5170454545454546,
+          "planned_scale": 0.5528455284552846,
+          "draw_scale_compensation": 1.0692397033860448,
+          "runtime_bounds": [
+            30,
+            46,
+            164,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "af13b5678096583415585aa3569c9d274af745f5655dfaca1481675de8dceb68"
+        },
+        {
+          "source_bounds": [
+            41,
+            925,
+            309,
+            1210
+          ],
+          "source_visible_bounds": [
+            42,
+            926,
+            309,
+            1210
+          ],
+          "source_root_in_crop": [
+            134,
+            284
+          ],
+          "scale": 0.4892086330935252,
+          "planned_scale": 0.4892086330935252,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            30,
+            37,
+            161,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "e6b2fbf0519365c42675ec6257204238dcd5f8e81de314a2520a569961b9838e"
+        },
+        {
+          "source_bounds": [
+            343,
+            933,
+            614,
+            1211
+          ],
+          "source_visible_bounds": [
+            344,
+            933,
+            613,
+            1211
+          ],
+          "source_root_in_crop": [
+            129,
+            277
+          ],
+          "scale": 0.4892086330935252,
+          "planned_scale": 0.4892086330935252,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            33,
+            40,
+            166,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "e5937f2bb7f4845a9e2a3403bdf992dfe5d2b78d99bf54749c7927dfbbcddd0c"
+        },
+        {
+          "source_bounds": [
+            636,
+            958,
+            942,
+            1216
+          ],
+          "source_visible_bounds": [
+            636,
+            959,
+            941,
+            1216
+          ],
+          "source_root_in_crop": [
+            144,
+            257
+          ],
+          "scale": 0.4892086330935252,
+          "planned_scale": 0.4892086330935252,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            26,
+            50,
+            176,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "c64947813e99bb499d6ba32429c1673bdf213c8c1d46d1ccd67880ae1fe5aa1d"
+        },
+        {
+          "source_bounds": [
+            980,
+            933,
+            1243,
+            1211
+          ],
+          "source_visible_bounds": [
+            980,
+            933,
+            1242,
+            1211
+          ],
+          "source_root_in_crop": [
+            126.0,
+            277
+          ],
+          "scale": 0.4892086330935252,
+          "planned_scale": 0.4892086330935252,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            34,
+            40,
+            163,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "263fef2fb84865d3b040dc55dfe740898d58b99d384497436378e0531d8c1251"
+        }
+      ]
+    },
+    "butcher-idle": {
+      "sources": [
+        {
+          "path": "art/monsters/butcher-directions-master.png",
+          "sha256": "4e3707c21073a5be151c0aa6151fee40e93afaec71f0c3ee6ec03cd72c85ddfb",
+          "size": [
+            1286,
+            1223
+          ],
+          "alpha_range": [
+            0,
+            255
+          ],
+          "alpha_zero_fraction": 0.5303768236839529
+        }
+      ],
+      "runtime_sha256": "f40ef507bb441b0bab3dfb0c46c1d95f26ea865fabf558005ab358567cd9ee3f",
+      "frames": [
+        {
+          "source_bounds": [
+            470,
+            10,
+            825,
+            398
+          ],
+          "source_visible_bounds": [
+            471,
+            10,
+            824,
+            398
+          ],
+          "source_root_in_crop": [
+            170,
+            387
+          ],
+          "scale": 0.3711340206185567,
+          "planned_scale": 0.3711340206185567,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            33,
+            32,
+            165,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "3c5137791f9f2fa4d5085ddaddd8a3c9ad3ef9223a92825bdefd6c369dd9265a"
+        },
+        {
+          "source_bounds": [
+            871,
+            10,
+            1251,
+            400
+          ],
+          "source_visible_bounds": [
+            871,
+            10,
+            1250,
+            399
+          ],
+          "source_root_in_crop": [
+            152.0,
+            389
+          ],
+          "scale": 0.36923076923076925,
+          "planned_scale": 0.36923076923076925,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            40,
+            32,
+            180,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "fc2adba19c95bd4122ac477617ece977211566325ef0cc4fc24110c19ea01794"
+        },
+        {
+          "source_bounds": [
+            920,
+            416,
+            1154,
+            813
+          ],
+          "source_visible_bounds": [
+            920,
+            416,
+            1153,
+            813
+          ],
+          "source_root_in_crop": [
+            98.0,
+            396
+          ],
+          "scale": 0.36272040302267,
+          "planned_scale": 0.36272040302267,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            60,
+            32,
+            145,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "4f7a453bc1ebdb200c606b5f9a30b0f0bebf18dd641f5a2709a4217b5e4f8b12"
+        },
+        {
+          "source_bounds": [
+            899,
+            814,
+            1235,
+            1209
+          ],
+          "source_visible_bounds": [
+            900,
+            815,
+            1234,
+            1209
+          ],
+          "source_root_in_crop": [
+            165.0,
+            394
+          ],
+          "scale": 0.36455696202531646,
+          "planned_scale": 0.36455696202531646,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            36,
+            32,
+            158,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "db187e9e91daf6a0d3578ed9ebd599db191c29afbd3732f5bfc169d4083740fa"
+        },
+        {
+          "source_bounds": [
+            430,
+            813,
+            833,
+            1210
+          ],
+          "source_visible_bounds": [
+            431,
+            813,
+            832,
+            1209
+          ],
+          "source_root_in_crop": [
+            224.0,
+            396
+          ],
+          "scale": 0.36272040302267,
+          "planned_scale": 0.36272040302267,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            15,
+            32,
+            161,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "d224322e9e2d289f09c40903f51b14b108965d055c93609627a742c238208140"
+        },
+        {
+          "source_bounds": [
+            15,
+            815,
+            401,
+            1209
+          ],
+          "source_visible_bounds": [
+            15,
+            815,
+            401,
+            1209
+          ],
+          "source_root_in_crop": [
+            217.0,
+            393
+          ],
+          "scale": 0.36548223350253806,
+          "planned_scale": 0.36548223350253806,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            17,
+            32,
+            158,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "ba5b31d6f5f6a685df58bacd13dc6d77a5b3b7fbb8d61b7658d8e04e7bc41f5f"
+        },
+        {
+          "source_bounds": [
+            95,
+            415,
+            370,
+            815
+          ],
+          "source_visible_bounds": [
+            96,
+            416,
+            370,
+            814
+          ],
+          "source_root_in_crop": [
+            174.0,
+            399
+          ],
+          "scale": 0.36,
+          "planned_scale": 0.36,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            33,
+            32,
+            132,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "19c11f0de6849d8cb23678d84aa7afec90ef8c792caaf7273ad9fbb4455042e1"
+        },
+        {
+          "source_bounds": [
+            99,
+            10,
+            416,
+            400
+          ],
+          "source_visible_bounds": [
+            99,
+            10,
+            415,
+            400
+          ],
+          "source_root_in_crop": [
+            162.0,
+            389
+          ],
+          "scale": 0.36923076923076925,
+          "planned_scale": 0.36923076923076925,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            36,
+            32,
+            153,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "982da7f6f8d596ce669c3231030e0376bf08c7ace64504ac9ef54b55562af891"
+        }
+      ]
+    },
+    "butcher-walk": {
+      "sources": [
+        {
+          "path": "art/monsters/butcher-walk-0-master.png",
+          "sha256": "e78b1f0bda439cf50f0c9905e5889fec791c6cc5c4fc636cee47fd3971520d69",
+          "size": [
+            1254,
+            1254
+          ],
+          "alpha_range": [
+            0,
+            255
+          ],
+          "alpha_zero_fraction": 0.5283730022460821
+        },
+        {
+          "path": "art/monsters/butcher-walk-1-master.png",
+          "sha256": "a7c8a6903a6b5ee5375f1bb7aabe84d38e747e6c837719d99ebfed1b575e5721",
+          "size": [
+            1254,
+            1254
+          ],
+          "alpha_range": [
+            0,
+            255
+          ],
+          "alpha_zero_fraction": 0.44283937333547
+        }
+      ],
+      "runtime_sha256": "71e3bbd2ddbe7aa2d100538b72d24bf50dcf91b088cef79e0bc2eef924abab2a",
+      "frames": [
+        {
+          "source_bounds": [
+            50,
+            20,
+            287,
+            298
+          ],
+          "source_visible_bounds": [
+            51,
+            20,
+            287,
+            298
+          ],
+          "source_root_in_crop": [
+            114,
+            277
+          ],
+          "scale": 0.5236363636363637,
+          "planned_scale": 0.5236363636363637,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            36,
+            31,
+            160,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "a6e95e1d344ce5334dd62614fd719f2930a652dcb246b07f54e7bc5b89a2863b"
+        },
+        {
+          "source_bounds": [
+            362,
+            19,
+            598,
+            288
+          ],
+          "source_visible_bounds": [
+            362,
+            19,
+            597,
+            288
+          ],
+          "source_root_in_crop": [
+            114,
+            268
+          ],
+          "scale": 0.5236363636363637,
+          "planned_scale": 0.5236363636363637,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            36,
+            36,
+            160,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "4bac3a96d14e5b22146ac33cd5a9de21976d2d85a0f275cefc2ee90a77047771"
+        },
+        {
+          "source_bounds": [
+            668,
+            17,
+            906,
+            292
+          ],
+          "source_visible_bounds": [
+            668,
+            17,
+            906,
+            292
+          ],
+          "source_root_in_crop": [
+            114,
+            274
+          ],
+          "scale": 0.5236363636363637,
+          "planned_scale": 0.5236363636363637,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            36,
+            33,
+            161,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "65df55430188e759c96cc52d1e1cb6c1cc6b07b5f84adc682d62304640796136"
+        },
+        {
+          "source_bounds": [
+            979,
+            18,
+            1213,
+            293
+          ],
+          "source_visible_bounds": [
+            980,
+            19,
+            1212,
+            293
+          ],
+          "source_root_in_crop": [
+            113,
+            274
+          ],
+          "scale": 0.5236363636363637,
+          "planned_scale": 0.5236363636363637,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            37,
+            33,
+            160,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "99a0da224890d533ec6f4909e475862fd125b98f515489c6e1f7900fd5249596"
+        },
+        {
+          "source_bounds": [
+            46,
+            315,
+            305,
+            614
+          ],
+          "source_visible_bounds": [
+            46,
+            316,
+            305,
+            614
+          ],
+          "source_root_in_crop": [
+            108.0,
+            298
+          ],
+          "scale": 0.4906303236797274,
+          "planned_scale": 0.4906303236797274,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            43,
+            30,
+            170,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "9eec035ffea1dd988a5185b4946425286e7cc08916f7d28112f11b4bd2ee7723"
+        },
+        {
+          "source_bounds": [
+            358,
+            317,
+            614,
+            608
+          ],
+          "source_visible_bounds": [
+            359,
+            318,
+            614,
+            607
+          ],
+          "source_root_in_crop": [
+            110,
+            290
+          ],
+          "scale": 0.4906303236797274,
+          "planned_scale": 0.4906303236797274,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            42,
+            34,
+            168,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "23937811b2dce3d2e17ea6eb3e62b623152b077843671f93bd28f4fab14285bd"
+        },
+        {
+          "source_bounds": [
+            678,
+            316,
+            930,
+            612
+          ],
+          "source_visible_bounds": [
+            679,
+            317,
+            929,
+            612
+          ],
+          "source_root_in_crop": [
+            106.0,
+            295
+          ],
+          "scale": 0.4906303236797274,
+          "planned_scale": 0.4906303236797274,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            44,
+            31,
+            168,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "332a216eacd15aae008dd4b084f97852b031abe3a0ce0146c8f3a0b2f8612181"
+        },
+        {
+          "source_bounds": [
+            988,
+            318,
+            1239,
+            600
+          ],
+          "source_visible_bounds": [
+            989,
+            318,
+            1239,
+            600
+          ],
+          "source_root_in_crop": [
+            108.5,
+            281
+          ],
+          "scale": 0.4906303236797274,
+          "planned_scale": 0.4906303236797274,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            43,
+            38,
+            166,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "c98c959fd3360e60004b3464456170c12b85ea15b5fc85eb2db14b3f7d9effcc"
+        },
+        {
+          "source_bounds": [
+            68,
+            630,
+            263,
+            923
+          ],
+          "source_visible_bounds": [
+            68,
+            631,
+            262,
+            923
+          ],
+          "source_root_in_crop": [
+            92,
+            292
+          ],
+          "scale": 0.49569707401032703,
+          "planned_scale": 0.49569707401032703,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            50,
+            31,
+            147,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "a0a338a2be1b6d1310eb28c876b11201ed4a11af9748ab278f811480d0799c9d"
+        },
+        {
+          "source_bounds": [
+            388,
+            630,
+            575,
+            920
+          ],
+          "source_visible_bounds": [
+            388,
+            631,
+            574,
+            920
+          ],
+          "source_root_in_crop": [
+            88.0,
+            289
+          ],
+          "scale": 0.49569707401032703,
+          "planned_scale": 0.49569707401032703,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            52,
+            33,
+            145,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "5c3a68c2b9022a799b6d420789e1ec5b58ab6a904089d938a2e943efa41163ee"
+        },
+        {
+          "source_bounds": [
+            703,
+            631,
+            883,
+            922
+          ],
+          "source_visible_bounds": [
+            704,
+            631,
+            883,
+            921
+          ],
+          "source_root_in_crop": [
+            82,
+            290
+          ],
+          "scale": 0.49569707401032703,
+          "planned_scale": 0.49569707401032703,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            55,
+            32,
+            144,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "77382722541b98ccdf26e3e6606aebe56bbe530a7f3d94fab8411f6c9f292ef6"
+        },
+        {
+          "source_bounds": [
+            1014,
+            630,
+            1197,
+            915
+          ],
+          "source_visible_bounds": [
+            1014,
+            630,
+            1196,
+            915
+          ],
+          "source_root_in_crop": [
+            89,
+            284
+          ],
+          "scale": 0.49569707401032703,
+          "planned_scale": 0.49569707401032703,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            52,
+            35,
+            143,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "d304204a126e5cefa16172279335970fc6cdc410204ca31071ab0c93838e3394"
+        },
+        {
+          "source_bounds": [
+            38,
+            936,
+            282,
+            1235
+          ],
+          "source_visible_bounds": [
+            39,
+            936,
+            282,
+            1234
+          ],
+          "source_root_in_crop": [
+            123.0,
+            298
+          ],
+          "scale": 0.4897959183673469,
+          "planned_scale": 0.4897959183673469,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            36,
+            30,
+            156,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "0ef33fab4d3c7d11e66b5399ff027ed6be9621630c029df5a6844afe3e13a72e"
+        },
+        {
+          "source_bounds": [
+            357,
+            935,
+            596,
+            1226
+          ],
+          "source_visible_bounds": [
+            358,
+            936,
+            596,
+            1226
+          ],
+          "source_root_in_crop": [
+            120.0,
+            290
+          ],
+          "scale": 0.4897959183673469,
+          "planned_scale": 0.4897959183673469,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            37,
+            34,
+            154,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "4276fbf0adc0edb2d62379fde2b166be8f321cba26ad86538ed1ec51cfd86394"
+        },
+        {
+          "source_bounds": [
+            664,
+            935,
+            908,
+            1232
+          ],
+          "source_visible_bounds": [
+            665,
+            936,
+            908,
+            1231
+          ],
+          "source_root_in_crop": [
+            120,
+            296
+          ],
+          "scale": 0.4897959183673469,
+          "planned_scale": 0.4897959183673469,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            37,
+            31,
+            157,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "f50dd3d1afe661c2bb27531c914d1bd72982365279fbbfa0eb587dcf12b9575e"
+        },
+        {
+          "source_bounds": [
+            980,
+            935,
+            1222,
+            1220
+          ],
+          "source_visible_bounds": [
+            980,
+            935,
+            1221,
+            1220
+          ],
+          "source_root_in_crop": [
+            120,
+            284
+          ],
+          "scale": 0.4897959183673469,
+          "planned_scale": 0.4897959183673469,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            37,
+            37,
+            156,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "5d92f65f276589ddf390a4014c47af0ea568b9d228342974ec7d87adc8913902"
+        },
+        {
+          "source_bounds": [
+            45,
+            16,
+            336,
+            301
+          ],
+          "source_visible_bounds": [
+            46,
+            16,
+            335,
+            300
+          ],
+          "source_root_in_crop": [
+            162.0,
+            284
+          ],
+          "scale": 0.5052631578947369,
+          "planned_scale": 0.5052631578947369,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            14,
+            33,
+            161,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "7635e513ad8b899a5b114e7f734d3a5524b7f7cd38d1a3979c360c2026a39b65"
+        },
+        {
+          "source_bounds": [
+            351,
+            11,
+            622,
+            296
+          ],
+          "source_visible_bounds": [
+            351,
+            12,
+            621,
+            296
+          ],
+          "source_root_in_crop": [
+            145,
+            284
+          ],
+          "scale": 0.5052631578947369,
+          "planned_scale": 0.5052631578947369,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            23,
+            33,
+            160,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "7cd8a15fa24ad46712bc88e48ad643ff74d85abf5fa1c726c8196b8ae694c29b"
+        },
+        {
+          "source_bounds": [
+            632,
+            14,
+            914,
+            299
+          ],
+          "source_visible_bounds": [
+            633,
+            14,
+            914,
+            299
+          ],
+          "source_root_in_crop": [
+            159.0,
+            284
+          ],
+          "scale": 0.5052631578947369,
+          "planned_scale": 0.5052631578947369,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            16,
+            33,
+            158,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "286035c879b55a8bd448acf9a1b7e14ff25f9e8d53047a39606825522f6f9be5"
+        },
+        {
+          "source_bounds": [
+            924,
+            14,
+            1206,
+            293
+          ],
+          "source_visible_bounds": [
+            925,
+            14,
+            1206,
+            292
+          ],
+          "source_root_in_crop": [
+            155,
+            278
+          ],
+          "scale": 0.5052631578947369,
+          "planned_scale": 0.5052631578947369,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            18,
+            36,
+            160,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "5340a0365897c051789288fb84f87bfeca13185dc049773a988488b51222aa33"
+        },
+        {
+          "source_bounds": [
+            40,
+            310,
+            327,
+            594
+          ],
+          "source_visible_bounds": [
+            41,
+            310,
+            326,
+            594
+          ],
+          "source_root_in_crop": [
+            162.0,
+            283
+          ],
+          "scale": 0.508833922261484,
+          "planned_scale": 0.508833922261484,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            14,
+            32,
+            160,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "0e6d033ffba19649fac8ba6eea07bdb520aa1fcfb90747243ab99dd73779e5d8"
+        },
+        {
+          "source_bounds": [
+            349,
+            308,
+            617,
+            589
+          ],
+          "source_visible_bounds": [
+            349,
+            309,
+            617,
+            588
+          ],
+          "source_root_in_crop": [
+            147.0,
+            280
+          ],
+          "scale": 0.508833922261484,
+          "planned_scale": 0.508833922261484,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            21,
+            34,
+            157,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "89ac9ecaee2a7bf7bd9f858d6881123c95787a5172594756aaffc1cdff4a706f"
+        },
+        {
+          "source_bounds": [
+            634,
+            310,
+            915,
+            593
+          ],
+          "source_visible_bounds": [
+            635,
+            310,
+            915,
+            592
+          ],
+          "source_root_in_crop": [
+            162.0,
+            282
+          ],
+          "scale": 0.508833922261484,
+          "planned_scale": 0.508833922261484,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            14,
+            33,
+            157,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "2e84a3793ee075a881736bc33b1cf835118a234dff34f6fa027fded4558868b5"
+        },
+        {
+          "source_bounds": [
+            937,
+            309,
+            1218,
+            592
+          ],
+          "source_visible_bounds": [
+            937,
+            309,
+            1217,
+            591
+          ],
+          "source_root_in_crop": [
+            158,
+            282
+          ],
+          "scale": 0.508833922261484,
+          "planned_scale": 0.508833922261484,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            16,
+            33,
+            159,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "90f3f850678faa21f219ba2974ec4dd531da49287e6c5bc175c511c9e170d8fd"
+        },
+        {
+          "source_bounds": [
+            90,
+            599,
+            300,
+            891
+          ],
+          "source_visible_bounds": [
+            90,
+            600,
+            299,
+            891
+          ],
+          "source_root_in_crop": [
+            111,
+            291
+          ],
+          "scale": 0.4939965694682676,
+          "planned_scale": 0.4939965694682676,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            41,
+            32,
+            145,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "7307289adb951b19dc38249444055288b1adee0b9151cebe31e0d3e4a61083a4"
+        },
+        {
+          "source_bounds": [
+            398,
+            596,
+            594,
+            891
+          ],
+          "source_visible_bounds": [
+            399,
+            596,
+            593,
+            891
+          ],
+          "source_root_in_crop": [
+            105.0,
+            294
+          ],
+          "scale": 0.4939965694682676,
+          "planned_scale": 0.4939965694682676,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            44,
+            31,
+            141,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "d514803cbdf1141ac1f4a613858594a01d9269d8cafbce0922ccebdba5dd76fa"
+        },
+        {
+          "source_bounds": [
+            687,
+            599,
+            890,
+            890
+          ],
+          "source_visible_bounds": [
+            688,
+            599,
+            890,
+            890
+          ],
+          "source_root_in_crop": [
+            110,
+            290
+          ],
+          "scale": 0.4939965694682676,
+          "planned_scale": 0.4939965694682676,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            42,
+            33,
+            142,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "f4e71a8c754253c28ff49b5232c2c5b8f9f49ef9be68f5b3a10f6bf0ea7100fb"
+        },
+        {
+          "source_bounds": [
+            989,
+            599,
+            1204,
+            890
+          ],
+          "source_visible_bounds": [
+            989,
+            600,
+            1204,
+            890
+          ],
+          "source_root_in_crop": [
+            106,
+            290
+          ],
+          "scale": 0.4939965694682676,
+          "planned_scale": 0.4939965694682676,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            44,
+            33,
+            150,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "a6233cdabd4b560ce1c0ba7d085733eddba26392c0721c06e2975fc00ace6512"
+        },
+        {
+          "source_bounds": [
+            49,
+            892,
+            333,
+            1217
+          ],
+          "source_visible_bounds": [
+            50,
+            893,
+            332,
+            1216
+          ],
+          "source_root_in_crop": [
+            136,
+            324
+          ],
+          "scale": 0.4472049689440994,
+          "planned_scale": 0.4472049689440994,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            35,
+            31,
+            162,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "ac02c69a9f1839dae336f5c4b18bf6df5b37f7797c9f146778b597ea3e3bf1de"
+        },
+        {
+          "source_bounds": [
+            371,
+            891,
+            637,
+            1210
+          ],
+          "source_visible_bounds": [
+            371,
+            892,
+            636,
+            1209
+          ],
+          "source_root_in_crop": [
+            127,
+            318
+          ],
+          "scale": 0.4472049689440994,
+          "planned_scale": 0.4472049689440994,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            39,
+            34,
+            158,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "bdadbb8e3604ac7a0ddcce5a05932f6572a014fa7d69a31ae25faecf771f859e"
+        },
+        {
+          "source_bounds": [
+            660,
+            893,
+            935,
+            1221
+          ],
+          "source_visible_bounds": [
+            661,
+            894,
+            935,
+            1220
+          ],
+          "source_root_in_crop": [
+            134,
+            327
+          ],
+          "scale": 0.4472049689440994,
+          "planned_scale": 0.4472049689440994,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            36,
+            30,
+            159,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "1f47468624d50c4f8e987de24b1b400d903fff6eea93e5c731935ffcdaf32c92"
+        },
+        {
+          "source_bounds": [
+            966,
+            893,
+            1233,
+            1212
+          ],
+          "source_visible_bounds": [
+            967,
+            894,
+            1232,
+            1211
+          ],
+          "source_root_in_crop": [
+            131,
+            318
+          ],
+          "scale": 0.4472049689440994,
+          "planned_scale": 0.4472049689440994,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            37,
+            34,
+            156,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "cb7cc087e845a95066220d7324ae244efc1fd802f8c72f6663b8fc7290a5ff46"
+        }
+      ]
+    },
+    "butcher-attack": {
+      "sources": [
+        {
+          "path": "art/monsters/butcher-attack-0-master.png",
+          "sha256": "0dd818527512eed5aaf5610d63566ca720acb2a4eac956f5711a322e1083bce9",
+          "size": [
+            1254,
+            1254
+          ],
+          "alpha_range": [
+            0,
+            255
+          ],
+          "alpha_zero_fraction": 0.522018217938641
+        },
+        {
+          "path": "art/monsters/butcher-attack-1-master.png",
+          "sha256": "cbba7c8d6b3cee26a855d373b2dc8278b8daf283c158d758cf78e138b11af385",
+          "size": [
+            1254,
+            1254
+          ],
+          "alpha_range": [
+            0,
+            255
+          ],
+          "alpha_zero_fraction": 0.45530665506742063
+        }
+      ],
+      "runtime_sha256": "fdc665dc012daddc6702e0d6f23d652d240e7cdcd8e29c31784ca913dc5faf39",
+      "frames": [
+        {
+          "source_bounds": [
+            36,
+            24,
+            314,
+            295
+          ],
+          "source_visible_bounds": [
+            37,
+            24,
+            314,
+            295
+          ],
+          "source_root_in_crop": [
+            125,
+            270
+          ],
+          "scale": 0.4619289340101523,
+          "planned_scale": 0.5373134328358209,
+          "draw_scale_compensation": 1.1631950139412826,
+          "runtime_bounds": [
+            38,
+            51,
+            166,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "942ec9265faecf92a794de6090aa1b7f03d19aa0b27e8c2bf219004278710465"
+        },
+        {
+          "source_bounds": [
+            373,
+            27,
+            601,
+            295
+          ],
+          "source_visible_bounds": [
+            373,
+            28,
+            600,
+            294
+          ],
+          "source_root_in_crop": [
+            111,
+            267
+          ],
+          "scale": 0.4619289340101523,
+          "planned_scale": 0.5373134328358209,
+          "draw_scale_compensation": 1.1631950139412826,
+          "runtime_bounds": [
+            45,
+            53,
+            150,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "a2083dc54a22e8c0e21a756527bbcbfb1032d1ce5c57cfa3309c8fed703e0608"
+        },
+        {
+          "source_bounds": [
+            662,
+            31,
+            970,
+            298
+          ],
+          "source_visible_bounds": [
+            663,
+            31,
+            969,
+            298
+          ],
+          "source_root_in_crop": [
+            111,
+            266
+          ],
+          "scale": 0.4619289340101523,
+          "planned_scale": 0.5373134328358209,
+          "draw_scale_compensation": 1.1631950139412826,
+          "runtime_bounds": [
+            45,
+            53,
+            187,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "e31520f5660e7f0f6d534cb1f4811c6b47b9f05415e13f46aaba7117a634fb2b"
+        },
+        {
+          "source_bounds": [
+            973,
+            28,
+            1237,
+            296
+          ],
+          "source_visible_bounds": [
+            973,
+            28,
+            1236,
+            296
+          ],
+          "source_root_in_crop": [
+            123.0,
+            267
+          ],
+          "scale": 0.4619289340101523,
+          "planned_scale": 0.5373134328358209,
+          "draw_scale_compensation": 1.1631950139412826,
+          "runtime_bounds": [
+            39,
+            53,
+            161,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "4bb31f102f4b54289a884d1ec28e06d47c8b9fd795f699f6b199af1af9f71c6c"
+        },
+        {
+          "source_bounds": [
+            41,
+            332,
+            307,
+            610
+          ],
+          "source_visible_bounds": [
+            42,
+            332,
+            307,
+            610
+          ],
+          "source_root_in_crop": [
+            111.0,
+            277
+          ],
+          "scale": 0.4312796208530806,
+          "planned_scale": 0.5207956600361664,
+          "draw_scale_compensation": 1.207559167776166,
+          "runtime_bounds": [
+            48,
+            57,
+            163,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "7a7212ff445297215353ffd21d0842ad9353b30c52be9ae3c49b9ce9a69b9444"
+        },
+        {
+          "source_bounds": [
+            365,
+            336,
+            594,
+            610
+          ],
+          "source_visible_bounds": [
+            365,
+            336,
+            594,
+            610
+          ],
+          "source_root_in_crop": [
+            117.0,
+            273
+          ],
+          "scale": 0.4312796208530806,
+          "planned_scale": 0.5207956600361664,
+          "draw_scale_compensation": 1.207559167776166,
+          "runtime_bounds": [
+            46,
+            58,
+            145,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "c05e9c601f491bb91c84279ff3a58624b445646678a890018702edf8c4f489f8"
+        },
+        {
+          "source_bounds": [
+            653,
+            336,
+            989,
+            611
+          ],
+          "source_visible_bounds": [
+            654,
+            336,
+            988,
+            611
+          ],
+          "source_root_in_crop": [
+            125,
+            274
+          ],
+          "scale": 0.4312796208530806,
+          "planned_scale": 0.5207956600361664,
+          "draw_scale_compensation": 1.207559167776166,
+          "runtime_bounds": [
+            42,
+            58,
+            187,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "80df3094c9bd5c839c0b919e955ffcdbbfbd69853bae231d04d3ed14500be8c6"
+        },
+        {
+          "source_bounds": [
+            994,
+            333,
+            1245,
+            612
+          ],
+          "source_visible_bounds": [
+            994,
+            333,
+            1245,
+            611
+          ],
+          "source_root_in_crop": [
+            108,
+            278
+          ],
+          "scale": 0.4312796208530806,
+          "planned_scale": 0.5207956600361664,
+          "draw_scale_compensation": 1.207559167776166,
+          "runtime_bounds": [
+            49,
+            56,
+            157,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "817b880a5d2ca06136dd01414e870d5dafd5279048e0e3e50feb243151124e95"
+        },
+        {
+          "source_bounds": [
+            84,
+            642,
+            254,
+            923
+          ],
+          "source_visible_bounds": [
+            85,
+            642,
+            254,
+            923
+          ],
+          "source_root_in_crop": [
+            72.0,
+            280
+          ],
+          "scale": 0.5055555555555555,
+          "planned_scale": 0.5079365079365079,
+          "draw_scale_compensation": 1.0047095761381475,
+          "runtime_bounds": [
+            60,
+            34,
+            146,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "4b4a4056a03c2d4f91cf2ae228500c5db9659b0e483c8649b49296e32bc796bf"
+        },
+        {
+          "source_bounds": [
+            390,
+            641,
+            563,
+            924
+          ],
+          "source_visible_bounds": [
+            390,
+            641,
+            563,
+            923
+          ],
+          "source_root_in_crop": [
+            75,
+            282
+          ],
+          "scale": 0.5055555555555555,
+          "planned_scale": 0.5079365079365079,
+          "draw_scale_compensation": 1.0047095761381475,
+          "runtime_bounds": [
+            58,
+            33,
+            145,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "48742546b088e8ba24c40454dda1ac87d908918eda22ff04f20352b61560b46b"
+        },
+        {
+          "source_bounds": [
+            682,
+            639,
+            994,
+            924
+          ],
+          "source_visible_bounds": [
+            682,
+            640,
+            994,
+            924
+          ],
+          "source_root_in_crop": [
+            132.0,
+            284
+          ],
+          "scale": 0.5055555555555555,
+          "planned_scale": 0.5079365079365079,
+          "draw_scale_compensation": 1.0047095761381475,
+          "runtime_bounds": [
+            29,
+            32,
+            187,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "36b4d7d56b6ce9611d8cc40070e106becf1aa2b26a20c319990f02958621c4b8"
+        },
+        {
+          "source_bounds": [
+            1023,
+            641,
+            1195,
+            925
+          ],
+          "source_visible_bounds": [
+            1024,
+            642,
+            1195,
+            924
+          ],
+          "source_root_in_crop": [
+            77,
+            283
+          ],
+          "scale": 0.5055555555555555,
+          "planned_scale": 0.5079365079365079,
+          "draw_scale_compensation": 1.0047095761381475,
+          "runtime_bounds": [
+            57,
+            33,
+            144,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "04c3efdc5a9c241f2bf20f50ce9c16b2687ca7c0ec8ea2dfdda44d2a8b330d9e"
+        },
+        {
+          "source_bounds": [
+            38,
+            944,
+            279,
+            1218
+          ],
+          "source_visible_bounds": [
+            39,
+            944,
+            278,
+            1217
+          ],
+          "source_root_in_crop": [
+            121.0,
+            273
+          ],
+          "scale": 0.5055555555555555,
+          "planned_scale": 0.5274725274725275,
+          "draw_scale_compensation": 1.043352252143461,
+          "runtime_bounds": [
+            35,
+            38,
+            157,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "9cf2189f895435b529878d2d98fd4d50efeb5ebc7bd11866f1bf3800cbf0e843"
+        },
+        {
+          "source_bounds": [
+            386,
+            946,
+            595,
+            1218
+          ],
+          "source_visible_bounds": [
+            387,
+            946,
+            595,
+            1217
+          ],
+          "source_root_in_crop": [
+            91.0,
+            271
+          ],
+          "scale": 0.5055555555555555,
+          "planned_scale": 0.5274725274725275,
+          "draw_scale_compensation": 1.043352252143461,
+          "runtime_bounds": [
+            50,
+            39,
+            156,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "585b7164f08666601af8b865070cb1f5e95675d7616e3491fe0bd8dd38420845"
+        },
+        {
+          "source_bounds": [
+            657,
+            952,
+            980,
+            1216
+          ],
+          "source_visible_bounds": [
+            658,
+            953,
+            979,
+            1215
+          ],
+          "source_root_in_crop": [
+            143.0,
+            263
+          ],
+          "scale": 0.5055555555555555,
+          "planned_scale": 0.5274725274725275,
+          "draw_scale_compensation": 1.043352252143461,
+          "runtime_bounds": [
+            24,
+            43,
+            187,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "73adb669b9cea224cca61baae3a31b14a51ac29fb079974a444d31e417dc3389"
+        },
+        {
+          "source_bounds": [
+            985,
+            944,
+            1227,
+            1220
+          ],
+          "source_visible_bounds": [
+            986,
+            944,
+            1226,
+            1220
+          ],
+          "source_root_in_crop": [
+            118.0,
+            275
+          ],
+          "scale": 0.5055555555555555,
+          "planned_scale": 0.5274725274725275,
+          "draw_scale_compensation": 1.043352252143461,
+          "runtime_bounds": [
+            36,
+            37,
+            158,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "252d1602e12b4dadc06af73fe7accd977e63b39df3c1a0a7791a69aa6ceafb58"
+        },
+        {
+          "source_bounds": [
+            18,
+            15,
+            314,
+            295
+          ],
+          "source_visible_bounds": [
+            19,
+            16,
+            313,
+            295
+          ],
+          "source_root_in_crop": [
+            162.0,
+            279
+          ],
+          "scale": 0.518918918918919,
+          "planned_scale": 0.518918918918919,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            12,
+            31,
+            166,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "6e106d5721f011ae19e81596157c5c3ada229554280c56fe8791335379a18042"
+        },
+        {
+          "source_bounds": [
+            352,
+            18,
+            601,
+            295
+          ],
+          "source_visible_bounds": [
+            352,
+            19,
+            600,
+            295
+          ],
+          "source_root_in_crop": [
+            111,
+            276
+          ],
+          "scale": 0.518918918918919,
+          "planned_scale": 0.518918918918919,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            38,
+            33,
+            167,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "2723720ff29d03aee01dcf3b01ff12c998d3e5452e4f41a127b65926c48d3c7b"
+        },
+        {
+          "source_bounds": [
+            599,
+            26,
+            919,
+            296
+          ],
+          "source_visible_bounds": [
+            599,
+            27,
+            919,
+            295
+          ],
+          "source_root_in_crop": [
+            154.0,
+            269
+          ],
+          "scale": 0.518918918918919,
+          "planned_scale": 0.518918918918919,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            16,
+            36,
+            182,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "e6b53a09b5ee297bbce844988915e09e4731e3e2109884d55d3fd3ee4e026a75"
+        },
+        {
+          "source_bounds": [
+            936,
+            18,
+            1238,
+            296
+          ],
+          "source_visible_bounds": [
+            936,
+            19,
+            1238,
+            296
+          ],
+          "source_root_in_crop": [
+            169,
+            277
+          ],
+          "scale": 0.518918918918919,
+          "planned_scale": 0.518918918918919,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            8,
+            32,
+            165,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "6043dcdcc5d8930b30a5fbe2049bb65df9673c18f1434ffdb9ff3c309ba791d2"
+        },
+        {
+          "source_bounds": [
+            14,
+            312,
+            302,
+            602
+          ],
+          "source_visible_bounds": [
+            14,
+            313,
+            301,
+            601
+          ],
+          "source_root_in_crop": [
+            164,
+            289
+          ],
+          "scale": 0.5083798882681564,
+          "planned_scale": 0.5133689839572193,
+          "draw_scale_compensation": 1.009813715696069,
+          "runtime_bounds": [
+            13,
+            29,
+            159,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "3f409f04cf8fbbf692d95bc5a540df7248f25761a4130aa21e98df8acf0ee47c"
+        },
+        {
+          "source_bounds": [
+            360,
+            317,
+            601,
+            598
+          ],
+          "source_visible_bounds": [
+            360,
+            318,
+            600,
+            597
+          ],
+          "source_root_in_crop": [
+            119,
+            280
+          ],
+          "scale": 0.5083798882681564,
+          "planned_scale": 0.5133689839572193,
+          "draw_scale_compensation": 1.009813715696069,
+          "runtime_bounds": [
+            36,
+            34,
+            159,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "1e8494c43e44118677ad7a4374feb96844c1838c16e9f0043ce5967cd27eccb7"
+        },
+        {
+          "source_bounds": [
+            639,
+            324,
+            928,
+            597
+          ],
+          "source_visible_bounds": [
+            639,
+            324,
+            927,
+            597
+          ],
+          "source_root_in_crop": [
+            160,
+            272
+          ],
+          "scale": 0.5083798882681564,
+          "planned_scale": 0.5133689839572193,
+          "draw_scale_compensation": 1.009813715696069,
+          "runtime_bounds": [
+            15,
+            38,
+            162,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "740a89afb554c1146475b3a5426151440d085c69c2dd546b304dfddf74384dba"
+        },
+        {
+          "source_bounds": [
+            938,
+            319,
+            1242,
+            599
+          ],
+          "source_visible_bounds": [
+            938,
+            319,
+            1241,
+            598
+          ],
+          "source_root_in_crop": [
+            179.0,
+            279
+          ],
+          "scale": 0.5083798882681564,
+          "planned_scale": 0.5133689839572193,
+          "draw_scale_compensation": 1.009813715696069,
+          "runtime_bounds": [
+            5,
+            34,
+            160,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "f2b80de1f6d4007aeacdd7e6cfdff8bffa4847471cff65c2d87a1204b974a060"
+        },
+        {
+          "source_bounds": [
+            51,
+            612,
+            258,
+            902
+          ],
+          "source_visible_bounds": [
+            51,
+            612,
+            258,
+            902
+          ],
+          "source_root_in_crop": [
+            120.0,
+            289
+          ],
+          "scale": 0.49913344887348354,
+          "planned_scale": 0.49913344887348354,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            36,
+            32,
+            139,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "c232b9b3700bd64837444e2c6267803d58fc4380e6597b8110c44edcd2fb4a1a"
+        },
+        {
+          "source_bounds": [
+            341,
+            609,
+            580,
+            897
+          ],
+          "source_visible_bounds": [
+            342,
+            609,
+            580,
+            896
+          ],
+          "source_root_in_crop": [
+            127,
+            287
+          ],
+          "scale": 0.49913344887348354,
+          "planned_scale": 0.49913344887348354,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            33,
+            33,
+            152,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "fc4530822008ee6f187e78b73e71c5ffa0bab6d50ba4a5fc4a8bfba19aa79d6b"
+        },
+        {
+          "source_bounds": [
+            630,
+            613,
+            910,
+            898
+          ],
+          "source_visible_bounds": [
+            630,
+            614,
+            910,
+            898
+          ],
+          "source_root_in_crop": [
+            148.0,
+            284
+          ],
+          "scale": 0.49913344887348354,
+          "planned_scale": 0.49913344887348354,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            22,
+            34,
+            162,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "4d6d4a0504b64aa18877b1f4901a5dc70f9927a23ddc7efa47b1e53ac0bc0134"
+        },
+        {
+          "source_bounds": [
+            1004,
+            609,
+            1240,
+            898
+          ],
+          "source_visible_bounds": [
+            1004,
+            610,
+            1240,
+            898
+          ],
+          "source_root_in_crop": [
+            134,
+            288
+          ],
+          "scale": 0.49913344887348354,
+          "planned_scale": 0.49913344887348354,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            29,
+            32,
+            147,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "ac85faadce9bd74aba313b80b348d43153e0d2156cf53544a6cf974628a4cd65"
+        },
+        {
+          "source_bounds": [
+            30,
+            912,
+            298,
+            1213
+          ],
+          "source_visible_bounds": [
+            31,
+            912,
+            298,
+            1212
+          ],
+          "source_root_in_crop": [
+            131.0,
+            300
+          ],
+          "scale": 0.4768211920529801,
+          "planned_scale": 0.4768211920529801,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            34,
+            33,
+            162,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "b19602ffd89a6f72328696fc831d4806f47834f7ba95c947c9b7d3129f6f58d9"
+        },
+        {
+          "source_bounds": [
+            357,
+            912,
+            603,
+            1215
+          ],
+          "source_visible_bounds": [
+            358,
+            913,
+            602,
+            1214
+          ],
+          "source_root_in_crop": [
+            126,
+            302
+          ],
+          "scale": 0.4768211920529801,
+          "planned_scale": 0.4768211920529801,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            36,
+            32,
+            153,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "1afe015ca247cf28ba38c1582dd4c317b2327f08d396c09cf09f313d1fb05723"
+        },
+        {
+          "source_bounds": [
+            639,
+            914,
+            964,
+            1208
+          ],
+          "source_visible_bounds": [
+            640,
+            914,
+            963,
+            1208
+          ],
+          "source_root_in_crop": [
+            150.0,
+            293
+          ],
+          "scale": 0.4768211920529801,
+          "planned_scale": 0.4768211920529801,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            24,
+            36,
+            179,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "b1472debe40c1df5544265f69cdfa1e91c0c2deaf0195d937fca49ea016bfd3f"
+        },
+        {
+          "source_bounds": [
+            975,
+            912,
+            1240,
+            1215
+          ],
+          "source_visible_bounds": [
+            975,
+            912,
+            1240,
+            1214
+          ],
+          "source_root_in_crop": [
+            133,
+            302
+          ],
+          "scale": 0.4768211920529801,
+          "planned_scale": 0.4768211920529801,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            33,
+            32,
+            159,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "db26c9db12b1bdcf70e775a9546a8adba2fb1612b0e07713959d5d9013b0fe56"
+        }
+      ]
+    },
+    "butcher-skill": {
+      "sources": [
+        {
+          "path": "art/monsters/butcher-skill-0-master.png",
+          "sha256": "9b2faeae0648c228af6e37e6ae4a1fcc927827b83676e77d73a63d44aadd9ae9",
+          "size": [
+            1254,
+            1254
+          ],
+          "alpha_range": [
+            0,
+            255
+          ],
+          "alpha_zero_fraction": 0.608558513872037
+        },
+        {
+          "path": "art/monsters/butcher-skill-1-master.png",
+          "sha256": "f93bb5f4275422aca0425b2c7ba0b1f3b3347344673d6be6ed412cb46ee3500c",
+          "size": [
+            1254,
+            1254
+          ],
+          "alpha_range": [
+            0,
+            255
+          ],
+          "alpha_zero_fraction": 0.5988676744783519
+        }
+      ],
+      "runtime_sha256": "f88dd46a1aa8dbbb195744b3dd2e4686bf43de7ca95a0695d67b8cdb8de3f975",
+      "frames": [
+        {
+          "source_bounds": [
+            57,
+            4,
+            270,
+            303
+          ],
+          "source_visible_bounds": [
+            58,
+            5,
+            270,
+            302
+          ],
+          "source_root_in_crop": [
+            103,
+            298
+          ],
+          "scale": 0.5714285714285714,
+          "planned_scale": 0.5714285714285714,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            37,
+            6,
+            159,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "089d07889921db70677993818a4e36fbc9cc1b3aa0d6b0057bfe697cda9dd56e"
+        },
+        {
+          "source_bounds": [
+            371,
+            3,
+            594,
+            303
+          ],
+          "source_visible_bounds": [
+            372,
+            4,
+            593,
+            302
+          ],
+          "source_root_in_crop": [
+            117,
+            299
+          ],
+          "scale": 0.5714285714285714,
+          "planned_scale": 0.5714285714285714,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            29,
+            5,
+            156,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "264ea89875460c2ca4567c92a6e21cdb90dce1732db8d2dc0304e4e21805b86f"
+        },
+        {
+          "source_bounds": [
+            660,
+            99,
+            931,
+            304
+          ],
+          "source_visible_bounds": [
+            660,
+            100,
+            930,
+            303
+          ],
+          "source_root_in_crop": [
+            115.0,
+            204
+          ],
+          "scale": 0.5714285714285714,
+          "planned_scale": 0.5714285714285714,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            30,
+            59,
+            185,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "f319d421fb205cb2224d6e738eed3d3ddc4ddc3d4f74c1775a7c476f3c8990e6"
+        },
+        {
+          "source_bounds": [
+            968,
+            123,
+            1228,
+            303
+          ],
+          "source_visible_bounds": [
+            968,
+            123,
+            1227,
+            303
+          ],
+          "source_root_in_crop": [
+            107.0,
+            179
+          ],
+          "scale": 0.5714285714285714,
+          "planned_scale": 0.5714285714285714,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            35,
+            74,
+            184,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "7b20191d10487e9f08d7e8759deeccc9c2b4cf5f35e92a69f910e3f8bad985d0"
+        },
+        {
+          "source_bounds": [
+            62,
+            312,
+            255,
+            616
+          ],
+          "source_visible_bounds": [
+            63,
+            312,
+            255,
+            615
+          ],
+          "source_root_in_crop": [
+            85,
+            303
+          ],
+          "scale": 0.5475285171102662,
+          "planned_scale": 0.5475285171102662,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            49,
+            10,
+            155,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "0bd74ac2f97d2f9ef62f7eb1ad62cca981ea95741d6d6f3a2cbe080d0d821373"
+        },
+        {
+          "source_bounds": [
+            381,
+            311,
+            576,
+            616
+          ],
+          "source_visible_bounds": [
+            381,
+            312,
+            575,
+            615
+          ],
+          "source_root_in_crop": [
+            89,
+            304
+          ],
+          "scale": 0.5475285171102662,
+          "planned_scale": 0.5475285171102662,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            47,
+            10,
+            154,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "dd8008442c5038c1d77b201d58e5ec01dc354a0b3e703819211a0f2732839487"
+        },
+        {
+          "source_bounds": [
+            665,
+            394,
+            939,
+            616
+          ],
+          "source_visible_bounds": [
+            666,
+            395,
+            939,
+            615
+          ],
+          "source_root_in_crop": [
+            116.0,
+            221
+          ],
+          "scale": 0.5475285171102662,
+          "planned_scale": 0.5475285171102662,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            32,
+            55,
+            182,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "381ce6b82d1e29952513acb1121cfe5da4fb2bc0612f4d36e690496116b7657a"
+        },
+        {
+          "source_bounds": [
+            977,
+            416,
+            1238,
+            616
+          ],
+          "source_visible_bounds": [
+            977,
+            417,
+            1237,
+            615
+          ],
+          "source_root_in_crop": [
+            106.0,
+            199
+          ],
+          "scale": 0.5475285171102662,
+          "planned_scale": 0.5475285171102662,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            38,
+            67,
+            181,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "49e3c7fc91cb4e8d236d1f20bdbbbde26e24702b0c0422c4b5080cb018a6f871"
+        },
+        {
+          "source_bounds": [
+            90,
+            621,
+            263,
+            927
+          ],
+          "source_visible_bounds": [
+            91,
+            621,
+            263,
+            926
+          ],
+          "source_root_in_crop": [
+            86.0,
+            305
+          ],
+          "scale": 0.5581395348837209,
+          "planned_scale": 0.5581395348837209,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            48,
+            6,
+            145,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "ed7f1954aed7183edce7924b3f60ad901cebf19ef5c3e5ef1f4a2cbeda9bbd71"
+        },
+        {
+          "source_bounds": [
+            388,
+            628,
+            573,
+            928
+          ],
+          "source_visible_bounds": [
+            389,
+            628,
+            572,
+            927
+          ],
+          "source_root_in_crop": [
+            87,
+            299
+          ],
+          "scale": 0.5581395348837209,
+          "planned_scale": 0.5581395348837209,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            47,
+            9,
+            150,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "417dff315dd72e23e4f1edeedfbb38d3d60331df163c141de3469ab9b236e5ce"
+        },
+        {
+          "source_bounds": [
+            667,
+            712,
+            920,
+            928
+          ],
+          "source_visible_bounds": [
+            668,
+            712,
+            920,
+            928
+          ],
+          "source_root_in_crop": [
+            99,
+            215
+          ],
+          "scale": 0.5581395348837209,
+          "planned_scale": 0.5581395348837209,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            41,
+            56,
+            182,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "ff65de8a0d1a8f30b4e488c540a22190e439217804c293c5bb04063210a25e6c"
+        },
+        {
+          "source_bounds": [
+            981,
+            732,
+            1233,
+            930
+          ],
+          "source_visible_bounds": [
+            981,
+            732,
+            1232,
+            929
+          ],
+          "source_root_in_crop": [
+            103,
+            197
+          ],
+          "scale": 0.5581395348837209,
+          "planned_scale": 0.5581395348837209,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            39,
+            66,
+            180,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "4626808d903ce8a15c5c2856216f51c268661199636bbf4eab37276a42e418fe"
+        },
+        {
+          "source_bounds": [
+            60,
+            932,
+            278,
+            1224
+          ],
+          "source_visible_bounds": [
+            61,
+            932,
+            278,
+            1224
+          ],
+          "source_root_in_crop": [
+            118,
+            291
+          ],
+          "scale": 0.5669291338582677,
+          "planned_scale": 0.5669291338582677,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            29,
+            11,
+            153,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "6030e79616e422ead6fa1a13993c3d8d156df183093bc3a1c5ce222b23bd306b"
+        },
+        {
+          "source_bounds": [
+            373,
+            931,
+            574,
+            1226
+          ],
+          "source_visible_bounds": [
+            373,
+            932,
+            573,
+            1226
+          ],
+          "source_root_in_crop": [
+            97.0,
+            294
+          ],
+          "scale": 0.5669291338582677,
+          "planned_scale": 0.5669291338582677,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            41,
+            9,
+            155,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "08007e4c41154ae1c863a00c17eb1878284442b39130e1eaf22d8cbdf90ad157"
+        },
+        {
+          "source_bounds": [
+            659,
+            1014,
+            907,
+            1230
+          ],
+          "source_visible_bounds": [
+            659,
+            1014,
+            907,
+            1230
+          ],
+          "source_root_in_crop": [
+            107.0,
+            215
+          ],
+          "scale": 0.5669291338582677,
+          "planned_scale": 0.5669291338582677,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            35,
+            54,
+            176,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "04a51c9e2687ebca885440f023c399ae4715dde0550ed18ef72cece3dc672cd1"
+        },
+        {
+          "source_bounds": [
+            981,
+            1029,
+            1203,
+            1230
+          ],
+          "source_visible_bounds": [
+            981,
+            1029,
+            1202,
+            1230
+          ],
+          "source_root_in_crop": [
+            116,
+            200
+          ],
+          "scale": 0.5669291338582677,
+          "planned_scale": 0.5669291338582677,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            30,
+            63,
+            156,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "e76a1c1d09722cdecdf185f6ad508c28c63e554a94f89fb4842fb1b5dac562df"
+        },
+        {
+          "source_bounds": [
+            65,
+            7,
+            286,
+            314
+          ],
+          "source_visible_bounds": [
+            66,
+            7,
+            286,
+            314
+          ],
+          "source_root_in_crop": [
+            119.0,
+            306
+          ],
+          "scale": 0.526508226691042,
+          "planned_scale": 0.526508226691042,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            33,
+            15,
+            149,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "d4e5f0af141490616c821cab405e3e9c0252f73ab63297f5d90b02b4beb206cf"
+        },
+        {
+          "source_bounds": [
+            370,
+            7,
+            595,
+            314
+          ],
+          "source_visible_bounds": [
+            371,
+            7,
+            595,
+            314
+          ],
+          "source_root_in_crop": [
+            118,
+            306
+          ],
+          "scale": 0.526508226691042,
+          "planned_scale": 0.526508226691042,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            34,
+            15,
+            152,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "56d887217d360909d436b1c9992609ff56ee48e5fa05edb3184fdf8fce013a41"
+        },
+        {
+          "source_bounds": [
+            670,
+            96,
+            902,
+            336
+          ],
+          "source_visible_bounds": [
+            670,
+            96,
+            902,
+            335
+          ],
+          "source_root_in_crop": [
+            113.0,
+            239
+          ],
+          "scale": 0.526508226691042,
+          "planned_scale": 0.526508226691042,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            37,
+            50,
+            159,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "d19a04d3a70f6a4c5827cda1b357a99ff0739c4ac4b3814278bc1836d734054b"
+        },
+        {
+          "source_bounds": [
+            979,
+            115,
+            1221,
+            327
+          ],
+          "source_visible_bounds": [
+            979,
+            115,
+            1220,
+            327
+          ],
+          "source_root_in_crop": [
+            117.0,
+            211
+          ],
+          "scale": 0.526508226691042,
+          "planned_scale": 0.526508226691042,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            34,
+            65,
+            161,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "a93ece3b9c8893dd150529b28ca3d9495f1c6c0cc20271c107c9a3fd399862fd"
+        },
+        {
+          "source_bounds": [
+            66,
+            311,
+            283,
+            616
+          ],
+          "source_visible_bounds": [
+            67,
+            312,
+            283,
+            616
+          ],
+          "source_root_in_crop": [
+            118.0,
+            304
+          ],
+          "scale": 0.5284403669724771,
+          "planned_scale": 0.5284403669724771,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            34,
+            15,
+            149,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "f079b22009c185fae4e9b98faefc61cb9abfec4ba900dc1daa02e112da7ea1f1"
+        },
+        {
+          "source_bounds": [
+            380,
+            314,
+            598,
+            616
+          ],
+          "source_visible_bounds": [
+            380,
+            315,
+            597,
+            615
+          ],
+          "source_root_in_crop": [
+            112,
+            301
+          ],
+          "scale": 0.5284403669724771,
+          "planned_scale": 0.5284403669724771,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            37,
+            17,
+            152,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "851a80618fcc410a5c90ca102cd114a7bb2a52d796cb4c9bafa1be9209a5ba3c"
+        },
+        {
+          "source_bounds": [
+            672,
+            401,
+            913,
+            644
+          ],
+          "source_visible_bounds": [
+            673,
+            402,
+            913,
+            644
+          ],
+          "source_root_in_crop": [
+            120,
+            242
+          ],
+          "scale": 0.5284403669724771,
+          "planned_scale": 0.5284403669724771,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            33,
+            48,
+            160,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "bc222a35fdb8c7986fcd4b8f37037b3f54f63988c17fdac50e609a1b930c6a25"
+        },
+        {
+          "source_bounds": [
+            977,
+            420,
+            1233,
+            635
+          ],
+          "source_visible_bounds": [
+            977,
+            420,
+            1232,
+            635
+          ],
+          "source_root_in_crop": [
+            123.0,
+            214
+          ],
+          "scale": 0.5284403669724771,
+          "planned_scale": 0.5284403669724771,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            31,
+            63,
+            166,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "28a8501223436db0fcdc1674dfba19a9427df3417a8bf52b85c6c5ad2d7f8273"
+        },
+        {
+          "source_bounds": [
+            85,
+            616,
+            257,
+            917
+          ],
+          "source_visible_bounds": [
+            86,
+            617,
+            257,
+            917
+          ],
+          "source_root_in_crop": [
+            90.0,
+            300
+          ],
+          "scale": 0.5581395348837209,
+          "planned_scale": 0.5581395348837209,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            46,
+            9,
+            142,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "9f780b670673202298531b9cf32b6528ddc6173a01cfd72127ba61c967c8fda0"
+        },
+        {
+          "source_bounds": [
+            391,
+            630,
+            582,
+            919
+          ],
+          "source_visible_bounds": [
+            392,
+            630,
+            581,
+            919
+          ],
+          "source_root_in_crop": [
+            83,
+            288
+          ],
+          "scale": 0.5581395348837209,
+          "planned_scale": 0.5581395348837209,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            50,
+            15,
+            157,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "1a8ca8674624888fcc76f4621b2376b3cd5442f149d258aebe80eec8e74da4e1"
+        },
+        {
+          "source_bounds": [
+            661,
+            692,
+            904,
+            919
+          ],
+          "source_visible_bounds": [
+            662,
+            692,
+            903,
+            919
+          ],
+          "source_root_in_crop": [
+            140,
+            226
+          ],
+          "scale": 0.5581395348837209,
+          "planned_scale": 0.5581395348837209,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            18,
+            50,
+            154,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "ebe89d6f6389911ebe219b041bc47c3971a3f9f91a1aba1e0f791c0af8e52d76"
+        },
+        {
+          "source_bounds": [
+            982,
+            711,
+            1227,
+            931
+          ],
+          "source_visible_bounds": [
+            982,
+            711,
+            1227,
+            931
+          ],
+          "source_root_in_crop": [
+            133.0,
+            219
+          ],
+          "scale": 0.5581395348837209,
+          "planned_scale": 0.5581395348837209,
+          "draw_scale_compensation": 1.0,
+          "runtime_bounds": [
+            22,
+            54,
+            159,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "70bdbdaeea62d9c77646e23d21213a03b4ec03d158c1fc660fd781f478a616b0"
+        },
+        {
+          "source_bounds": [
+            49,
+            907,
+            267,
+            1221
+          ],
+          "source_visible_bounds": [
+            49,
+            908,
+            267,
+            1220
+          ],
+          "source_root_in_crop": [
+            111.0,
+            313
+          ],
+          "scale": 0.5463258785942492,
+          "planned_scale": 0.5517241379310345,
+          "draw_scale_compensation": 1.0098810244000807,
+          "runtime_bounds": [
+            35,
+            5,
+            154,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "04049364f92df6ff0105b01f950cce22aa66728f8da81e593ddd51f301e09312"
+        },
+        {
+          "source_bounds": [
+            368,
+            927,
+            593,
+            1222
+          ],
+          "source_visible_bounds": [
+            368,
+            928,
+            593,
+            1222
+          ],
+          "source_root_in_crop": [
+            117.0,
+            294
+          ],
+          "scale": 0.5463258785942492,
+          "planned_scale": 0.5517241379310345,
+          "draw_scale_compensation": 1.0098810244000807,
+          "runtime_bounds": [
+            32,
+            15,
+            155,
+            176
+          ],
+          "mirrored": false,
+          "cell_sha256": "e312af9f2049bac9f3141110fef396c9bd31754a577259f79ab08909e248fcd6"
+        },
+        {
+          "source_bounds": [
+            661,
+            995,
+            899,
+            1222
+          ],
+          "source_visible_bounds": [
+            661,
+            996,
+            899,
+            1222
+          ],
+          "source_root_in_crop": [
+            119,
+            226
+          ],
+          "scale": 0.5463258785942492,
+          "planned_scale": 0.5517241379310345,
+          "draw_scale_compensation": 1.0098810244000807,
+          "runtime_bounds": [
+            31,
+            53,
+            161,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "1716af82794c6fdc46837118ba5cc69cac088ceac95b198773f03a02fa4f6a30"
+        },
+        {
+          "source_bounds": [
+            977,
+            1016,
+            1219,
+            1222
+          ],
+          "source_visible_bounds": [
+            978,
+            1016,
+            1219,
+            1221
+          ],
+          "source_root_in_crop": [
+            119.0,
+            205
+          ],
+          "scale": 0.5463258785942492,
+          "planned_scale": 0.5517241379310345,
+          "draw_scale_compensation": 1.0098810244000807,
+          "runtime_bounds": [
+            31,
+            64,
+            163,
+            177
+          ],
+          "mirrored": false,
+          "cell_sha256": "10f065ad203825cc41f4a2cd6bb35caddf9319c46b76d64bc9ef0f2e6ccd9e40"
+        }
+      ]
+    }
+  }
+}

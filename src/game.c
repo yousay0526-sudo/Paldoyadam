@@ -71,7 +71,11 @@ static void move_toward(Enemy *e, Vec2 target, float step, float radius, float d
     }
     Vec2 before = e->pos;
     e->pos = world_move(e->pos, (Vec2){direction.x * step, direction.y * step}, radius);
-    e->stride += distance(before, e->pos);
+    float travelled = distance(before, e->pos);
+    e->stride += travelled;
+    e->walking = travelled > .0001f;
+    if (e->walking)
+        e->facing = (Vec2){(e->pos.x - before.x) / travelled, (e->pos.y - before.y) / travelled};
 }
 static bool near_npc(const Game *g, int n) {
     return n >= 0 && n < NPC_COUNT && distance(g->hero.pos, NPCS[n].pos) < 70 &&
@@ -82,6 +86,7 @@ static Enemy make_enemy(Vec2 p, int hp) {
     e.pos = e.home = p;
     e.hp = e.max_hp = hp;
     e.timer = .5f;
+    e.facing = (Vec2){0, 1};
     return e;
 }
 static void effect(Game *g, Effect e) {
@@ -639,6 +644,7 @@ static const EnemyTuning BOSS_TUNING = {.speed = 45, .close_to = 57, .strike_fro
                                         .rest = .9f, .damage = 18};
 static void tick_boar(Game *g, Enemy *e, float dt) {
     const EnemyTuning *t = &BOAR_TUNING;
+    e->walking = false;
     float d = distance(e->pos, g->hero.pos);
     e->timer -= dt;
     switch (e->state) {
@@ -662,6 +668,7 @@ static void tick_boar(Game *g, Enemy *e, float dt) {
         if (d < t->strike_from && e->timer <= 0 && world_segment(e->pos, g->hero.pos, 0)) {
             e->state = AI_WINDUP;
             e->angle = atan2f(g->hero.pos.y - e->pos.y, g->hero.pos.x - e->pos.x);
+            e->facing = (Vec2){cosf(e->angle), sinf(e->angle)};
             e->timer = BOAR_WINDUP_SECONDS;
         }
         break;
@@ -691,6 +698,7 @@ static void tick_boar(Game *g, Enemy *e, float dt) {
 }
 static void tick_boss(Game *g, float dt) {
     Enemy *e = &g->boss;
+    e->walking = false;
     const EnemyTuning *t = &BOSS_TUNING;
     float d = distance(g->hero.pos, e->pos);
     e->timer -= dt;
@@ -702,6 +710,7 @@ static void tick_boss(Game *g, float dt) {
             e->state = AI_WINDUP;
             e->timer = BOSS_WINDUP_SECONDS;
             e->angle = atan2f(g->hero.pos.y - e->pos.y, g->hero.pos.x - e->pos.x);
+            e->facing = (Vec2){cosf(e->angle), sinf(e->angle)};
         }
         break;
     case AI_WINDUP:
