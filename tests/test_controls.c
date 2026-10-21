@@ -467,6 +467,35 @@ static void hitstop_swipe_inputs(App *app) {
     key(app, SDLK_F8, false);
     CHECK(!app->game.training.active && app->game.hitstop_time == 0);
 }
+static void eight_direction_movement(App *a) {
+    const Vec2 dirs[]={{0,-1},{1,-1},{1,0},{1,1},{0,1},{-1,1},{-1,0},{-1,-1}};
+    for(int mode=0;mode<2;mode++) for(int d=0;d<HERO_DIRECTIONS;d++) {
+        game_reset(&a->game);game_start(&a->game);stop_input(a);
+        a->width=844;a->height=390;a->density=1;a->button_count=0;
+        a->camera=world_camera(a->width/WORLD_ZOOM,a->height/WORLD_ZOOM,HOME);
+        if(mode==0) {
+            Vec2 start={180,230},end={start.x+dirs[d].x*60,start.y+dirs[d].y*60};
+            touch(a,SDL_FINGERDOWN,101,start);touch(a,SDL_FINGERMOTION,101,end);
+            game_tick(&a->game,.05f,input(a,.05f));
+            CHECK(a->game.hero.walking && gfx_hero_direction(a->game.hero.dir)==(HeroDirection)d);
+            touch(a,SDL_FINGERUP,101,end);
+            game_tick(&a->game,.05f,input(a,.05f));
+        } else {
+            Vec2 target={HOME.x+dirs[d].x*20,HOME.y+dirs[d].y*20};
+            Vec2 tap={(target.x-a->camera.x)*WORLD_ZOOM,(target.y-a->camera.y)*WORLD_ZOOM};
+            touch(a,SDL_FINGERDOWN,102,tap);touch(a,SDL_FINGERUP,102,tap);
+            CHECK(a->target_set);
+            game_tick(&a->game,.05f,input(a,.05f));
+            CHECK(a->game.hero.walking && gfx_hero_direction(a->game.hero.dir)==(HeroDirection)d);
+            for(int tick=0;tick<20;tick++) game_tick(&a->game,.05f,input(a,.05f));
+            CHECK(!a->target_set && distance(a->game.hero.pos,target)<1);
+        }
+        CHECK(!a->game.hero.walking && gfx_hero_direction(a->game.hero.dir)==(HeroDirection)d);
+        dispatch(a,ACT_PAUSE,0);
+        game_tick(&a->game,.05f,input(a,.05f));
+        CHECK(!a->game.hero.walking && gfx_hero_direction(a->game.hero.dir)==(HeroDirection)d);
+    }
+}
 int main(void) {
     SDL_SetMainReady();
     SDL_SetHint(SDL_HINT_VIDEODRIVER,"dummy");
@@ -489,6 +518,7 @@ int main(void) {
     bag_actions(a);
     training_entry_and_inputs(a);
     hitstop_swipe_inputs(a);
+    eight_direction_movement(a);
     SDL_DestroyRenderer(a->renderer);
     SDL_DestroyWindow(a->window);
     free(a);
