@@ -5,7 +5,9 @@ import argparse
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
-ROOT_FILES = {'CMakeLists.txt', 'README.md', 'THIRD_PARTY_NOTICES.md', '.gitignore', '.gitattributes', '.clang-format'}
+# Continuity documents travel with the source; GAME_BIBLE.md is included once it exists.
+ROOT_FILES = {'CMakeLists.txt', 'README.md', 'THIRD_PARTY_NOTICES.md', '.gitignore', '.gitattributes', '.clang-format',
+              'AGENTS.md', 'CURRENT_STATE.md', 'GAME_BIBLE.md'}
 
 def source_files():
     for path in sorted(ROOT.rglob('*')):

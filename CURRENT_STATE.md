@@ -7,7 +7,15 @@
 - 현재 버전: `0.8.0` (C11/SDL2 기반 게임 및 Emscripten 웹 빌드)
 - 정본: `src/*.c`, `src/*.h`; 주요 문서: `README.md`, `docs/CONTROLS.md`, `docs/VALIDATION.md`, `docs/WEB.md`
 
-## 이번 작업: 감사 F1 — 멧돼지 경고 원을 실제 피격 범위와 일치 · PR 검토 대기
+## 이번 작업: 감사 F5·F6 — 소스 압축과 조작 문서 정리 · PR 검토 대기
+- 기준 main `27a2bac` (F1 PR #19 병합, 사용자 승인으로 병합·Pages 배포 진행). 브랜치 `claude/project-thread-mm2qsg`. 게임 코드 변경 없음.
+- `scripts/package_source.py`: 루트 허용 목록에 `AGENTS.md`, `CURRENT_STATE.md`, `GAME_BIBLE.md` 추가. 실제로 있는 파일만 담기므로 없는 `GAME_BIBLE.md`는 만들지 않는다. 압축본 131개 파일에 두 문서 포함, 빌드 산출물·SDL 다운로드·local.properties 제외를 확인했고, 압축을 푼 사본에서 코어 빌드·CTest 5/5 통과.
+- `README.md`: 예약 입력 설명을 실제 동작(동작 중 마지막 유효 입력 한 개)으로 수정. 저장소에 없는 `docs/hero-walk-preview.gif` 링크 제거.
+- `docs/CONTROLS.md`: E 키는 대화·조사·상점 시작만 하고 다음 대사는 Space/Enter라고 분리 표기(E 기능은 확장하지 않음).
+- 보류: Android `versionName` 0.7.1과 CMake 0.8.0 불일치는 정식 버전 변경이라 별도 승인 필요. 과거 기록의 0.22초 표현(`docs/VALIDATION.md`)은 당시 기록이라 유지.
+- 남은 감사 항목: R1~R9(실기기·브라우저 측정 위주). GAME_BIBLE.md 없음.
+
+## 이전 작업: 감사 F1 — 멧돼지 경고 원을 실제 피격 범위와 일치 (PR #19, main `27a2bac`에 병합)
 - 기준 main `91cae6e` (F3 PR #18 병합, 사용자 승인으로 병합·Pages 배포 진행). 브랜치 `claude/project-thread-mm2qsg`. 사용자 지시로 남은 디버깅은 Claude가 모두 맡는다.
 - 문제: 멧돼지 준비 동작의 경고 원은 반경 64인데 실제 피해는 중심 거리 73 미만에서 들어가, 경고 원 밖으로 피해도 맞을 수 있었다.
 - `src/game.h`에 `BOAR_STRIKE_RANGE`(73) 추가. `src/game.c` 판정과 `src/draw.c` 경고 원이 같은 값을 쓴다. 실제 판정 거리 73, 피해 9, 준비 시간, 진입 거리 65, 벽 판정은 그대로이며 경고 원만 64→73으로 커진다.
