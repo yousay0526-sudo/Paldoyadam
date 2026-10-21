@@ -231,6 +231,27 @@ static void boar_warning_reach(Gfx *gfx, SDL_Surface *surface, Uint32 *pixels, U
             bool tinted = pixels[y * surface->w + x] != baseline[y * surface->w + x];
             CHECK(tinted == (r == 0));
         }
+    /* The fill grows from the boar and reaches the rim at impact, without
+     * ever leaving the real reach. Midway pixels change as the strike nears. */
+    const size_t bytes = (size_t)surface->pitch * surface->h;
+    Uint32 *early = malloc(bytes);
+    CHECK(early != NULL);
+    for (int late = 0; late < 2; late++) {
+        game.boars[0].timer = late ? BOAR_WINDUP_SECONDS * .05f : BOAR_WINDUP_SECONDS;
+        gfx_world(gfx, &game, (float)surface->w, (float)surface->h, camera, false, (Vec2){0, 0});
+        CHECK(SDL_RenderReadPixels(gfx->renderer, NULL, surface->format->format,
+                                  late ? pixels : early, surface->pitch) == 0);
+    }
+    for (size_t a = 0; a < sizeof angles / sizeof *angles; a++) {
+        Vec2 d = {cosf(angles[a]), sinf(angles[a])};
+        int mid = (int)lroundf(center.y + d.y * BOAR_STRIKE_RANGE * .6f) * surface->w +
+                  (int)lroundf(center.x + d.x * BOAR_STRIKE_RANGE * .6f);
+        int out = (int)lroundf(center.y + d.y * (BOAR_STRIKE_RANGE + 3)) * surface->w +
+                  (int)lroundf(center.x + d.x * (BOAR_STRIKE_RANGE + 3));
+        CHECK(early[mid] != baseline[mid] && pixels[mid] != early[mid]);
+        CHECK(early[out] == baseline[out] && pixels[out] == baseline[out]);
+    }
+    free(early);
 }
 /* Exercise movement-derived views and pixel-compare with unreflected authored
  * cells. Legacy left/right face must never change the idle/walk sword hand. */

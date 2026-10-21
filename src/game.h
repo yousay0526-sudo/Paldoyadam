@@ -30,6 +30,11 @@
 #define HITSTOP_HURT_SECONDS .045f
 /* A boar windup lands within this centre distance; its warning uses the same reach. */
 #define BOAR_STRIKE_RANGE 73.0f
+/* Windup lengths and the butcher's cleaver arc, shared with the warnings. */
+#define BOAR_WINDUP_SECONDS .6f
+#define BOSS_WINDUP_SECONDS .95f
+#define BOSS_STRIKE_RANGE 109.0f
+#define BOSS_STRIKE_HALF 1.15f
 #define MOVE_NONE -2
 #define MOVE_ATTACK -1
 /* One full left/right stride in world units, independent of frame rate. */

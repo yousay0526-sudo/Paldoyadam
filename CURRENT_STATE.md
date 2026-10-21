@@ -7,7 +7,14 @@
 - 현재 버전: `0.8.0` (C11/SDL2 기반 게임 및 Emscripten 웹 빌드)
 - 정본: `src/*.c`, `src/*.h`; 주요 문서: `README.md`, `docs/CONTROLS.md`, `docs/VALIDATION.md`, `docs/WEB.md`
 
-## 이번 작업: 감사 R2 — 서장 그림을 보여 줄 때만 불러오기 · PR 검토 대기
+## 이번 작업: 완성도 개선 5번 — 공격 예고가 타격 순간까지 차오르게 · PR 검토 대기
+- 기준 main `0ac42b9` (3번 PR #21 병합, 감사 R2 PR #23 반영). 브랜치 `claude/project-thread-c5dfli`.
+- `src/draw.c` `telegraph()`: 멧돼지·백정 준비 동작 경고를 고정 반투명 영역에서 세 겹으로 바꿨다. 실제 판정 범위 전체는 옅게, 그 안을 공격자 위치에서부터 밝은 채움이 자라 타격 순간 테두리에 닿고, 남은 준비 시간 25% 동안 테두리가 깜빡인다.
+- `src/game.h`·`src/game.c`: 준비 시간 0.6/0.95초와 백정 판정 거리 109·반각 1.15를 `BOAR_WINDUP_SECONDS`, `BOSS_WINDUP_SECONDS`, `BOSS_STRIKE_RANGE`, `BOSS_STRIKE_HALF`로 이름만 붙여 경고와 판정이 같은 값을 쓰게 했다. 값·AI·판정은 변경 없음.
+- `tests/test_hero_render.c`: 멧돼지 경고가 준비 직후보다 타격 직전에 범위 60% 지점이 더 진해지는지, 두 시점 모두 범위 밖(+3)은 그대로인지 5방향 검사 추가. 수정 전 코드에서 실패 확인. 기존 범위 경계 검사 유지.
+- Linux / SDL 2.30.0 dummy: 전체 CTest **9/9 통과**, ASan+UBSan **9/9 통과**. 시간대별 모습 `docs/telegraph-review.png`(위 멧돼지, 아래 백정, 왼쪽부터 준비 시작→직전). 브라우저·실기기 미검증. 버전 변경 없음. GAME_BIBLE.md 없음.
+
+## 이전 작업: 감사 R2 — 서장 그림을 보여 줄 때만 불러오기 (PR #23, main `0ac42b9`에 병합)
 - 기준 main `67282c7` (R5 PR #22, 완성도 개선 PR #21 병합 후). 브랜치 `claude/project-thread-mm2qsg`.
 - 문제: 서장 그림 3장(각 2048×1152, 풀면 9 MiB)이 시작할 때 모두 풀려 게임 내내 텍스처로 남았다. 합계 27 MiB이고 시작 시 디코딩도 네이티브 기준 약 260ms(장당 약 86ms)였다.
 - `src/draw.c`·`src/draw.h`: `gfx_load`는 서장 그림 파일이 있는지만 확인하고(없으면 이전처럼 시작 실패) 풀지 않는다. 에셋 경로를 `Gfx.root`에 보관한다. `gfx_story`는 필요한 그림을 처음 쓸 때 불러오고 나머지는 해제해 한 번에 한 장(9 MiB)만 둔다. 새 `gfx_story_release`가 모두 해제한다. 선형 보간, 배치, 0.5초 페이드는 그대로다.
