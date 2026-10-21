@@ -604,6 +604,40 @@ bool game_choose(Game *g, Augment a) {
     game_toast(g, "한양의 전령 도착 · 윤겸과 대화");
     return true;
 }
+typedef struct { Vec2 *pos; float radius, mass; } Body;
+/* Soft circle separation: each tick close part of every overlap, through
+ * terrain collision, heavier bodies giving way less. */
+static void separate_bodies(Game *g, float dt) {
+    Body bodies[BOAR_COUNT + 2];
+    int count = 0;
+    bodies[count++] = (Body){&g->hero.pos, HERO_RADIUS, BODY_MASS_HERO};
+    if (g->quest == Q_COMBAT && g->boss.hp > 0)
+        bodies[count++] = (Body){&g->boss.pos, BOSS_RADIUS, BODY_MASS_BOSS};
+    else if (game_boars_active(g))
+        for (int i = 0; i < BOAR_COUNT; i++)
+            if (g->boars[i].hp > 0)
+                bodies[count++] = (Body){&g->boars[i].pos, BOAR_RADIUS, BODY_MASS_BOAR};
+    float close = 1 - expf(-dt / BODY_SEPARATE_SECONDS);
+    for (int a = 0; a < count; a++)
+        for (int b = a + 1; b < count; b++) {
+            Vec2 *p = bodies[a].pos, *q = bodies[b].pos;
+            float dx = q->x - p->x, dy = q->y - p->y, d = hypotf(dx, dy);
+            float overlap = bodies[a].radius + bodies[b].radius - d;
+            if (overlap <= 0)
+                continue;
+            /* Stacked exactly: split along a fixed per-pair direction. */
+            Vec2 n = d > .001f ? (Vec2){dx / d, dy / d} : (Vec2){cosf(a * 2.4f + b), sinf(a * 2.4f + b)};
+            float push = overlap * close, share = bodies[b].mass / (bodies[a].mass + bodies[b].mass);
+            *p = world_move(*p, (Vec2){-n.x * push * share, -n.y * push * share}, bodies[a].radius);
+            *q = world_move(*q, (Vec2){n.x * push * (1 - share), n.y * push * (1 - share)}, bodies[b].radius);
+        }
+}
+static int boars_winding_up(const Game *g) {
+    int n = 0;
+    for (int i = 0; i < BOAR_COUNT; i++)
+        n += g->boars[i].hp > 0 && g->boars[i].state == AI_WINDUP;
+    return n;
+}
 static void tick_boar(Game *g, Enemy *e, float dt) {
     float d = distance(e->pos, g->hero.pos);
     e->timer -= dt;
@@ -617,8 +651,14 @@ static void tick_boar(Game *g, Enemy *e, float dt) {
             e->state = AI_RETURN;
             break;
         }
-        if (d > 43)
-            move_toward(e, g->hero.pos, 64 * dt, BOAR_RADIUS, dt);
+        {
+            /* Without a free attack slot, wait just outside striking reach. */
+            bool turn = boars_winding_up(g) < BOAR_ATTACK_TOKENS;
+            if (d > (turn ? 43 : 80))
+                move_toward(e, g->hero.pos, 64 * dt, BOAR_RADIUS, dt);
+            if (!turn)
+                break;
+        }
         if (d < 65 && e->timer <= 0 && world_segment(e->pos, g->hero.pos, 0)) {
             e->state = AI_WINDUP;
             e->angle = atan2f(g->hero.pos.y - e->pos.y, g->hero.pos.x - e->pos.x);
@@ -1127,5 +1167,6 @@ void game_tick(Game *g, float dt, Vec2 input) {
         for (int i = 0; i < BOAR_COUNT && g->phase == PH_PLAY; i++)
             if (g->boars[i].hp > 0)
                 tick_boar(g, &g->boars[i], dt);
+    separate_bodies(g, dt);
     tick_loot(g, dt);
 }

@@ -112,7 +112,7 @@ static void shops(void) {
     game_close_panel(&g);
     ready(&g);
     CHECK(game_begin_boss(&g));
-    g.hero.pos = g.boss.pos;
+    g.hero.pos = (Vec2){g.boss.pos.x - 34, g.boss.pos.y}; /* just outside body contact */
     g.attack_cooldown = 0;
     CHECK(game_attack(&g));
     simulation_tick(&g, .05f, (Vec2){0});
@@ -199,7 +199,7 @@ static void augments_and_bounds(void) {
     game_reset(&g);
     game_start(&g);
     clues(&g);
-    g.hero.pos = g.boars[0].pos;
+    g.hero.pos = (Vec2){g.boars[0].pos.x - 30, g.boars[0].pos.y}; /* just outside body contact */
     CHECK(game_skill(&g));
     CHECK(g.boars[0].hp == 38);
     for(int i=0;i<5;i++) simulation_tick(&g,.05f,(Vec2){0});
@@ -688,6 +688,42 @@ static void dust_events(void) {
 /* Knockback and stagger (approved): pushes decay to speed / KNOCK_DECAY,
  * a technique breaks a boar windup, the butcher keeps its swing and barely
  * moves, and a boar strike shoves the hero back through terrain rules. */
+static void bodies_and_attack_tokens(void) {
+    Game g; game_reset(&g); game_start(&g);
+    g.traces[0] = g.traces[1] = true; g.quest = Q_RECOVER;
+    g.hero.pos = BOSS_HOME;
+    Enemy *a = &g.boars[0], *b = &g.boars[1];
+    for (int i = 0; i < BOAR_COUNT; i++) { g.boars[i].state = AI_RECOVER; g.boars[i].timer = 99; }
+    g.boars[2].pos = (Vec2){BOSS_HOME.x, BOSS_HOME.y + 120};
+    a->pos = (Vec2){BOSS_HOME.x + 80, BOSS_HOME.y};
+    b->pos = (Vec2){BOSS_HOME.x + 85, BOSS_HOME.y};
+    for (int i = 0; i < 20; i++) game_tick(&g, .025f, (Vec2){0, 0});
+    /* Stacked boars ease apart to touching, evenly, without drifting. */
+    CHECK(distance(a->pos, b->pos) > 2 * BOAR_RADIUS - .5f && distance(a->pos, b->pos) <= 2 * BOAR_RADIUS + .01f);
+    CHECK(fabsf((a->pos.x + b->pos.x) / 2 - (BOSS_HOME.x + 82.5f)) < .01f);
+    /* The lighter hero gives way twice as much as a boar. */
+    a->pos = (Vec2){BOSS_HOME.x + 15, BOSS_HOME.y};
+    b->pos = (Vec2){BOSS_HOME.x + 200, BOSS_HOME.y};
+    for (int i = 0; i < 20; i++) game_tick(&g, .025f, (Vec2){0, 0});
+    float hero_gave = BOSS_HOME.x - g.hero.pos.x, boar_gave = a->pos.x - (BOSS_HOME.x + 15);
+    CHECK(distance(a->pos, g.hero.pos) > HERO_RADIUS + BOAR_RADIUS - .5f);
+    CHECK(fabsf(hero_gave - 2 * boar_gave) < .05f);
+    /* Three boars in reach: only two wind up; the third waits its turn. */
+    game_reset(&g); game_start(&g);
+    g.traces[0] = g.traces[1] = true; g.quest = Q_RECOVER;
+    g.hero.pos = BOSS_HOME;
+    for (int i = 0; i < BOAR_COUNT; i++) {
+        g.boars[i].pos = (Vec2){BOSS_HOME.x + 50 * cosf(i * 2.1f), BOSS_HOME.y + 50 * sinf(i * 2.1f)};
+        g.boars[i].state = AI_CHASE; g.boars[i].timer = 0;
+    }
+    game_tick(&g, .025f, (Vec2){0, 0});
+    int winding = 0;
+    for (int i = 0; i < BOAR_COUNT; i++) winding += g.boars[i].state == AI_WINDUP;
+    CHECK(winding == BOAR_ATTACK_TOKENS && g.boars[2].state == AI_CHASE);
+    g.hero.invul = 99; /* keep the hero standing through the strikes */
+    for (int i = 0; i < 26; i++) game_tick(&g, .025f, (Vec2){0, 0});
+    CHECK(g.boars[0].state == AI_RECOVER && g.boars[2].state == AI_WINDUP);
+}
 static void knockback_and_stagger(void) {
     Game g; game_reset(&g); game_start(&g);
     g.traces[0] = g.traces[1] = true; g.quest = Q_RECOVER;
@@ -748,6 +784,7 @@ int main(void) {
     enemy_motion_and_falls();
     dust_events();
     knockback_and_stagger();
+    bodies_and_attack_tokens();
     attack_motion();
     boar_strike_reach();
     printf(
