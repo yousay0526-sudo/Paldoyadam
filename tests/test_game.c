@@ -608,6 +608,27 @@ static void continuous_input_buffer(void) {
         CHECK(!g.hero.skilling && game_technique_cooldown(&g,TECH_RETREAT)==0);
     }
 }
+/* The windup lands strictly inside BOAR_STRIKE_RANGE, the same reach the
+ * warning circle draws. Probe the boundary on open ground, no armour. */
+static void boar_strike_reach(void) {
+    const float distances[] = {63.9f, 64.0f, 70.0f, 72.9f, 73.0f, 73.5f};
+    for (size_t i = 0; i < sizeof distances / sizeof *distances; i++) {
+        Game g;
+        game_reset(&g);
+        game_start(&g);
+        clues(&g);
+        Enemy *boar = &g.boars[0];
+        g.hero.pos = (Vec2){boar->pos.x, boar->pos.y + distances[i]};
+        CHECK(world_segment(boar->pos, g.hero.pos, 0));
+        boar->state = AI_WINDUP;
+        boar->timer = .001f;
+        g.boars[1].state = g.boars[2].state = AI_RETURN;
+        game_tick(&g, .01f, (Vec2){0, 0});
+        CHECK(boar->state == AI_RECOVER);
+        CHECK((g.hero.hp == 91) == (distances[i] < BOAR_STRIKE_RANGE));
+        CHECK(g.hero.hp == 91 || g.hero.hp == 100);
+    }
+}
 int main(void) {
     equipment_and_manual_combat();
     techniques_and_combos();
@@ -622,6 +643,7 @@ int main(void) {
     automatic_magnet();
     walking_motion();
     attack_motion();
+    boar_strike_reach();
     printf(
         "PASS: %d checks across quests, transactions, consumables, recovery, pause, four techniques, combos and bounds.\n",
         checks);

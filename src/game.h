@@ -28,6 +28,8 @@
 #define HITSTOP_HEAVY_SECONDS .055f
 #define HITSTOP_WIND_SECONDS .020f
 #define HITSTOP_HURT_SECONDS .045f
+/* A boar windup lands within this centre distance; its warning uses the same reach. */
+#define BOAR_STRIKE_RANGE 73.0f
 #define MOVE_NONE -2
 #define MOVE_ATTACK -1
 /* One full left/right stride in world units, independent of frame rate. */

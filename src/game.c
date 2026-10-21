@@ -597,7 +597,7 @@ static void tick_boar(Game *g, Enemy *e, float dt) {
         break;
     case AI_WINDUP:
         if (e->timer <= 0) {
-            if (d < 73 && world_segment(e->pos, g->hero.pos, 0))
+            if (d < BOAR_STRIKE_RANGE && world_segment(e->pos, g->hero.pos, 0))
                 game_hurt(g, 9, false);
             e->state = AI_RECOVER;
             e->timer = 1.15f;

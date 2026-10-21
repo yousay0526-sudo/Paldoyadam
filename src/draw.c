@@ -738,7 +738,7 @@ void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool has_ta
             if (g->boars[i].hp > 0) {
                 actors[count++] = (Actor){1, i, g->boars[i].pos.y};
                 if (g->boars[i].state == AI_WINDUP)
-                    gfx_sector(f, screen_pos(g->boars[i].pos, camera), 64, 0, PI,
+                    gfx_sector(f, screen_pos(g->boars[i].pos, camera), BOAR_STRIKE_RANGE, 0, PI,
                                (SDL_Color){200, 90, 45, 72});
             }
     if (g->training.active || g->quest == Q_HUNT || g->quest == Q_COMBAT) {
