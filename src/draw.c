@@ -935,9 +935,20 @@ void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool has_ta
         Vec2 p = screen_pos(e->pos, camera), q = screen_pos(e->target, camera);
         SDL_Color c = e->damage ? (SDL_Color){255, 184, 165, 255} : GOLD;
         if (e->kind == FX_NUMBER) {
+            /* Pop in large, settle, rise with ease-out and fade at the end.
+             * A per-position nudge keeps simultaneous numbers apart. */
             char s[24];
             snprintf(s, sizeof s, "%s%d", e->damage ? "-" : "", e->amount);
-            gfx_center(f, s, p.x, p.y - (1 - e->life) * 22, 16, c);
+            float total = e->damage ? .8f : .7f, t = clampf(1 - e->life / total, 0, 1);
+            float rise = 1 - (1 - t) * (1 - t) * (1 - t);
+            float pop = t < .18f ? 1 + .45f * (1 - t / .18f) * (1 - t / .18f) : 1;
+            float nudge = (fmodf(fabsf(e->pos.x * 12.9898f + e->pos.y * 78.233f), 1) - .5f) * 14;
+            float size = (e->amount >= 20 ? 20 : 16) * pop;
+            if (!e->damage && e->amount >= 20) c = (SDL_Color){255, 226, 140, 255};
+            c.a = (Uint8)(255 * clampf((1 - t) / .3f, 0, 1));
+            float x = p.x + nudge, y = p.y - 6 - rise * 26 - size * .5f;
+            gfx_center(f, s, x + 1, y + 1, size, (SDL_Color){20, 12, 10, (Uint8)(c.a * .8f)});
+            gfx_center(f, s, x, y, size, c);
         } else if (e->kind == FX_SKILL)
             gfx_circle(f, (Vec2){p.x, p.y - 13}, 45, c);
         else if (e->kind == FX_WIND)
