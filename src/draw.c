@@ -118,9 +118,13 @@ bool gfx_load(Gfx *g, SDL_Renderer *renderer, const char *root) {
             return false;
         }
         /* World sprites keep crisp sampling. The hero image is prefiltered
-         * at 3x its logical size; only the story illustrations use linear. */
+         * at 3x its logical size; only the story illustrations use linear.
+         * Enemy and NPC sprites are prepared near 3x their drawn size
+         * (scripts/prepare_character_assets.py) and filter smoothly. */
         if (i == 0 || i >= 11)
             SDL_SetTextureScaleMode(pictures[i]->texture, SDL_ScaleModeNearest);
+        else if (i >= 4 && i < 8)
+            SDL_SetTextureScaleMode(pictures[i]->texture, SDL_ScaleModeLinear);
     }
     if (g->hero_walk.w % HERO_WALK_COLUMNS ||
         g->hero_walk.h % (HERO_WALK_FRAMES / HERO_WALK_COLUMNS) ||
@@ -864,8 +868,14 @@ void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool has_ta
         }
         actors[j + 1] = a;
     }
-    const SDL_Rect crops[4] = {
+    /* NPC cells in the 2172 x 724 master strip, scaled to the runtime copy. */
+    const SDL_Rect cells[4] = {
         {128, 0, 448, 724}, {606, 0, 438, 724}, {1142, 0, 368, 724}, {1674, 0, 423, 724}};
+    SDL_Rect crops[4];
+    for (int i = 0; i < 4; i++) {
+        float k = (float)f->npcs.h / 724;
+        crops[i] = (SDL_Rect){(int)lroundf(cells[i].x * k), 0, (int)lroundf(cells[i].w * k), f->npcs.h};
+    }
     for (int a = 0; a < count; a++) {
         int i = actors[a].index;
         Vec2 p;
@@ -875,7 +885,7 @@ void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool has_ta
             if (i == MESSENGER)
                 gfx_sprite(f, &f->messenger, p, 46, 46, false);
             else {
-                SDL_FRect r = {p.x - 46 * (float)crops[i].w / 724 / 2, p.y - 46, 46 * (float)crops[i].w / 724,
+                SDL_FRect r = {p.x - 46 * (float)cells[i].w / 724 / 2, p.y - 46, 46 * (float)cells[i].w / 724,
                                46};
                 SDL_RenderCopyF(f->renderer, f->npcs.texture, &crops[i], &r);
             }

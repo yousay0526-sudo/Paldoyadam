@@ -55,11 +55,11 @@
 | `art/hero/warrior-clarity-master.png` | ImageGen으로 제작한 1254×1254 RGBA 원본. 수정 없이 보존 |
 | `art/hero/warrior-clarity-prompt.txt` | 제작에 사용한 전체 프롬프트 |
 | `assets/warrior-v2.png` | 138×138 RGBA 실행용 캐릭터. 기존 정사각 캔버스와 투명 여백 비율 유지 |
-| `assets/warrior.png` | 기존 원본. 전령 표시에도 사용하므로 보존 |
+| `art/characters/warrior.png` | 기존 원본(1254×1254) 보존. 전령 표시는 `scripts/prepare_character_assets.py`로 만든 160×160 `assets/warrior.png`를 쓴다 |
 | `scripts/prepare_hero_asset.py` | Pillow로 실행용 해상도만 변환하는 제작 도구 |
 
 제작 방식은 내장 ImageGen이며 CLI/API 대체 경로를 사용하지 않았다.
-참조는 기존 `assets/warrior.png`(인물)와 `docs/native-village.png`(세계관 색감)다.
+참조는 기존 `art/characters/warrior.png`(인물, 당시 경로 `assets/warrior.png`)와 `docs/native-village.png`(세계관 색감)다.
 
 실행용 파일을 다시 만들려면 Pillow가 설치된 Python에서 다음을 실행한다.
 
@@ -118,3 +118,7 @@ python3 scripts/prepare_hero_asset.py
 - 1536×1024 캔버스, 월드 2304×1536, 기존 최근접 샘플링과 줌을 유지한다. 충돌과 가림 좌표·표시 알고리즘은 수정하지 않는다. 앞으로 배치나 경계가 달라지는 원화는 별도 지형 검토가 필요하다.
 - `src/draw.c`는 PNG 픽셀을 직접 읽으며 이전 언샵 함수와 임시 버퍼를 제거했다. 주인공·NPC·적 원화와 애니메이션은 변경하지 않았다.
 - 비교 이미지·배치 보조 검사·실행 검증·미검증 항목은 [1차 리뷰 기록](VILLAGE_REMAKE_PASS1.md)에 모았다. 다음 독립 그래픽 작업, 병합 및 배포는 사용자 승인 후 진행한다.
+
+## 적·NPC 실행용 축소본
+
+`art/characters/`에 원본(백정·멧돼지·전령 1254×1254, NPC 띠 2172×724)을 보존하고, `scripts/prepare_character_assets.py`가 화면 크기의 약 3배(백정 320, 멧돼지 192, 전령 160, NPC 띠 543×181)로 Lanczos(알파 사전 곱) 축소한 실행본을 `assets/`에 만든다. 이 네 텍스처만 선형 샘플링으로 그린다. 그림 자체는 바꾸지 않았다. 비교 `docs/character-sampling-review.png`(왼쪽부터 기존 1.2배, 새 1.2배, 기존 2.4배, 새 2.4배).
