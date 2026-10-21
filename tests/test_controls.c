@@ -80,6 +80,18 @@ static void zoomed_destination(App *a) {
     pointer_down(a, -1, tap);
     pointer_up(a, -1, tap);
     CHECK(a->target_set && distance(a->target, expected) < .01f);
+    /* A release can carry the only motion. Judge the final point with the
+     * same 8-pixel rule: a coalesced drag never becomes a destination tap. */
+    a->target_set = false;
+    pointer_down(a, -1, tap);
+    pointer_up(a, -1, (Vec2){tap.x + 80, tap.y});
+    CHECK(!a->target_set && !a->pointer_down && a->pointer_delta.x == 0);
+    pointer_down(a, 7, tap);
+    pointer_up(a, 7, (Vec2){tap.x + 9, tap.y});
+    CHECK(!a->target_set && !a->pointer_down);
+    pointer_down(a, 7, tap);
+    pointer_up(a, 7, (Vec2){tap.x + 6, tap.y});
+    CHECK(a->target_set && !a->pointer_down); /* Jitter within 8 px is still a tap. */
     Vec2 origin = world_camera(a->width / WORLD_ZOOM, a->height / WORLD_ZOOM, (Vec2){0, 0});
     CHECK(origin.x == 0 && origin.y == 0);
     Vec2 far = world_camera(a->width / WORLD_ZOOM, a->height / WORLD_ZOOM,

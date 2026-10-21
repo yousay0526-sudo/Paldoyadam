@@ -1214,6 +1214,8 @@ static void pointer_up(App *a, Sint64 id, Vec2 p) {
         return;
     }
     if (!a->pointer_down || a->pointer_id != id) return;
+    /* As above: a drag whose only motion arrives with the release is not a tap. */
+    pointer_move(a, id, p);
     if (!a->pointer_moved && a->game.phase == PH_PLAY) {
         a->target = world_from_screen(p, a->camera);
         a->target.x = clampf(a->target.x, 28, WORLD_W - 28);
