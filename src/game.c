@@ -423,6 +423,7 @@ bool game_damage(Game *g, Enemy *e, int amount, EffectKind kind) {
     if (e->hp == 0) {
         e->state = AI_DEAD;
         e->dying = ENEMY_DEATH_SECONDS;
+        effect(g, (Effect){.kind = FX_DUST, .pos = e->pos, .life = .55f, .amount = 3});
         if (e == &g->boss) {
             g->hero.bleed = 0;
             g->quest = Q_RETURN;
@@ -907,6 +908,9 @@ static void tick_technique(Game *g, float dt) {
         const TechniqueInfo *info = &TECHNIQUES[h->technique];
         h->impact_start = h->pos;
         float step = h->technique == TECH_CLEAVE && g->augment == AUG_FLOW ? 45 : info->step;
+        if (step != 0)
+            effect(g, (Effect){.kind = FX_DUST, .pos = h->pos, .life = .45f, .amount = 2,
+                               .angle = step > 0 ? h->skill_angle : h->skill_angle + 3.14159265f});
         if (step > 0)
             h->pos = world_move(h->pos, (Vec2){cosf(h->skill_angle) * step,
                                              sinf(h->skill_angle) * step}, HERO_RADIUS);
@@ -990,8 +994,13 @@ void game_tick(Game *g, float dt, Vec2 input) {
      * Holding a key into a wall must not make the hero march on the spot. */
     float travelled = distance(before, g->hero.pos);
     g->hero.walking = travelled > .0001f;
+    float stepped = g->hero.walk_cycle;
     g->hero.walk_cycle = g->hero.walking
         ? fmodf(g->hero.walk_cycle + travelled / HERO_WALK_DISTANCE, 1.0f) : 0;
+    /* A small puff each time a foot lands (twice per stride). */
+    if (g->hero.walking && (int)(stepped * 2) != (int)(g->hero.walk_cycle * 2))
+        effect(g, (Effect){.kind = FX_DUST, .pos = g->hero.pos, .life = .35f, .amount = 1,
+                           .angle = atan2f(g->hero.dir.y, g->hero.dir.x)});
     g->cooldown = fmaxf(0, g->cooldown - dt);
     for (int i = 0; i < TECH_COUNT; i++)
         g->technique_cooldowns[i] = fmaxf(0, g->technique_cooldowns[i] - dt);

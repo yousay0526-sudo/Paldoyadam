@@ -656,6 +656,34 @@ static void enemy_motion_and_falls(void) {
     for (int i = 0; i < 10; i++) game_tick(&g, .05f, (Vec2){0, 0});
     CHECK(e->dying == 0);
 }
+static int dust_count(const Game *g, int amount) {
+    int n = 0;
+    for (int i = 0; i < g->effect_count; i++)
+        n += g->effects[i].kind == FX_DUST && g->effects[i].amount == amount;
+    return n;
+}
+/* Ground dust: one puff per landed foot, one per technique step, one per fall. */
+static void dust_events(void) {
+    Game g; game_reset(&g); game_start(&g);
+    int puffs = 0;
+    for (int i = 0; i < 40; i++) {
+        game_tick(&g, .02f, (Vec2){1, 0});
+        for (int e = 0; e < g.effect_count; e++)
+            puffs += g.effects[e].kind == FX_DUST && g.effects[e].life > .35f - .02f - .001f;
+    }
+    float walked = 40 * .02f * 155;
+    CHECK(puffs >= (int)(walked / (HERO_WALK_DISTANCE / 2)) - 1 && puffs <= (int)(walked / (HERO_WALK_DISTANCE / 2)) + 1);
+    game_reset(&g); game_start(&g);
+    for (int i = 0; i < 20; i++) game_tick(&g, .05f, (Vec2){0, 0});
+    CHECK(dust_count(&g, 1) == 0);
+    CHECK(game_technique(&g, TECH_THRUST));
+    for (int i = 0; i < 6; i++) game_tick(&g, .05f, (Vec2){0, 0});
+    CHECK(dust_count(&g, 2) == 1);
+    g.traces[0] = g.traces[1] = true; g.quest = Q_RECOVER;
+    g.hero.pos = (Vec2){g.boars[1].pos.x - 30, g.boars[1].pos.y};
+    CHECK(game_damage(&g, &g.boars[1], 99, FX_HIT));
+    CHECK(dust_count(&g, 3) == 1);
+}
 int main(void) {
     equipment_and_manual_combat();
     techniques_and_combos();
@@ -670,6 +698,7 @@ int main(void) {
     automatic_magnet();
     walking_motion();
     enemy_motion_and_falls();
+    dust_events();
     attack_motion();
     boar_strike_reach();
     printf(
