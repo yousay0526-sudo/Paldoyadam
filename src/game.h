@@ -51,6 +51,12 @@
 #define MOVE_ATTACK -1
 /* One full left/right stride in world units, independent of frame rate. */
 #define HERO_WALK_DISTANCE 112.0f
+/* Movement: top speed, exponential time constants for starting and stopping
+ * (about 95% after three of them), and the speed kept while swinging. */
+#define HERO_SPEED 155.0f
+#define HERO_ACCEL_SECONDS .02f
+#define HERO_DECEL_SECONDS .027f
+#define HERO_ATTACK_MOVE_SCALE .55f
 
 typedef struct {
     float x, y;
@@ -104,6 +110,8 @@ typedef struct {
     bool walking;
     /* Knockback velocity from the last hit taken; decays every tick. */
     Vec2 knock;
+    /* Smoothed walking velocity (world units/s), wall-clamped each tick. */
+    Vec2 vel;
     /* The swing keeps its own target/facing while movement remains responsive. */
     float attack_elapsed, attack_angle;
     Vec2 impact_origin, impact_start;
@@ -253,6 +261,9 @@ bool game_can_use(const Game *g, Item item);
 bool game_use(Game *g, Item item);
 bool game_skill(Game *g);
 void game_hurt(Game *g, int amount, bool bleed);
+/* Input strength (0..1) along direction that lets the eased hero stop
+ * `distance` ahead after one dt step, given its current velocity. */
+float game_arrival_strength(const Game *g, Vec2 direction, float distance, float dt);
 bool game_damage(Game *g, Enemy *enemy, int amount, EffectKind kind);
 void game_recover(Game *g);
 void game_retry(Game *g);

@@ -241,7 +241,8 @@ static void augments_and_bounds(void) {
     g.hero.pos = HOME;
     position = g.hero.pos;
     simulation_tick(&g, 1, (Vec2){1, 0});
-    CHECK(fabsf(g.hero.pos.x - position.x - 7.75f) < .01f);
+    /* One clamped 0.05 s step from rest, including the approved run-up. */
+    CHECK(fabsf(g.hero.pos.x - position.x - HERO_SPEED * (.05f - HERO_ACCEL_SECONDS * (1 - expf(-.05f / HERO_ACCEL_SECONDS)))) < .01f);
 }
 static void dedicated_pickup(void) {
     Game g;
@@ -406,7 +407,7 @@ static void walking_motion(void) {
     CHECK(g.hero.face == -1 && g.hero.walk_cycle > first);
     simulation_tick(&g, .05f, (Vec2){0, -1});
     CHECK(g.hero.face == -1 && game_hero_frame(&g) >= 0);
-    simulation_tick(&g, .05f, (Vec2){0, 0});
+    for (int i = 0; i < 4; i++) simulation_tick(&g, .05f, (Vec2){0, 0}); /* ease to a stop */
     CHECK(game_hero_frame(&g) == -1 && g.hero.walk_cycle == 0);
 
     /* Same travel at different render rates and joystick strengths. */

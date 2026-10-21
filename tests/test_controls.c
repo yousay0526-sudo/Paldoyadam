@@ -542,7 +542,7 @@ static void eight_direction_movement(App *a) {
             game_tick(&a->game,.05f,input(a,.05f));
             CHECK(a->game.hero.walking && gfx_hero_direction(a->game.hero.dir)==(HeroDirection)d);
             touch(a,SDL_FINGERUP,101,end);
-            game_tick(&a->game,.05f,input(a,.05f));
+            for(int tick=0;tick<4;tick++) game_tick(&a->game,.05f,input(a,.05f)); /* ease to a stop */
         } else {
             Vec2 target={HOME.x+dirs[d].x*20,HOME.y+dirs[d].y*20};
             Vec2 tap={(target.x-a->camera.x)*WORLD_ZOOM,(target.y-a->camera.y)*WORLD_ZOOM};

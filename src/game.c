@@ -150,6 +150,7 @@ bool game_leave_training(Game *game, const Game *saved) {
     game->last_impact = IMPACT_NONE;
     game->combat_request = TRAIN_READY;
     game->hero.attacking = game->hero.skilling = game->hero.walking = false;
+    game->hero.vel = game->hero.knock = (Vec2){0, 0};
     game->hero.attack_elapsed = game->hero.skill_elapsed = game->hero.walk_cycle = 0;
     game_clear_hit_feedback(game);
     return true;
@@ -555,7 +556,7 @@ void game_recover(Game *g) {
     memset(g->technique_cooldowns, 0, sizeof g->technique_cooldowns);
     g->hero.hp = g->hero.max_hp;
     g->hero.bleed = g->hero.invul = 0;
-    g->hero.knock = (Vec2){0, 0};
+    g->hero.knock = g->hero.vel = (Vec2){0, 0};
     if (g->quest == Q_COMBAT) {
         g->boss = make_enemy(BOSS_HOME, 240);
         g->quest = Q_HUNT;
@@ -585,7 +586,7 @@ void game_retry(Game *g) {
     memset(g->technique_cooldowns, 0, sizeof g->technique_cooldowns);
     g->hero.hp = 100;
     g->hero.bleed = g->hero.invul = 0;
-    g->hero.knock = (Vec2){0, 0};
+    g->hero.knock = g->hero.vel = (Vec2){0, 0};
     g->boss = make_enemy(BOSS_HOME, 240);
     g->cooldown = g->item_cooldown = 0;
     g->attack_cooldown = .4f;
@@ -989,6 +990,16 @@ static void knock_back(Vec2 *pos, Vec2 *knock, float radius, float dt) {
     knock->x *= keep;
     knock->y *= keep;
 }
+float game_arrival_strength(const Game *g, Vec2 direction, float distance, float dt) {
+    dt = fmaxf(.001f, dt);
+    float decay = expf(-dt / HERO_ACCEL_SECONDS), lag = HERO_ACCEL_SECONDS * (1 - decay);
+    float speed = g->hero.vel.x * direction.x + g->hero.vel.y * direction.y;
+    /* This step's travel plus the eased stop afterwards should cover the gap. */
+    float reach = (dt - lag) + (1 - decay) * HERO_DECEL_SECONDS;
+    float carried = speed * (lag + decay * HERO_DECEL_SECONDS);
+    return clampf((distance - carried) / reach / HERO_SPEED, 0, 1);
+}
+
 void game_tick(Game *g, float dt, Vec2 input) {
     if (!isfinite(dt) || !isfinite(input.x) || !isfinite(input.y))
         return;
@@ -1014,16 +1025,36 @@ void game_tick(Game *g, float dt, Vec2 input) {
     g->time += dt;
     g->toast_time = fmaxf(0, g->toast_time - dt);
     float length = hypotf(input.x, input.y);
-    Vec2 before = g->hero.pos;
+    Vec2 before = g->hero.pos, target = {0, 0};
     if (length > .05f) {
         float strength = fminf(1, length);
         input.x /= length;
         input.y /= length;
-        g->hero.pos = world_move(
-            g->hero.pos, (Vec2){input.x * 155 * strength * dt, input.y * 155 * strength * dt}, HERO_RADIUS);
+        float speed = HERO_SPEED * strength *
+            (g->hero.attacking || g->hero.skilling ? HERO_ATTACK_MOVE_SCALE : 1);
+        target = (Vec2){input.x * speed, input.y * speed};
         g->hero.dir = input;
         if (fabsf(input.x) > .1f)
             g->hero.face = input.x > 0 ? 1 : -1;
+    }
+    /* Ease into and out of a run; facing still turns instantly. The
+     * velocity curve is integrated exactly over the step, so the distance
+     * covered does not depend on the frame rate. */
+    float tau = length > .05f ? HERO_ACCEL_SECONDS : HERO_DECEL_SECONDS;
+    float decay = expf(-dt / tau), lag = tau * (1 - decay);
+    Vec2 was = g->hero.vel;
+    g->hero.vel = (Vec2){target.x + (was.x - target.x) * decay, target.y + (was.y - target.y) * decay};
+    Vec2 step = {target.x * dt + (was.x - target.x) * lag, target.y * dt + (was.y - target.y) * lag};
+    if (length <= .05f && hypotf(g->hero.vel.x, g->hero.vel.y) < 2)
+        g->hero.vel = (Vec2){0, 0};
+    if (step.x != 0 || step.y != 0) {
+        g->hero.pos = world_move(g->hero.pos, step, HERO_RADIUS);
+        /* Keep only the motion the terrain allowed, so walls never store speed. */
+        float moved_x = g->hero.pos.x - before.x, moved_y = g->hero.pos.y - before.y;
+        if (fabsf(moved_x - step.x) > .0001f)
+            g->hero.vel.x = step.x != 0 ? g->hero.vel.x * clampf(moved_x / step.x, 0, 1) : 0;
+        if (fabsf(moved_y - step.y) > .0001f)
+            g->hero.vel.y = step.y != 0 ? g->hero.vel.y * clampf(moved_y / step.y, 0, 1) : 0;
     }
     /* Collision-resolved displacement drives the feet, including wall slides.
      * Holding a key into a wall must not make the hero march on the spot. */

@@ -275,8 +275,8 @@ static void eight_direction_motion(Gfx *gfx, SDL_Surface *surface, Uint32 *pixel
         Vec2 start = game.hero.pos;
         game_tick(&game, .05f, inputs[d]);
         CHECK(game.hero.walking && gfx_hero_direction(game.hero.dir) == (HeroDirection)d);
-        CHECK(fabsf(distance(start,game.hero.pos) - 155 * .05f) < .001f);
-        game_tick(&game, .05f, (Vec2){0,0});
+        CHECK(fabsf(distance(start,game.hero.pos) - HERO_SPEED * (.05f - HERO_ACCEL_SECONDS * (1 - expf(-.05f / HERO_ACCEL_SECONDS)))) < .001f);
+        for (int tick = 0; tick < 4; tick++) game_tick(&game, .05f, (Vec2){0,0}); /* ease to a stop */
         CHECK(!game.hero.walking && gfx_hero_direction(game.hero.dir) == (HeroDirection)d);
         Picture *walk = &gfx->hero_walk_directions[d];
         CHECK(walk->texture && walk->w == 768 && walk->h == 384);
