@@ -770,6 +770,30 @@ void gfx_collision(Gfx *f, Vec2 camera) {
                      (SDL_Color){255, 95, 84, 235});
     }
 }
+/* An attack warning over the exact reach. The dim area shows where it lands;
+ * the brighter fill grows from the attacker and touches the rim on the
+ * impact frame, and the rim flickers during the final moment. */
+static void telegraph(Gfx *f, Vec2 p, float range, float angle, float half, float remaining,
+                      SDL_Color area, SDL_Color rim) {
+    float progress = 1 - clampf(remaining, 0, 1);
+    SDL_Color dim = area, fill = area;
+    dim.a = (Uint8)(area.a * .6f);
+    fill.a = (Uint8)fminf(255, area.a * 1.5f);
+    gfx_sector(f, p, range, angle, half, dim);
+    if (progress > 0)
+        gfx_sector(f, p, range * progress, angle, half, fill);
+    bool flicker = remaining < .25f && (int)(remaining * 12) % 2 == 0;
+    rim.a = flicker ? 255 : 150;
+    if (half < PI)
+        for (int side = -1; side <= 1; side += 2)
+            gfx_line(f, p, (Vec2){p.x + cosf(angle + side * half) * range,
+                                  p.y + sinf(angle + side * half) * range}, rim);
+    for (int j = 0; j < 40; j++) {
+        float a0 = angle - half + 2 * half * j / 40, a1 = angle - half + 2 * half * (j + 1) / 40;
+        gfx_line(f, (Vec2){p.x + cosf(a0) * range, p.y + sinf(a0) * range},
+                    (Vec2){p.x + cosf(a1) * range, p.y + sinf(a1) * range}, rim);
+    }
+}
 void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool has_target,
                Vec2 target) {
     gfx_rect(f, (SDL_FRect){0, 0, w, h}, (SDL_Color){16, 32, 30, 255});
@@ -819,21 +843,16 @@ void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool has_ta
             if (g->boars[i].hp > 0) {
                 actors[count++] = (Actor){1, i, g->boars[i].pos.y};
                 if (g->boars[i].state == AI_WINDUP)
-                    gfx_sector(f, screen_pos(g->boars[i].pos, camera), BOAR_STRIKE_RANGE, 0, PI,
-                               (SDL_Color){200, 90, 45, 72});
+                    telegraph(f, screen_pos(g->boars[i].pos, camera), BOAR_STRIKE_RANGE, 0, PI,
+                              g->boars[i].timer / BOAR_WINDUP_SECONDS, (SDL_Color){200, 90, 45, 72},
+                              (SDL_Color){255, 170, 120, 255});
             }
     if (g->training.active || g->quest == Q_HUNT || g->quest == Q_COMBAT) {
         actors[count++] = (Actor){2, 0, g->boss.pos.y};
-        if (g->boss.state == AI_WINDUP) {
-            Vec2 p = screen_pos(g->boss.pos, camera);
-            gfx_sector(f, p, 109, g->boss.angle, 1.15f, (SDL_Color){205, 55, 41, 110});
-            gfx_line(f, p,
-                     (Vec2){p.x + cosf(g->boss.angle - 1.15f) * 109, p.y + sinf(g->boss.angle - 1.15f) * 109},
-                     (SDL_Color){255, 176, 129, 255});
-            gfx_line(f, p,
-                     (Vec2){p.x + cosf(g->boss.angle + 1.15f) * 109, p.y + sinf(g->boss.angle + 1.15f) * 109},
-                     (SDL_Color){255, 176, 129, 255});
-        }
+        if (g->boss.state == AI_WINDUP)
+            telegraph(f, screen_pos(g->boss.pos, camera), BOSS_STRIKE_RANGE, g->boss.angle,
+                      BOSS_STRIKE_HALF, g->boss.timer / BOSS_WINDUP_SECONDS,
+                      (SDL_Color){205, 55, 41, 110}, (SDL_Color){255, 176, 129, 255});
     }
     actors[count++] = (Actor){3, 0, g->hero.pos.y};
     for (int i = 1; i < count; i++) {

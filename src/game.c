@@ -592,7 +592,7 @@ static void tick_boar(Game *g, Enemy *e, float dt) {
         if (d < 65 && e->timer <= 0 && world_segment(e->pos, g->hero.pos, 0)) {
             e->state = AI_WINDUP;
             e->angle = atan2f(g->hero.pos.y - e->pos.y, g->hero.pos.x - e->pos.x);
-            e->timer = .6f;
+            e->timer = BOAR_WINDUP_SECONDS;
         }
         break;
     case AI_WINDUP:
@@ -629,7 +629,7 @@ static void tick_boss(Game *g, float dt) {
             move_toward(e, g->hero.pos, 45 * dt, BOSS_RADIUS, dt);
         if (e->timer <= 0 && d < 138 && world_segment(e->pos, g->hero.pos, 0)) {
             e->state = AI_WINDUP;
-            e->timer = .95f;
+            e->timer = BOSS_WINDUP_SECONDS;
             e->angle = atan2f(g->hero.pos.y - e->pos.y, g->hero.pos.x - e->pos.x);
         }
         break;
@@ -639,7 +639,7 @@ static void tick_boss(Game *g, float dt) {
             e->timer = .2f;
             effect(g, (Effect){.kind = FX_BOSS_SWING, .pos = e->pos, .angle = e->angle, .life = .25f});
             float a = atan2f(g->hero.pos.y - e->pos.y, g->hero.pos.x - e->pos.x) - e->angle;
-            if (d < 109 && fabsf(atan2f(sinf(a), cosf(a))) < 1.15f && world_segment(e->pos, g->hero.pos, 0))
+            if (d < BOSS_STRIKE_RANGE && fabsf(atan2f(sinf(a), cosf(a))) < BOSS_STRIKE_HALF && world_segment(e->pos, g->hero.pos, 0))
                 game_hurt(g, 18, true);
         }
         break;
