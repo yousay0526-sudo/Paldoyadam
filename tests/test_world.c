@@ -3,6 +3,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 
 #define P(x, y) ((Vec2){(x) * 1.5f, (y) * 1.5f})
 static int checks;
@@ -112,6 +113,23 @@ static void quests_reachable(void) {
     CHECK(distance(r.points[r.count - 1], P(566, 474)) > HERO_RADIUS);
     CHECK(!world_route(HOME, (Vec2){NAN, 0}, HERO_RADIUS, &r));
 }
+/* Runs before any other routing so the grids start cold. */
+static void prepared_routes(void) {
+    const float radii[3] = {HERO_RADIUS, BOAR_RADIUS, BOSS_RADIUS};
+    const Vec2 from[3] = {HOME, HOME, BOSS_HOME}, to[3] = {P(566, 474), P(566, 474), NPCS[ELDER].pos};
+    clock_t start = clock();
+    world_prepare();
+    clock_t prepared = clock();
+    for (int i = 0; i < 3; i++) {
+        Route r;
+        CHECK(!world_segment(from[i], to[i], radii[i]));
+        CHECK(world_route(from[i], to[i], radii[i], &r));
+        CHECK(r.count > 0);
+    }
+    clock_t routed = clock();
+    /* Building a grid samples every cell; a detour on a ready grid is a search. */
+    CHECK((routed - prepared) * 4 < prepared - start);
+}
 static void combat_respects_walls(void) {
     Game g;
     game_reset(&g);
@@ -165,6 +183,7 @@ static void combat_respects_walls(void) {
     CHECK(world_segment(g.hero.pos, g.boars[0].pos, 0));
 }
 int main(void) {
+    prepared_routes();
     geometry();
     quests_reachable();
     combat_respects_walls();

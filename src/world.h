@@ -24,6 +24,9 @@ extern const int WORLD_COVER_COUNT;
 bool world_clear(Vec2 point, float radius);
 bool world_segment(Vec2 from, Vec2 to, float radius);
 Vec2 world_move(Vec2 from, Vec2 delta, float radius);
+/* Builds the route grids for every body radius up front, so the first detour
+ * does not stall a frame. Routing works without it; it only moves the cost. */
+void world_prepare(void);
 bool world_route(Vec2 from, Vec2 to, float radius, Route *route);
 Vec2 world_follow(Route *route, Vec2 position);
 #endif

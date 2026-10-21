@@ -297,6 +297,11 @@ static NavGrid *grid(float radius) {
     g->ready = true;
     return g;
 }
+void world_prepare(void) {
+    grid(HERO_RADIUS);
+    grid(BOAR_RADIUS);
+    grid(BOSS_RADIUS);
+}
 bool world_route(Vec2 start, Vec2 goal, float radius, Route *out) {
     memset(out, 0, sizeof *out);
     if (!world_clear(start, radius) || !isfinite(goal.x) || !isfinite(goal.y))
