@@ -353,6 +353,17 @@ static void prologue_on_demand(Gfx *gfx, SDL_Surface *surface) {
     for (int i = 0; i < 3; i++)
         CHECK(gfx->prologue[i].texture == NULL && gfx->prologue[i].w == 0);
 }
+/* Characters ship near 3x their drawn size and filter smoothly, instead of
+ * 1254 px masters squeezed through nearest sampling. */
+static void character_sprites(Gfx *gfx) {
+    struct { Picture *p; int w, h; } sprites[] = {
+        {&gfx->boss, 320, 320}, {&gfx->boar, 192, 192}, {&gfx->messenger, 160, 160}, {&gfx->npcs, 543, 181}};
+    for (size_t i = 0; i < sizeof sprites / sizeof *sprites; i++) {
+        SDL_ScaleMode mode;
+        CHECK(sprites[i].p->texture && sprites[i].p->w == sprites[i].w && sprites[i].p->h == sprites[i].h);
+        CHECK(SDL_GetTextureScaleMode(sprites[i].p->texture, &mode) == 0 && mode == SDL_ScaleModeLinear);
+    }
+}
 int main(int argc, char **argv) {
     SDL_SetMainReady();
     SDL_setenv("SDL_VIDEODRIVER", "dummy", 1);
@@ -368,6 +379,7 @@ int main(int argc, char **argv) {
     CHECK(SDL_GetTextureScaleMode(gfx->map.texture, &village_mode) == 0);
     CHECK(village_mode == SDL_ScaleModeNearest);
     check_map_pixels(gfx, surface, argc > 1 ? argv[1] : "assets");
+    character_sprites(gfx);
     prologue_on_demand(gfx, surface);
     size_t bytes = (size_t)surface->pitch * surface->h;
     Uint32 *pixels = malloc(bytes), *previous = malloc(bytes), *idle = malloc(bytes);
