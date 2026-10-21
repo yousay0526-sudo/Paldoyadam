@@ -561,6 +561,50 @@ static void eight_direction_movement(App *a) {
 }
 /* The view eases after the hero, snaps on teleports, shakes only on real
  * hits, stays on the map and lands on whole device pixels. */
+static void fixed_step_simulation(App *a) {
+    game_reset(&a->game); game_start(&a->game); stop_input(a);
+    a->sim_accumulator = 0;
+    /* Whole 1/60 s steps only; the remainder carries to the next frame. */
+    CHECK(advance_simulation(a, .1f) == 6 && a->sim_accumulator < .001f);
+    CHECK(advance_simulation(a, .01f) == 0 && advance_simulation(a, .01f) == 1);
+    CHECK(fabsf(a->sim_accumulator - (.02f - SIM_STEP)) < .0001f);
+    CHECK(advance_simulation(a, 5) == SIM_MAX_STEPS && a->sim_accumulator < SIM_STEP);
+    CHECK(advance_simulation(a, NAN) == 0 && advance_simulation(a, -1) == 0);
+    /* Same wall time at 30, 60 and 144 Hz gives the same world. */
+    Vec2 ends[3];
+    int taken[3] = {0};
+    float rates[3] = {30, 60, 144};
+    for (int r = 0; r < 3; r++) {
+        game_reset(&a->game); game_start(&a->game); stop_input(a);
+        a->width = 844; a->height = 390; a->density = 1; a->button_count = 0;
+        a->camera = world_camera(a->width / WORLD_ZOOM, a->height / WORLD_ZOOM, HOME);
+        a->sim_accumulator = 0;
+        touch(a, SDL_FINGERDOWN, 103, (Vec2){180, 230});
+        touch(a, SDL_FINGERMOTION, 103, (Vec2){240, 230}); /* drag right */
+        int frames = (int)(1.5f * rates[r] + .5f);
+        for (int f = 0; f < frames; f++) taken[r] += advance_simulation(a, 1 / rates[r]);
+        /* Summing 1/144 in floats can leave the last step a hair short. */
+        while (taken[r] < 90) taken[r] += advance_simulation(a, .0001f);
+        touch(a, SDL_FINGERUP, 103, (Vec2){240, 230});
+        ends[r] = a->game.hero.pos;
+    }
+    CHECK(ends[0].x > HOME.x + 100);
+    CHECK(taken[0] == 90 && taken[1] == 90 && taken[2] == 90);
+    CHECK(distance(ends[0], ends[1]) < .01f && distance(ends[1], ends[2]) < .01f);
+    /* Drawing blends between the last two steps and then puts things back. */
+    Poses previous = {0};
+    capture_poses(&a->game, &previous);
+    previous.hero.x -= 2;
+    Poses real;
+    capture_poses(&a->game, &real);
+    blend_poses(&a->game, &previous, .25f);
+    CHECK(fabsf(a->game.hero.pos.x - (real.hero.x - 1.5f)) < .001f);
+    restore_poses(&a->game, &real);
+    CHECK(distance(a->game.hero.pos, real.hero) == 0);
+    previous.hero.x -= 100; /* a teleport is not smeared across the screen */
+    blend_poses(&a->game, &previous, .5f);
+    CHECK(distance(a->game.hero.pos, real.hero) == 0);
+}
 static void camera_follow_and_shake(App *a) {
     game_reset(&a->game); game_start(&a->game);
     a->view_ready = false; a->trauma = 0; a->shake_clock = 0;
@@ -638,6 +682,7 @@ int main(void) {
     hitstop_swipe_inputs(a);
     eight_direction_movement(a);
     camera_follow_and_shake(a);
+    fixed_step_simulation(a);
     SDL_DestroyRenderer(a->renderer);
     SDL_DestroyWindow(a->window);
     free(a);
