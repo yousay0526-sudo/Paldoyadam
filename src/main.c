@@ -1254,6 +1254,9 @@ static void handle_events(App *a) {
         if (e.type == SDL_KEYDOWN && !e.key.repeat) {
             a->touch_input = false;
             SDL_Keycode key = e.key.keysym.sym;
+            /* The rotate notice covers the game; only display keys act behind it. */
+            if (a->width <= a->height && key != SDLK_F11 && key != SDLK_F3)
+                continue;
             if (key == SDLK_ESCAPE || key == SDLK_AC_BACK)
                 dispatch(a, ACT_PAUSE, 0);
             else if (key == SDLK_F11)

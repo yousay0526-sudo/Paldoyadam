@@ -191,6 +191,33 @@ static void held_attack_keeps_queued_technique(App *a) {
     CHECK(a->game.hero.attacking && !a->game.hero.skilling);
     key_up(a,SDLK_z); CHECK(!a->attack_key_down);
 }
+/* The rotate notice hides the game: shortcuts must not change it unseen. */
+static void portrait_blocks_shortcuts(App *a) {
+    game_reset(&a->game); stop_input(a);
+    a->width=390; a->height=844;
+    key(a,SDLK_SPACE,false); CHECK(a->game.phase==PH_TITLE);
+    a->game.phase=PH_PROLOGUE; a->story_index=0;
+    key(a,SDLK_SPACE,false); key(a,SDLK_RETURN,false);
+    CHECK(a->game.phase==PH_PROLOGUE && a->story_index==0);
+    game_start(&a->game);
+    a->game.hero.pos=NPCS[ELDER].pos; a->game.hero.hp=40;
+    a->game.hero.bleed=3; a->game.quest=Q_RECOVER;
+    a->game.drops[0]=(Drop){.pos=NPCS[ELDER].pos,.exists=true};
+    const SDL_Keycode keys[]={SDLK_SPACE,SDLK_RETURN,SDLK_e,SDLK_f,SDLK_1,SDLK_2,SDLK_i,SDLK_j,
+                              SDLK_k,SDLK_z,SDLK_q,SDLK_r,SDLK_g,SDLK_t,SDLK_ESCAPE,SDLK_F8};
+    for(size_t i=0;i<sizeof keys/sizeof *keys;i++) {
+        key(a,keys[i],false);
+        CHECK(a->game.phase==PH_PLAY && a->game.hero.hp==40 && a->game.tonics==2);
+        CHECK(a->game.bandages==1 && a->game.herbs==0 && !a->game.training.active);
+        CHECK(!a->attack_key_down && !a->game.hero.attacking && !a->game.hero.skilling);
+        CHECK(a->game.cooldown==0 && a->game.queued_move==MOVE_NONE);
+    }
+    key_up(a,SDLK_z);
+    /* Display-only keys still work, and rotating back restores shortcuts. */
+    key(a,SDLK_F3,false); CHECK(a->debug_collision); key(a,SDLK_F3,false);
+    a->width=844; a->height=390;
+    key(a,SDLK_1,false); CHECK(a->game.hero.hp==85 && a->game.tonics==1);
+}
 static void bag_actions(App *a) {
     attack_fixture(a); dispatch(a,ACT_BAG,0);
     CHECK(a->game.phase==PH_BAG && a->bag_tab==0);
@@ -548,6 +575,7 @@ int main(void) {
     zoomed_destination(a);
     combat_inputs(a);
     held_attack_keeps_queued_technique(a);
+    portrait_blocks_shortcuts(a);
     continuous_swipes(a);
     all_direction_pairs(a);
     swipe_thresholds(a);
