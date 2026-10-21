@@ -629,6 +629,33 @@ static void boar_strike_reach(void) {
         CHECK(g.hero.hp == 91 || g.hero.hp == 100);
     }
 }
+/* Presentation state: chasing enemies accumulate walked distance, and a
+ * defeated enemy keeps a short fall that menus pause and hitstop holds. */
+static void enemy_motion_and_falls(void) {
+    Game g; game_reset(&g); game_start(&g);
+    g.traces[0] = g.traces[1] = true; g.quest = Q_RECOVER;
+    Enemy *e = &g.boars[0];
+    g.hero.pos = (Vec2){e->pos.x - 120, e->pos.y};
+    e->state = AI_CHASE; e->timer = 5;
+    Vec2 start = e->pos;
+    for (int i = 0; i < 10; i++) game_tick(&g, .05f, (Vec2){0, 0});
+    CHECK(e->stride > 1 && fabsf(e->stride - distance(start, e->pos)) < .5f);
+    g.hero.pos = (Vec2){e->pos.x - 30, e->pos.y};
+    CHECK(game_damage(&g, e, e->hp, FX_HIT));
+    CHECK(e->hp == 0 && e->dying == ENEMY_DEATH_SECONDS);
+    float held = e->dying;
+    game_tick(&g, .02f, (Vec2){0, 0}); /* the kill's hitstop */
+    CHECK(e->dying == held);
+    g.hitstop_time = 0;
+    g.phase = PH_BAG;
+    game_tick(&g, .05f, (Vec2){0, 0});
+    CHECK(e->dying == held);
+    g.phase = PH_PLAY;
+    for (int i = 0; i < 6; i++) game_tick(&g, .05f, (Vec2){0, 0});
+    CHECK(e->dying > 0 && e->dying < held);
+    for (int i = 0; i < 10; i++) game_tick(&g, .05f, (Vec2){0, 0});
+    CHECK(e->dying == 0);
+}
 int main(void) {
     equipment_and_manual_combat();
     techniques_and_combos();
@@ -642,6 +669,7 @@ int main(void) {
     dedicated_pickup();
     automatic_magnet();
     walking_motion();
+    enemy_motion_and_falls();
     attack_motion();
     boar_strike_reach();
     printf(

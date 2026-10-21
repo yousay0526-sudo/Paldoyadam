@@ -69,7 +69,9 @@ static void move_toward(Enemy *e, Vec2 target, float step, float radius, float d
         if (e->route.cursor < e->route.count)
             step = fminf(step, distance(e->pos, e->route.points[e->route.cursor]));
     }
+    Vec2 before = e->pos;
     e->pos = world_move(e->pos, (Vec2){direction.x * step, direction.y * step}, radius);
+    e->stride += distance(before, e->pos);
 }
 static bool near_npc(const Game *g, int n) {
     return n >= 0 && n < NPC_COUNT && distance(g->hero.pos, NPCS[n].pos) < 70 &&
@@ -420,6 +422,7 @@ bool game_damage(Game *g, Enemy *e, int amount, EffectKind kind) {
     }
     if (e->hp == 0) {
         e->state = AI_DEAD;
+        e->dying = ENEMY_DEATH_SECONDS;
         if (e == &g->boss) {
             g->hero.bleed = 0;
             g->quest = Q_RETURN;
@@ -600,7 +603,7 @@ static void tick_boar(Game *g, Enemy *e, float dt) {
             if (d < BOAR_STRIKE_RANGE && world_segment(e->pos, g->hero.pos, 0))
                 game_hurt(g, 9, false);
             e->state = AI_RECOVER;
-            e->timer = 1.15f;
+            e->timer = BOAR_RECOVER_SECONDS;
         }
         break;
     case AI_RECOVER:
@@ -636,7 +639,7 @@ static void tick_boss(Game *g, float dt) {
     case AI_WINDUP:
         if (e->timer <= 0) {
             e->state = AI_SWING;
-            e->timer = .2f;
+            e->timer = BOSS_SWING_SECONDS;
             effect(g, (Effect){.kind = FX_BOSS_SWING, .pos = e->pos, .angle = e->angle, .life = .25f});
             float a = atan2f(g->hero.pos.y - e->pos.y, g->hero.pos.x - e->pos.x) - e->angle;
             if (d < BOSS_STRIKE_RANGE && fabsf(atan2f(sinf(a), cosf(a))) < BOSS_STRIKE_HALF && world_segment(e->pos, g->hero.pos, 0))
@@ -941,10 +944,19 @@ int game_hero_frame(const Game *g) {
         return -1;
     return (int)(g->hero.walk_cycle * HERO_WALK_FRAMES) % HERO_WALK_FRAMES;
 }
+/* Falls play out behind story dialogue too; menus and hitstop hold them. */
+static void tick_falls(Game *g, float dt) {
+    g->boss.dying = fmaxf(0, g->boss.dying - dt);
+    for (int i = 0; i < BOAR_COUNT; i++)
+        g->boars[i].dying = fmaxf(0, g->boars[i].dying - dt);
+}
 void game_tick(Game *g, float dt, Vec2 input) {
     if (!isfinite(dt) || !isfinite(input.x) || !isfinite(input.y))
         return;
     dt = clampf(dt, 0, .05f);
+    if (g->hitstop_time <= 0 && (g->phase == PH_PLAY || g->phase == PH_DIALOGUE ||
+                                 g->phase == PH_AUGMENT || g->phase == PH_COMPLETE))
+        tick_falls(g, dt);
     if (g->phase != PH_PLAY) {
         g->hero.walking = false;
         g->hero.walk_cycle = 0;
