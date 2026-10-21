@@ -122,3 +122,7 @@ python3 scripts/prepare_hero_asset.py
 ## 적·NPC 실행용 축소본
 
 `art/characters/`에 원본(백정·멧돼지·전령 1254×1254, NPC 띠 2172×724)을 보존하고, `scripts/prepare_character_assets.py`가 화면 크기의 약 3배(백정 320, 멧돼지 192, 전령 160, NPC 띠 543×181)로 Lanczos(알파 사전 곱) 축소한 실행본을 `assets/`에 만든다. 이 네 텍스처만 선형 샘플링으로 그린다. 그림 자체는 바꾸지 않았다. 비교 `docs/character-sampling-review.png`(왼쪽부터 기존 1.2배, 새 1.2배, 기존 2.4배, 새 2.4배).
+
+## 2026-10-21 · 돼지·백정 8방향 모션 후보
+
+사용자 지정에 따라 N/NE/E/SE/S/SW/W/NW를 독립 원화로 제작한다. 돼지 걷기·엄니 공격, 백정 걷기·짧은 식칼 베기·큰 내려찍기를 네 포즈로 구분하고, 백정의 식칼은 오른손 기준으로 유지한다. 피/혈흔 이펙트는 넣지 않는다. 현재 원본 12장과 176포즈/7개 후보 시트는 `art/monsters/`에 보존하며 **아직 게임에 연결하지 않았다**. 공통 발 `(96,176)`·192px 셀과 셀별 표시 배율 보정을 함께 사용해야 한다. 실제 게임 크기·가림·발 정렬과 기존 단일 백정 공격의 연결은 원화 승인 후 별도 검증한다. [원화·배열·검증 계약](MONSTER_MOTION_ART.md), [정지](monster-direction-candidates.png), [다섯 모션](monster-motion-candidates.gif), [후속 몬스터 조사](MONSTER_ROSTER_RESEARCH.md).

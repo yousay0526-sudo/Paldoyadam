@@ -1,3 +1,13 @@
+## 2026-10-21 · 몬스터 8방향 원화 준비 단계
+
+- 기준 main `a5a4390e846acde247ebce392e9005c9ac4eece1`, 독립 브랜치 `graphics/monster-eight-direction-pass1-20261021`. AGENTS/CURRENT_STATE/ART_DIRECTION 및 실제 game.c/h·draw.c와 테스트를 확인했다. 실행 소스·현재 assets·CMake·워크플로·버전 변경 없음.
+- 내장 ImageGen 원본 12장: 돼지 방향표 1225×1284, 백정 방향표 1286×1223, 모션 10장 각 1254×1254, 모두 실제 RGBA/알파 0..255. 초안 돼지 걷기 E방향 주둥이 경계 잘림은 ImageGen 편집으로 여백을 확보해 교체했다. 최종 원본·프롬프트·교정 프롬프트·SHA-256을 보존했다.
+- Windows / bundled Python / Pillow: `python scripts/prepare_monster_assets.py` 성공, **176포즈/7PNG**. 연결 실루엣 선택·알파 1..4 잡점 제거·알파 사전 곱 Lanczos, 반전/색 교체/보간 없음. 192px 셀, 공통 기준점 `(96,176)`, 네 가장자리 최소 4px 투명 여유. 원본 강한 실루엣 외곽 잘림 검사 통과. 배율/몸 크기 보정은 `preparation.json`에 기록했다.
+- `python tests/test_monster_assets.py`: **1/1 통과**. 별도 검사로 원본 12개/아틀라스 7개/셀 176개의 해시·치수·RGBA·투명 비율·4px 경계·네 프레임 차이·반대 방향의 단순 반전 복제가 아님을 확인했다. `python scripts/preview_monster_assets.py` 성공. [정지](monster-direction-candidates.png)·[모션 GIF](monster-motion-candidates.gif)를 밝은 배경에서 직접 검토했다. 혈흔 이펙트를 추가하지 않았으며 주인공 원화는 변경하지 않았다.
+- 후보 PNG는 `art/monsters/prepared/`에만 있으며 **아직 게임이 불러오지 않는다**. GIF는 220ms/포즈의 미술 리뷰 합성으로 SDL 캡처·게임 공격 타이밍 검증이 아니다. 기준점은 임시 픽셀 정렬이며 골격 검증·완전한 발 고정이 아니다.
+- 이번에는 게임 CMake/CTest·영웅/전투/입력/모바일 회귀·SDL 전후 장면을 새로 실행하지 않았다. 이유는 원화 검토와 렌더링 연결을 AGENTS의 단계별 승인에 따라 분리했고 실행 파일을 변경하지 않았기 때문이다. 아래 이전 작업의 테스트 수치는 이번 결과가 아니다. 후속 연결 단계에서 새 방향 표시, 기존 공격 판정·시간, 최신 stride/dying/먼지·피격 연출과 가림을 함께 검사해야 한다.
+- 현재 백정은 하나의 큰 공격 패턴이다. 별도의 짧은 공격 원화가 있다고 AI에 새 평타가 추가된 것은 아니다. 기관 자료 기반 후속 후보 10계열/29종 조사도 제안 단계이며 새 적·장·퀘스트를 구현하지 않았다. [원화 상세](MONSTER_MOTION_ART.md), [조사](MONSTER_ROSTER_RESEARCH.md). main 병합·자동 병합·Pages 배포 없음. GAME_BIBLE.md 없음.
+
 ## 2026-10-20 · 승인된 정지·걷기 8방향
 - 코드 커밋 `a2eb53a`의 [CI 39386598981](https://github.com/yousay0526-sudo/Paldoyadam/actions/runs/39386598981): Linux CMake/CTest **9/9**, Emscripten 3.1.74 일반 웹·단일 HTML 빌드 성공. Pages 준비와 deploy skipped. 아래 로컬 결과와 별도로 확인했으며 문서 결과 추가 후속 커밋의 최종 CI 상태는 PR에서 확인한다.
 - 기준 main `07f3993`, PR #15 작업 브랜치에서만 변경. 게임/입력/월드 로직과 기존 공격 PNG는 변경 없음. 표시 방향은 `Hero.dir`에서 파생하며 `face/attack_face` 전투 상태를 바꾸지 않는다.
