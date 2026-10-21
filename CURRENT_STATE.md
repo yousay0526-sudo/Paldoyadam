@@ -7,7 +7,15 @@
 - 현재 버전: `0.8.0` (C11/SDL2 기반 게임 및 Emscripten 웹 빌드)
 - 정본: `src/*.c`, `src/*.h`; 주요 문서: `README.md`, `docs/CONTROLS.md`, `docs/VALIDATION.md`, `docs/WEB.md`
 
-## 이번 작업: 완성도 개선 10번 — 벽 법선 기반 미끄러짐(collide and slide) · PR 검토 대기
+## 이번 작업: 완성도 개선 코드 정리 (동작 변경 없음 + 효과 그리기 순서 수정) · PR 검토 대기
+- 기준 main `6672c35` (10번 PR #35 병합). 브랜치 `claude/project-thread-c5dfli`. 제안 문서 "우선순위 3 — 코드 구조" 중 승인 범위 안의 네 가지. `main.c` 파일 분리는 범위 밖 리팩터링이라 하지 않았다.
+- 기본 공격 사거리: `game_attack_range`, `request_move`, `tick_attack`에 따로 적혀 있던 58/76/120을 `BLADE_RANGE`, `BLADE_RANGE_STEEL`, `WIND_RANGE`와 `blade_range()` 하나로 모았다. 값 동일.
+- 회복·재도전: `game_recover`와 `game_retry`에서 겹치던 전투 상태 초기화를 `reset_fight()`로 묶었다. 재도전 체력도 `max_hp`를 쓴다(현재 항상 100이라 값 동일).
+- 효과 삭제: 끝난 효과 자리에 마지막 효과를 옮기던 방식을 순서 유지 압축으로 바꿔, 겹친 효과의 그리기 순서가 바뀌며 깜빡이던 문제를 없앴다. `tests/test_game.c` `effects_keep_order` 추가(기존 코드로는 실패 확인).
+- 적 수치: `tick_boar`·`tick_boss` 안의 속도·감지·포기·접근·대기·공격 시작 거리·회복·휴식·피해를 `EnemyTuning` 표(`BOAR_TUNING`, `BOSS_TUNING`)로 뺐다. 값 동일. 준비 시간과 타격 거리는 그리기와 공유하므로 `game.h` 상수 유지.
+- Linux / SDL 2.30.0 dummy: 전체 CTest **9/9 통과**, ASan+UBSan **9/9 통과**. 버전 변경 없음.
+
+## 이전 작업: 완성도 개선 10번 — 벽 법선 기반 미끄러짐(collide and slide) (PR #35, main `6672c35`에 병합)
 - 기준 main `d108e3d` (9번 PR #34 병합). 브랜치 `claude/project-thread-c5dfli`. 사용자 자동 병합 선택으로 진행.
 - 문제: `world_move`가 막히면 x축·y축만 따로 시도해서, 이 맵 대부분인 대각선 다각형 벽에 비스듬히 밀면 멈추거나 덜컥거렸다.
 - `src/world.c`: 3단위 이동이 막히면 반경+4 안의 가장 가까운 벽 변에서 바깥 법선을 구해, 벽 쪽으로 미는 성분만 빼고 남은 벽 방향 이동을 시도한다. 벽 방향 성분이 이동의 34%(약 20°) 미만이면 미끄러지지 않는다(정면으로 밀 때 옆으로 흐르지 않도록). 실패하거나 모서리·지도 경계면 기존 축별 미끄러짐으로 넘어간다. 통과 판정은 그대로 `world_segment`라 벽을 뚫지 않는다. 주인공·적·넉백·몸 충돌이 모두 이 함수를 쓴다.
