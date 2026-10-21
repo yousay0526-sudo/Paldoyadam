@@ -559,6 +559,59 @@ static void eight_direction_movement(App *a) {
         CHECK(!a->game.hero.walking && gfx_hero_direction(a->game.hero.dir)==(HeroDirection)d);
     }
 }
+/* The view eases after the hero, snaps on teleports, shakes only on real
+ * hits, stays on the map and lands on whole device pixels. */
+static void camera_follow_and_shake(App *a) {
+    game_reset(&a->game); game_start(&a->game);
+    a->view_ready = false; a->trauma = 0; a->shake_clock = 0;
+    float w = a->width / WORLD_ZOOM, h = a->height / WORLD_ZOOM, scale = 1.5f * WORLD_ZOOM;
+    follow_view(a, .016f);
+    CHECK(a->view_ready && distance(a->view_focus, a->game.hero.pos) < .001f);
+    a->game.hero.pos.x += 40;
+    follow_view(a, .016f);
+    float gap = distance(a->view_focus, a->game.hero.pos);
+    CHECK(gap > 20 && gap < 40);
+    for (int i = 0; i < 60; i++) follow_view(a, .016f);
+    CHECK(distance(a->view_focus, a->game.hero.pos) < .5f);
+    a->game.hero.walking = true; a->game.hero.dir = (Vec2){1, 0};
+    for (int i = 0; i < 90; i++) follow_view(a, .016f);
+    CHECK(a->view_focus.x > a->game.hero.pos.x + 15);
+    a->game.hero.walking = false;
+    a->game.hero.pos = (Vec2){BOSS_HOME.x, BOSS_HOME.y + 45};
+    follow_view(a, .016f);
+    CHECK(distance(a->view_focus, a->game.hero.pos) < .001f);
+    Vec2 still = view_camera(a, w, h, scale);
+    CHECK(fabsf(still.x * scale - roundf(still.x * scale)) < .001f);
+    CHECK(fabsf(still.y * scale - roundf(still.y * scale)) < .001f);
+    float marks[2 + BOAR_COUNT];
+    hit_marks(&a->game, marks);
+    add_shake(a, marks, .016f);
+    CHECK(a->trauma == 0);
+    hit_marks(&a->game, marks);
+    a->game.hero.hurt_time = HIT_FLASH_SECONDS;
+    add_shake(a, marks, .016f);
+    CHECK(a->trauma > .5f);
+    float moved = 0;
+    for (int i = 0; i < 8; i++) {
+        a->shake_clock += .013f;
+        Vec2 c = view_camera(a, w, h, scale);
+        moved = fmaxf(moved, distance(c, still));
+        CHECK(distance(c, still) < 12);
+    }
+    CHECK(moved > .5f);
+    hit_marks(&a->game, marks);
+    for (int i = 0; i < 60; i++) add_shake(a, marks, .016f);
+    CHECK(a->trauma == 0);
+    /* At the map corner the shake never shows the void past the painting. */
+    a->game.hero.pos = (Vec2){30, 30}; a->view_ready = false; follow_view(a, .016f);
+    a->trauma = 1;
+    for (int i = 0; i < 40; i++) {
+        a->shake_clock += .011f;
+        Vec2 c = view_camera(a, w, h, scale);
+        CHECK(c.x >= 0 && c.y >= 0 && c.x <= WORLD_W - w && c.y <= WORLD_H - h);
+    }
+    a->trauma = 0; a->view_ready = false;
+}
 int main(void) {
     SDL_SetMainReady();
     SDL_SetHint(SDL_HINT_VIDEODRIVER,"dummy");
@@ -584,6 +637,7 @@ int main(void) {
     training_entry_and_inputs(a);
     hitstop_swipe_inputs(a);
     eight_direction_movement(a);
+    camera_follow_and_shake(a);
     SDL_DestroyRenderer(a->renderer);
     SDL_DestroyWindow(a->window);
     free(a);
