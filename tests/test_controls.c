@@ -72,11 +72,16 @@ static void pickup(App *a) {
     CHECK(a->game.phase == PH_PLAY && a->game.cooldown == 0);
 }
 static void zoomed_destination(App *a) {
+    /* Phones stay at 1; taller screens zoom so the view height stays near 450. */
+    CHECK(world_zoom(390) == 1 && world_zoom(200) == 1);
+    CHECK(fabsf(world_zoom(720) - 1.6f) < .001f && fabsf(world_zoom(1080) - 2.4f) < .001f);
+    CHECK(world_zoom(4000) == ZOOM_MAX);
     game_reset(&a->game); game_start(&a->game);
     a->button_count = 0;
-    a->camera = world_camera(a->width / WORLD_ZOOM, a->height / WORLD_ZOOM, HOME);
+    float zoom = world_zoom(a->height);
+    a->camera = world_camera(a->width / zoom, a->height / zoom, HOME);
     Vec2 tap = {a->width / 2 + 72, a->height / 2 + 12};
-    Vec2 expected = {HOME.x + 60, HOME.y + 10};
+    Vec2 expected = {HOME.x + 72 / zoom, HOME.y + 12 / zoom};
     pointer_down(a, -1, tap);
     pointer_up(a, -1, tap);
     CHECK(a->target_set && distance(a->target, expected) < .01f);
@@ -92,12 +97,12 @@ static void zoomed_destination(App *a) {
     pointer_down(a, 7, tap);
     pointer_up(a, 7, (Vec2){tap.x + 6, tap.y});
     CHECK(a->target_set && !a->pointer_down); /* Jitter within 8 px is still a tap. */
-    Vec2 origin = world_camera(a->width / WORLD_ZOOM, a->height / WORLD_ZOOM, (Vec2){0, 0});
+    Vec2 origin = world_camera(a->width / zoom, a->height / zoom, (Vec2){0, 0});
     CHECK(origin.x == 0 && origin.y == 0);
-    Vec2 far = world_camera(a->width / WORLD_ZOOM, a->height / WORLD_ZOOM,
+    Vec2 far = world_camera(a->width / zoom, a->height / zoom,
                             (Vec2){WORLD_W, WORLD_H});
-    CHECK(fabsf(far.x + a->width / WORLD_ZOOM - WORLD_W) < .01f);
-    CHECK(fabsf(far.y + a->height / WORLD_ZOOM - WORLD_H) < .01f);
+    CHECK(fabsf(far.x + a->width / zoom - WORLD_W) < .01f);
+    CHECK(fabsf(far.y + a->height / zoom - WORLD_H) < .01f);
 }
 static void key_up(App *a, SDL_Keycode code) {
     SDL_Event e={0}; e.type=SDL_KEYUP; e.key.keysym.sym=code;
@@ -535,7 +540,8 @@ static void eight_direction_movement(App *a) {
     for(int mode=0;mode<2;mode++) for(int d=0;d<HERO_DIRECTIONS;d++) {
         game_reset(&a->game);game_start(&a->game);stop_input(a);
         a->width=844;a->height=390;a->density=1;a->button_count=0;
-        a->camera=world_camera(a->width/WORLD_ZOOM,a->height/WORLD_ZOOM,HOME);
+        float zoom=world_zoom(a->height);
+        a->camera=world_camera(a->width/zoom,a->height/zoom,HOME);
         if(mode==0) {
             Vec2 start={180,230},end={start.x+dirs[d].x*60,start.y+dirs[d].y*60};
             touch(a,SDL_FINGERDOWN,101,start);touch(a,SDL_FINGERMOTION,101,end);
@@ -545,7 +551,7 @@ static void eight_direction_movement(App *a) {
             for(int tick=0;tick<4;tick++) game_tick(&a->game,.05f,input(a,.05f)); /* ease to a stop */
         } else {
             Vec2 target={HOME.x+dirs[d].x*20,HOME.y+dirs[d].y*20};
-            Vec2 tap={(target.x-a->camera.x)*WORLD_ZOOM,(target.y-a->camera.y)*WORLD_ZOOM};
+            Vec2 tap={(target.x-a->camera.x)*zoom,(target.y-a->camera.y)*zoom};
             touch(a,SDL_FINGERDOWN,102,tap);touch(a,SDL_FINGERUP,102,tap);
             CHECK(a->target_set);
             game_tick(&a->game,.05f,input(a,.05f));
@@ -577,7 +583,7 @@ static void fixed_step_simulation(App *a) {
     for (int r = 0; r < 3; r++) {
         game_reset(&a->game); game_start(&a->game); stop_input(a);
         a->width = 844; a->height = 390; a->density = 1; a->button_count = 0;
-        a->camera = world_camera(a->width / WORLD_ZOOM, a->height / WORLD_ZOOM, HOME);
+        a->camera = world_camera(a->width / world_zoom(a->height), a->height / world_zoom(a->height), HOME);
         a->sim_accumulator = 0;
         touch(a, SDL_FINGERDOWN, 103, (Vec2){180, 230});
         touch(a, SDL_FINGERMOTION, 103, (Vec2){240, 230}); /* drag right */
@@ -608,7 +614,8 @@ static void fixed_step_simulation(App *a) {
 static void camera_follow_and_shake(App *a) {
     game_reset(&a->game); game_start(&a->game);
     a->view_ready = false; a->trauma = 0; a->shake_clock = 0;
-    float w = a->width / WORLD_ZOOM, h = a->height / WORLD_ZOOM, scale = 1.5f * WORLD_ZOOM;
+    float zoom = world_zoom(a->height);
+    float w = a->width / zoom, h = a->height / zoom, scale = 1.5f * zoom;
     follow_view(a, .016f);
     CHECK(a->view_ready && distance(a->view_focus, a->game.hero.pos) < .001f);
     a->game.hero.pos.x += 40;

@@ -7,7 +7,17 @@
 - 현재 버전: `0.8.0` (C11/SDL2 기반 게임 및 Emscripten 웹 빌드)
 - 정본: `src/*.c`, `src/*.h`; 주요 문서: `README.md`, `docs/CONTROLS.md`, `docs/VALIDATION.md`, `docs/WEB.md`
 
-## 이번 작업: 완성도 개선 코드 정리 (동작 변경 없음 + 효과 그리기 순서 수정) · PR 검토 대기
+## 이번 작업: 캐릭터 크기와 화면 높이 기준 줌 · PR 검토 대기
+- 기준 main `649b02f`. 브랜치 `claude/project-thread-ar1qk1`. 사용자가 비율 분석 후 추천안을 선택했다.
+- 문제: 줌이 화면 크기와 무관하게 1.2로 고정이라, 주인공이 화면 높이에서 차지하는 비율이 휴대폰 844×390에서 13%, 1280×720에서 7%, 1920×1080에서 5%였다. 배경 소품(계단·탁자·창문)에 비해 인물이 약 1.3~1.4배 작게 보였다.
+- `src/draw.h`·`src/draw.c`: `WORLD_ZOOM` 상수 대신 `world_zoom(화면 높이) = clamp(높이/450, 1, 3)`. 휴대폰 높이 390은 1.0(이전보다 약 44% 넓게 보임), 720p는 1.6, 1080p는 2.4. `world_from_screen`이 줌을 인자로 받는다. `ACTOR_SCALE` 1.4로 주인공(모든 자세)·NPC·전령·멧돼지·백정 그림, 그림자, 지붕·수목 가림 상자, 이름표·멧돼지 체력 막대 위치, 가슴 높이 효과(검 궤적·타격 불꽃·바람·무공 고리)를 함께 키웠다. 허수아비는 그대로다.
+- `src/main.c`: 그리기·카메라·수련장 카메라 보정·목적지 탭이 같은 `world_zoom(a->height)`를 쓴다.
+- 그림만 바뀐다. 판정·사거리·부채꼴·충돌 반경·이동 속도·밀림은 월드 단위 그대로다. 다만 휴대폰에서 줌이 1.2→1.0이 되어 같은 거리가 화면에서 약 17% 짧아 보인다.
+- 테스트: `test_controls`에 줌 값 검사(390→1, 720→1.6, 1080→2.4, 상한 3)를 넣고 목적지 탭·카메라 검사를 실제 줌으로 계산하게 바꿨다. `test_hero_render`의 자세 상자·경계·궤적 중심 기대값에 `ACTOR_SCALE`을 반영했다.
+- Linux / SDL 2.30.0 dummy: 전체 CTest **9/9 통과**, ASan+UBSan **9/9 통과**. 844×390·1280×720·1920×1080에서 village/boss/npc/roof/canopy/training/attack3/skill2/loot 출력 확인. 비교 `docs/screen-scale-review.png`. 실기기·브라우저 체감은 미검증이며 `ZOOM_VIEW_HEIGHT`, `ACTOR_SCALE`로 조정할 수 있다. 버전 변경 없음.
+- 남은 문제: PC 큰 화면에서 HUD·버튼은 여전히 CSS 픽셀 크기라 작게 보인다(이번 범위 밖).
+
+## 이전 작업: 완성도 개선 코드 정리 (동작 변경 없음 + 효과 그리기 순서 수정) (PR #36, main `649b02f`에 병합)
 - 기준 main `6672c35` (10번 PR #35 병합). 브랜치 `claude/project-thread-c5dfli`. 제안 문서 "우선순위 3 — 코드 구조" 중 승인 범위 안의 네 가지. `main.c` 파일 분리는 범위 밖 리팩터링이라 하지 않았다.
 - 기본 공격 사거리: `game_attack_range`, `request_move`, `tick_attack`에 따로 적혀 있던 58/76/120을 `BLADE_RANGE`, `BLADE_RANGE_STEEL`, `WIND_RANGE`와 `blade_range()` 하나로 모았다. 값 동일.
 - 회복·재도전: `game_recover`와 `game_retry`에서 겹치던 전투 상태 초기화를 `reset_fight()`로 묶었다. 재도전 체력도 `max_hp`를 쓴다(현재 항상 100이라 값 동일).

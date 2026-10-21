@@ -86,7 +86,7 @@ python3 scripts/prepare_hero_asset.py
 ## 0.7.4: directions, scale and attacks
 
 - The approved idle/walk artwork faces screen-left. Mirror for face=+1 (right), retain the source for face=-1 (left). Attack facing is captured independently at swing start.
-- WORLD_ZOOM=1.20 enlarges the complete world, including actors, houses, roofs, tree canopies and collision overlays. Keep simulation coordinates unchanged; camera view dimensions and pointer inverse transforms use the same zoom. HUD/dialogue use the original renderer scale.
+- (Superseded 2026-10-21, see "Screen scale" below.) WORLD_ZOOM=1.20 enlarged the complete world, including actors, houses, roofs, tree canopies and collision overlays. Keep simulation coordinates unchanged; camera view dimensions and pointer inverse transforms use the same zoom. HUD/dialogue use the original renderer scale.
 - assets/warrior-attack-v1.png: transparent 576x384 atlas, six 192px square cells, 3x2, row-major anticipation / raised sword / strike / follow-through / recovery / settle. A premultiplied-alpha area reduction preserves detail and avoids dark edges.
 - Swing lasts 0.42 seconds; impact at 0.14 seconds. Validate the committed target, distance and unobstructed segment at impact. Menus freeze elapsed time. Recovery/retry clear pending attacks.
 - Future armor, helmet and weapon artwork must use per-action layers with shared foot roots, cell dimensions, pose timing and the same facing convention. Store item appearance separately from combat stats; align equipment to the torso/head/hand anchors of each pose. This release records that contract; equipment appearance swaps are a later feature.
@@ -122,3 +122,10 @@ python3 scripts/prepare_hero_asset.py
 ## 적·NPC 실행용 축소본
 
 `art/characters/`에 원본(백정·멧돼지·전령 1254×1254, NPC 띠 2172×724)을 보존하고, `scripts/prepare_character_assets.py`가 화면 크기의 약 3배(백정 320, 멧돼지 192, 전령 160, NPC 띠 543×181)로 Lanczos(알파 사전 곱) 축소한 실행본을 `assets/`에 만든다. 이 네 텍스처만 선형 샘플링으로 그린다. 그림 자체는 바꾸지 않았다. 비교 `docs/character-sampling-review.png`(왼쪽부터 기존 1.2배, 새 1.2배, 기존 2.4배, 새 2.4배).
+
+## Screen scale (2026-10-21)
+
+- World zoom follows the screen height: `world_zoom(h) = clamp(h / 450, 1, 3)` in CSS/logical pixels. A 390-tall phone stays at 1.0 and shows 844×390 world units at 844×390. 720p gets 1.6, 1080p gets 2.4. The zoom used to be a fixed 1.20, so the hero was about 13% of the screen height on phones but only 5% at 1080p.
+- `ACTOR_SCALE` = 1.4 draws the hero, NPCs, the messenger, boars and the butcher larger than the scenery's own scale, so they match the painted doors, steps and tables. The hero is about 60 units tall (was 43). Shadows, roof/canopy occlusion boxes, name labels, the boar HP bar and chest-height effects (sword trail, hit sparks, wind line, technique ring) scale with it.
+- Only drawing changes. Hitboxes, attack ranges and sectors, collision radius, movement speed and knockback stay in world units. The training dummy keeps its drawn size.
+- Comparison: `docs/screen-scale-review.png`.

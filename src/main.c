@@ -1077,8 +1077,9 @@ static void resize(App *a) {
 static Vec2 camera_target(const App *a) {
     Vec2 focus = a->game.phase == PH_TITLE || a->game.phase == PH_PROLOGUE ? HOME : a->game.hero.pos;
     if (a->game.training.active) {
-        focus.x += a->width * .02f / WORLD_ZOOM;
-        focus.y -= a->height * (a->width < 680 ? .30f : .12f) / WORLD_ZOOM;
+        float zoom = world_zoom(a->height);
+        focus.x += a->width * .02f / zoom;
+        focus.y -= a->height * (a->width < 680 ? .30f : .12f) / zoom;
     }
     return focus;
 }
@@ -1137,9 +1138,10 @@ static void draw(App *a) {
     a->button_count = 0;
     float scale_x, scale_y;
     SDL_RenderGetScale(a->renderer, &scale_x, &scale_y);
-    SDL_RenderSetScale(a->renderer, scale_x * WORLD_ZOOM, scale_y * WORLD_ZOOM);
-    a->camera = view_camera(a, a->width / WORLD_ZOOM, a->height / WORLD_ZOOM, scale_x * WORLD_ZOOM);
-    gfx_world(&a->gfx, &a->game, a->width / WORLD_ZOOM, a->height / WORLD_ZOOM,
+    float zoom = world_zoom(a->height);
+    SDL_RenderSetScale(a->renderer, scale_x * zoom, scale_y * zoom);
+    a->camera = view_camera(a, a->width / zoom, a->height / zoom, scale_x * zoom);
+    gfx_world(&a->gfx, &a->game, a->width / zoom, a->height / zoom,
               a->camera, a->target_set, a->target);
     if (a->debug_collision) {
         gfx_collision(&a->gfx, a->camera);
@@ -1304,7 +1306,7 @@ static void pointer_up(App *a, Sint64 id, Vec2 p) {
     /* As above: a drag whose only motion arrives with the release is not a tap. */
     pointer_move(a, id, p);
     if (!a->pointer_moved && a->game.phase == PH_PLAY) {
-        a->target = world_from_screen(p, a->camera);
+        a->target = world_from_screen(p, a->camera, world_zoom(a->height));
         a->target.x = clampf(a->target.x, 28, WORLD_W - 28);
         a->target.y = clampf(a->target.y, 28, WORLD_H - 28);
         a->target_set = world_route(a->game.hero.pos, a->target, HERO_RADIUS, &a->route);
