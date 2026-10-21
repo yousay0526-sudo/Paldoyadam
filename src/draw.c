@@ -504,6 +504,61 @@ void gfx_hit_sprite(Gfx *g, Picture *p, Vec2 v, float w, float h, bool flip, flo
     SDL_FRect dest = {v.x - p->w * scale / 2, v.y - p->h * scale, p->w * scale, p->h * scale};
     hit_flash(g, p, NULL, &dest, 0, NULL, flip ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE, remaining);
 }
+/* Procedural motion for single-image enemies. Everything here moves only
+ * the picture around the feet; positions and hit tests are untouched. */
+typedef struct {
+    float windup, swing, lunge;
+} EnemyTiming;
+static void gfx_enemy(Gfx *f, Picture *p, Vec2 feet, float w, float h, bool flip, const Enemy *e,
+                      EnemyTiming timing, float time, bool live) {
+    float scale = fminf(w / (float)p->w, h / (float)p->h);
+    float width = p->w * scale, height = p->h * scale, sx = 1, sy = 1, dx = 0, dy = 0, tilt = 0;
+    Uint8 alpha = 255;
+    Vec2 aim = {cosf(e->angle), sinf(e->angle)};
+    if (e->hp <= 0) {
+        /* Topple away from the hero, sink a little and fade out. */
+        float t = 1 - clampf(e->dying / ENEMY_DEATH_SECONDS, 0, 1), ease = 1 - (1 - t) * (1 - t);
+        tilt = (flip ? -1 : 1) * 78 * ease;
+        dy += 4 * t;
+        alpha = (Uint8)(255 * clampf(1 - t * t, 0, 1));
+    } else if (e->state == AI_WINDUP) {
+        /* Crouch and draw back from the target, trembling just before. */
+        float t = 1 - clampf(e->timer / timing.windup, 0, 1);
+        dx -= aim.x * 4 * t;
+        dy -= aim.y * 2 * t;
+        sx += .05f * t;
+        sy -= .06f * t;
+        if (t > .5f) dx += sinf(time * 70) * (t - .5f) * 2;
+    } else if (e->state == AI_SWING || (e->state == AI_RECOVER && timing.swing <= 0 &&
+                                        e->timer > timing.lunge - .15f)) {
+        /* Snap forward on the strike, then settle back. */
+        float t = e->state == AI_SWING ? clampf(e->timer / timing.swing, 0, 1)
+                                       : clampf((e->timer - (timing.lunge - .15f)) / .15f, 0, 1);
+        dx += aim.x * 9 * t;
+        dy += aim.y * 5 * t;
+        sx -= .04f * t;
+        sy += .06f * t;
+    } else {
+        /* Bob and squash with each step actually walked. */
+        float bob = fabsf(sinf(e->stride * PI / 26));
+        dy -= bob * 2.5f;
+        sx -= .02f * bob;
+        sy += .03f * bob;
+    }
+    if (live && e->hit_time > 0) {
+        float k = clampf(e->hit_time / HIT_FLASH_SECONDS, 0, 1);
+        sx += .08f * k;
+        sy -= .08f * k;
+    }
+    SDL_FRect dest = {feet.x - width * sx / 2 + dx, feet.y - height * sy + dy, width * sx, height * sy};
+    SDL_FPoint pivot = {dest.w / 2, dest.h};
+    SDL_RendererFlip mirror = flip ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
+    SDL_SetTextureAlphaMod(p->texture, alpha);
+    SDL_RenderCopyExF(f->renderer, p->texture, NULL, &dest, tilt, &pivot, mirror);
+    SDL_SetTextureAlphaMod(p->texture, 255);
+    if (live && e->hp > 0)
+        hit_flash(f, p, NULL, &dest, tilt, &pivot, mirror, e->hit_time);
+}
 /* The directional sword trail uses exactly
  * the simulation heading, sector and collision-resolved impact positions. */
 /* A crescent between two radii. Colour fades along the arc toward the tail
@@ -844,14 +899,14 @@ void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool has_ta
         actors[count++] = (Actor){0, i, NPCS[i].pos.y};
     if (game_boars_active(g))
         for (int i = 0; i < BOAR_COUNT; i++)
-            if (g->boars[i].hp > 0) {
+            if (g->boars[i].hp > 0 || g->boars[i].dying > 0) {
                 actors[count++] = (Actor){1, i, g->boars[i].pos.y};
                 if (g->boars[i].state == AI_WINDUP)
                     telegraph(f, screen_pos(g->boars[i].pos, camera), BOAR_STRIKE_RANGE, 0, PI,
                               g->boars[i].timer / BOAR_WINDUP_SECONDS, (SDL_Color){200, 90, 45, 72},
                               (SDL_Color){255, 170, 120, 255});
             }
-    if (g->training.active || g->quest == Q_HUNT || g->quest == Q_COMBAT) {
+    if (g->training.active || g->quest == Q_HUNT || g->quest == Q_COMBAT || g->boss.dying > 0) {
         actors[count++] = (Actor){2, 0, g->boss.pos.y};
         if (g->boss.state == AI_WINDUP)
             telegraph(f, screen_pos(g->boss.pos, camera), BOSS_STRIKE_RANGE, g->boss.angle,
@@ -897,9 +952,11 @@ void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool has_ta
             const Enemy *e = &g->boars[i];
             p = screen_pos(e->pos, camera);
             shadow(f, p, 17);
-            gfx_hit_sprite(f, &f->boar, (Vec2){p.x, p.y + 3}, 55, 48, e->pos.x < g->hero.pos.x,
-                           g->phase == PH_PLAY ? e->hit_time : 0);
+            gfx_enemy(f, &f->boar, (Vec2){p.x, p.y + 3}, 55, 48, e->pos.x < g->hero.pos.x, e,
+                      (EnemyTiming){BOAR_WINDUP_SECONDS, 0, BOAR_RECOVER_SECONDS}, g->time,
+                      g->phase == PH_PLAY);
             cover_actor(f, e->pos, camera, 55, 50);
+            if (e->hp <= 0) continue;
             if (e->hp < e->max_hp) {
                 gfx_rect(f, (SDL_FRect){p.x - 20, p.y - 55, 40, 4}, INK);
                 gfx_rect(f, (SDL_FRect){p.x - 20, p.y - 55, 40 * (float)e->hp / (float)e->max_hp, 4}, RED);
@@ -919,9 +976,11 @@ void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool has_ta
                 label(f, "허수아비", (Vec2){p.x, p.y - 78}, PAPER);
                 continue;
             }
-            gfx_hit_sprite(f, &f->boss, (Vec2){p.x, p.y + 7}, 83, 96, g->boss.pos.x < g->hero.pos.x,
-                           g->phase == PH_PLAY ? g->boss.hit_time : 0);
+            gfx_enemy(f, &f->boss, (Vec2){p.x, p.y + 7}, 83, 96, g->boss.pos.x < g->hero.pos.x, &g->boss,
+                      (EnemyTiming){BOSS_WINDUP_SECONDS, BOSS_SWING_SECONDS, 0}, g->time,
+                      g->phase == PH_PLAY);
             cover_actor(f, g->boss.pos, camera, 83, 98);
+            if (g->boss.hp <= 0) continue;
             if (g->boss.state == AI_RECOVER)
                 label(f, "빈틈", (Vec2){p.x, p.y - 98}, GOLD);
             else if (g->quest == Q_HUNT)

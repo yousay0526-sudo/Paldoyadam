@@ -35,6 +35,10 @@
 #define BOSS_WINDUP_SECONDS .95f
 #define BOSS_STRIKE_RANGE 109.0f
 #define BOSS_STRIKE_HALF 1.15f
+#define BOAR_RECOVER_SECONDS 1.15f
+#define BOSS_SWING_SECONDS .2f
+/* A defeated enemy stays on screen this long while it falls. */
+#define ENEMY_DEATH_SECONDS .6f
 #define MOVE_NONE -2
 #define MOVE_ATTACK -1
 /* One full left/right stride in world units, independent of frame rate. */
@@ -105,6 +109,8 @@ typedef struct {
     float timer, angle, hit_time;
     Route route;
     float repath;
+    /* Presentation only: distance walked (drives the gait) and fall time. */
+    float stride, dying;
 } Enemy;
 typedef struct {
     Vec2 pos;
