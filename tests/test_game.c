@@ -684,6 +684,53 @@ static void dust_events(void) {
     CHECK(game_damage(&g, &g.boars[1], 99, FX_HIT));
     CHECK(dust_count(&g, 3) == 1);
 }
+/* Knockback and stagger (approved): pushes decay to speed / KNOCK_DECAY,
+ * a technique breaks a boar windup, the butcher keeps its swing and barely
+ * moves, and a boar strike shoves the hero back through terrain rules. */
+static void knockback_and_stagger(void) {
+    Game g; game_reset(&g); game_start(&g);
+    g.traces[0] = g.traces[1] = true; g.quest = Q_RECOVER;
+    Enemy *e = &g.boars[0];
+    g.hero.pos = (Vec2){e->pos.x - 40, e->pos.y};
+    Vec2 start = e->pos;
+    e->state = AI_WINDUP; e->timer = .5f;
+    CHECK(game_damage(&g, e, 1, FX_HIT));
+    CHECK(e->state == AI_WINDUP && e->knock.x > 0 && fabsf(e->knock.y) < .001f);
+    g.hero.skilling = true; g.hero.technique = TECH_SWEEP;
+    CHECK(game_damage(&g, e, 1, FX_HIT));
+    CHECK(e->state == AI_RECOVER && e->timer == BOAR_STAGGER_SECONDS);
+    g.hero.skilling = false;
+    for (int i = 0; i < 24; i++) game_tick(&g, .025f, (Vec2){0, 0}); /* still recovering */
+    float pushed = e->pos.x - start.x;
+    CHECK(pushed > 10 && pushed < (70 + 140) / KNOCK_DECAY + .5f);
+    CHECK(e->knock.x < 1 && e->state == AI_RECOVER);
+    /* The butcher: a quarter of the push, and its windup is never broken. */
+    game_reset(&g); game_start(&g); g.quest = Q_COMBAT;
+    g.hero.pos = (Vec2){g.boss.pos.x - 60, g.boss.pos.y};
+    g.boss.state = AI_WINDUP; g.boss.timer = .9f;
+    g.hero.skilling = true; g.hero.technique = TECH_CLEAVE;
+    start = g.boss.pos;
+    CHECK(game_damage(&g, &g.boss, 1, FX_HIT));
+    CHECK(g.boss.state == AI_WINDUP && fabsf(g.boss.knock.x - 220 * KNOCK_BOSS_SCALE) < .01f);
+    g.hero.skilling = false;
+    for (int i = 0; i < 4; i++) game_tick(&g, .025f, (Vec2){0, 0});
+    CHECK(g.boss.pos.x > start.x && g.boss.pos.x - start.x < 220 * KNOCK_BOSS_SCALE / KNOCK_DECAY + .01f);
+    /* A boar strike pushes the hero away from the boar. */
+    game_reset(&g); game_start(&g);
+    g.traces[0] = g.traces[1] = true; g.quest = Q_RECOVER;
+    e = &g.boars[0];
+    g.hero.pos = (Vec2){e->pos.x - 50, e->pos.y};
+    e->state = AI_WINDUP; e->timer = .001f;
+    Vec2 hero = g.hero.pos;
+    for (int i = 0; i < 30; i++) game_tick(&g, .025f, (Vec2){0, 0});
+    CHECK(g.hero.hp < 100 && g.hero.pos.x < hero.x - 5 && g.hero.pos.x > hero.x - KNOCK_HERO_BOAR / KNOCK_DECAY - .5f);
+    /* Against a wall the push simply stops; it never tunnels. */
+    game_reset(&g); game_start(&g);
+    g.hero.pos = (Vec2){40, HOME.y};
+    g.hero.knock = (Vec2){-500, 0};
+    for (int i = 0; i < 20; i++) game_tick(&g, .025f, (Vec2){0, 0});
+    CHECK(g.hero.pos.x >= 28 && g.hero.knock.x == 0);
+}
 int main(void) {
     equipment_and_manual_combat();
     techniques_and_combos();
@@ -699,6 +746,7 @@ int main(void) {
     walking_motion();
     enemy_motion_and_falls();
     dust_events();
+    knockback_and_stagger();
     attack_motion();
     boar_strike_reach();
     printf(

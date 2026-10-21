@@ -85,7 +85,10 @@ static void victims_and_enemy_timing(void) {
     CHECK(g.hero.hp == 100 && g.boars[0].timer == .4f && distance(enemy, g.boars[0].pos) == 0);
     tick(&g, .03f);
     CHECK(near(g.boars[0].timer, .385f));
-    CHECK(distance(hero, g.hero.pos) == 0 && distance(enemy, g.boars[0].pos) == 0);
+    /* Approved knockback: after the stop the boar slides away from the hero
+     * (the hero is not pushed by its own hit), within the decaying total. */
+    CHECK(distance(hero, g.hero.pos) == 0 && g.boars[0].pos.x > enemy.x &&
+          fabsf(g.boars[0].pos.y - enemy.y) < .01f && g.boars[0].pos.x - enemy.x < 70 / KNOCK_DECAY + .01f);
     real_frames(&g, 12); CHECK(g.boars[0].hit_time == 0);
     /* Death/reward stays one-shot; a rejected repeated hit cannot extend the stop. */
     g.boars[0].hp = 1; int coins = g.coins;

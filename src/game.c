@@ -406,6 +406,21 @@ bool game_damage(Game *g, Enemy *e, int amount, EffectKind kind) {
         return false;
     e->hp = (int)fmaxf(0, (float)e->hp - (float)amount);
     e->hit_time = HIT_FLASH_SECONDS;
+    if (!g->training.active) {
+        /* Push away from the hero; heavier techniques push further. */
+        const float speeds[TECH_COUNT] = {220, 140, 160, 110};
+        float speed = kind == FX_WIND ? 40 : g->hero.skilling ? speeds[g->hero.technique] : 70;
+        if (e == &g->boss) speed *= KNOCK_BOSS_SCALE;
+        float d = distance(e->pos, g->hero.pos);
+        Vec2 away = d > .001f ? (Vec2){(e->pos.x - g->hero.pos.x) / d, (e->pos.y - g->hero.pos.y) / d}
+                              : (Vec2){cosf(g->hero.attack_angle), sinf(g->hero.attack_angle)};
+        e->knock = (Vec2){e->knock.x + away.x * speed, e->knock.y + away.y * speed};
+        if (e != &g->boss && kind != FX_WIND && g->hero.skilling && e->state == AI_WINDUP) {
+            e->state = AI_RECOVER;
+            e->timer = BOAR_STAGGER_SECONDS;
+        } else if (e != &g->boss && e->state == AI_CHASE)
+            e->timer = fmaxf(e->timer, .25f);
+    }
     float stop = kind == FX_WIND ? HITSTOP_WIND_SECONDS
         : g->hero.skilling && g->hero.technique == TECH_CLEAVE
             ? HITSTOP_HEAVY_SECONDS : HITSTOP_LIGHT_SECONDS;
@@ -442,13 +457,21 @@ bool game_damage(Game *g, Enemy *e, int amount, EffectKind kind) {
     }
     return true;
 }
+static void hurt_from(Game *g, int amount, bool bleed, Vec2 from, float push);
 void game_hurt(Game *g, int amount, bool bleed) {
+    hurt_from(g, amount, bleed, g->hero.pos, 0);
+}
+/* Taking a hit also shoves the hero away from the attacker. */
+static void hurt_from(Game *g, int amount, bool bleed, Vec2 from, float push) {
     if (g->training.active || g->phase != PH_PLAY || g->hero.hp <= 0 || g->hero.invul > 0 || amount <= 0)
         return;
     amount = (int)fmaxf(1, (float)amount - (g->armor ? 3.0f : 0));
     g->hero.hp = (int)fmaxf(0, (float)g->hero.hp - amount);
     g->hero.invul = .75f;
     g->hero.hurt_time = HIT_FLASH_SECONDS;
+    float d = distance(g->hero.pos, from);
+    if (push > 0 && d > .001f)
+        g->hero.knock = (Vec2){(g->hero.pos.x - from.x) / d * push, (g->hero.pos.y - from.y) / d * push};
     g->hitstop_time = fmaxf(g->hitstop_time, HITSTOP_HURT_SECONDS);
     if (bleed) {
         g->hero.bleed = 5;
@@ -532,6 +555,7 @@ void game_recover(Game *g) {
     memset(g->technique_cooldowns, 0, sizeof g->technique_cooldowns);
     g->hero.hp = g->hero.max_hp;
     g->hero.bleed = g->hero.invul = 0;
+    g->hero.knock = (Vec2){0, 0};
     if (g->quest == Q_COMBAT) {
         g->boss = make_enemy(BOSS_HOME, 240);
         g->quest = Q_HUNT;
@@ -561,6 +585,7 @@ void game_retry(Game *g) {
     memset(g->technique_cooldowns, 0, sizeof g->technique_cooldowns);
     g->hero.hp = 100;
     g->hero.bleed = g->hero.invul = 0;
+    g->hero.knock = (Vec2){0, 0};
     g->boss = make_enemy(BOSS_HOME, 240);
     g->cooldown = g->item_cooldown = 0;
     g->attack_cooldown = .4f;
@@ -602,7 +627,7 @@ static void tick_boar(Game *g, Enemy *e, float dt) {
     case AI_WINDUP:
         if (e->timer <= 0) {
             if (d < BOAR_STRIKE_RANGE && world_segment(e->pos, g->hero.pos, 0))
-                game_hurt(g, 9, false);
+                hurt_from(g, 9, false, e->pos, KNOCK_HERO_BOAR);
             e->state = AI_RECOVER;
             e->timer = BOAR_RECOVER_SECONDS;
         }
@@ -644,7 +669,7 @@ static void tick_boss(Game *g, float dt) {
             effect(g, (Effect){.kind = FX_BOSS_SWING, .pos = e->pos, .angle = e->angle, .life = .25f});
             float a = atan2f(g->hero.pos.y - e->pos.y, g->hero.pos.x - e->pos.x) - e->angle;
             if (d < BOSS_STRIKE_RANGE && fabsf(atan2f(sinf(a), cosf(a))) < BOSS_STRIKE_HALF && world_segment(e->pos, g->hero.pos, 0))
-                game_hurt(g, 18, true);
+                hurt_from(g, 18, true, e->pos, KNOCK_HERO_BOSS);
         }
         break;
     case AI_SWING:
@@ -954,6 +979,16 @@ static void tick_falls(Game *g, float dt) {
     for (int i = 0; i < BOAR_COUNT; i++)
         g->boars[i].dying = fmaxf(0, g->boars[i].dying - dt);
 }
+/* Integrate the decaying push exactly over dt, through terrain collision. */
+static void knock_back(Vec2 *pos, Vec2 *knock, float radius, float dt) {
+    if (fabsf(knock->x) + fabsf(knock->y) < .5f) { *knock = (Vec2){0, 0}; return; }
+    float keep = expf(-KNOCK_DECAY * dt), travel = (1 - keep) / KNOCK_DECAY;
+    Vec2 before = *pos;
+    *pos = world_move(*pos, (Vec2){knock->x * travel, knock->y * travel}, radius);
+    if (distance(before, *pos) < .001f) { *knock = (Vec2){0, 0}; return; }
+    knock->x *= keep;
+    knock->y *= keep;
+}
 void game_tick(Game *g, float dt, Vec2 input) {
     if (!isfinite(dt) || !isfinite(input.x) || !isfinite(input.y))
         return;
@@ -1001,6 +1036,10 @@ void game_tick(Game *g, float dt, Vec2 input) {
     if (g->hero.walking && (int)(stepped * 2) != (int)(g->hero.walk_cycle * 2))
         effect(g, (Effect){.kind = FX_DUST, .pos = g->hero.pos, .life = .35f, .amount = 1,
                            .angle = atan2f(g->hero.dir.y, g->hero.dir.x)});
+    knock_back(&g->hero.pos, &g->hero.knock, HERO_RADIUS, dt);
+    knock_back(&g->boss.pos, &g->boss.knock, BOSS_RADIUS, dt);
+    for (int i = 0; i < BOAR_COUNT; i++)
+        knock_back(&g->boars[i].pos, &g->boars[i].knock, BOAR_RADIUS, dt);
     g->cooldown = fmaxf(0, g->cooldown - dt);
     for (int i = 0; i < TECH_COUNT; i++)
         g->technique_cooldowns[i] = fmaxf(0, g->technique_cooldowns[i] - dt);
