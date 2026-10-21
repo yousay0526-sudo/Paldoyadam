@@ -61,8 +61,11 @@ static void directional_trails(Gfx *gfx, SDL_Surface *surface, Uint32 *pixels) {
             h->attack_hit = h->skill_hit = true;
             h->impact_start = h->impact_origin = h->pos;
             if (move == TECH_RETREAT) h->pos.x -= 36;
+            SDL_BlendMode before, after;
+            CHECK(SDL_GetRenderDrawBlendMode(gfx->renderer, &before) == 0);
             SDL_SetRenderDrawColor(gfx->renderer, 11, 15, 19, 255); SDL_RenderClear(gfx->renderer);
             gfx_attack_trace(gfx, &game, (Vec2){144,166});
+            CHECK(SDL_GetRenderDrawBlendMode(gfx->renderer, &after) == 0 && after == before);
             CHECK(SDL_RenderReadPixels(gfx->renderer, NULL, surface->format->format, pixels, surface->pitch) == 0);
             float cx = 144 + h->impact_origin.x - h->pos.x, cy = 144;
             float radius = game_attack_range(&game, move), half = game_attack_half_angle(move);
@@ -76,6 +79,16 @@ static void directional_trails(Gfx *gfx, SDL_Surface *surface, Uint32 *pixels) {
                 if (r > radius + 2 || (r > 5 && delta > half + .25f)) wrong++;
             }
             CHECK(visible > 80 && wrong == 0);
+            /* The swing shows no hitbox before impact, and fades away after. */
+            for (int phase = 0; phase < 2; phase++) {
+                h->attack_hit = h->skill_hit = phase == 1;
+                h->attack_elapsed = phase ? HERO_ATTACK_SECONDS - .001f : HERO_ATTACK_IMPACT - .01f;
+                h->skill_elapsed = phase ? HERO_SKILL_SECONDS - .001f : HERO_SKILL_IMPACT - .01f;
+                SDL_SetRenderDrawColor(gfx->renderer, 11, 15, 19, 255); SDL_RenderClear(gfx->renderer);
+                gfx_attack_trace(gfx, &game, (Vec2){144,166});
+                CHECK(SDL_RenderReadPixels(gfx->renderer, NULL, surface->format->format, pixels, surface->pitch) == 0);
+                for (int i = 0; i < surface->w * surface->h; i++) CHECK(pixels[i] == background);
+            }
         }
     }
     /* No world-space trail while a menu pauses the attack. */
