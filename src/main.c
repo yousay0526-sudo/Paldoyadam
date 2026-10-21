@@ -85,6 +85,10 @@ typedef struct {
     /* HUD health trails: lost health lingers briefly, then drains away. */
     float hero_ghost, boss_ghost, hero_hold, boss_hold;
     int hero_seen, boss_seen;
+    /* Camera: a smoothed focus that leads the walk, plus impact shake. */
+    Vec2 view_focus;
+    bool view_ready;
+    float trauma, shake_clock;
     Uint64 previous_frame;
     double timer_frequency;
 } App;
@@ -1061,18 +1065,71 @@ static void resize(App *a) {
         stop_input(a);
     SDL_RenderSetScale(a->renderer, (float)ow / a->width, (float)oh / a->height);
 }
-static void draw(App *a) {
-    resize(a);
-    a->button_count = 0;
+static Vec2 camera_target(const App *a) {
     Vec2 focus = a->game.phase == PH_TITLE || a->game.phase == PH_PROLOGUE ? HOME : a->game.hero.pos;
     if (a->game.training.active) {
         focus.x += a->width * .02f / WORLD_ZOOM;
         focus.y -= a->height * (a->width < 680 ? .30f : .12f) / WORLD_ZOOM;
     }
+    return focus;
+}
+/* Ease toward the hero, slightly ahead of a walk. Scene changes and
+ * teleports (recovery, training, retry) snap so the view never sweeps. */
+static void follow_view(App *a, float dt) {
+    Vec2 target = camera_target(a);
+    if (a->game.phase == PH_PLAY && a->game.hero.walking) {
+        target.x += a->game.hero.dir.x * 16;
+        target.y += a->game.hero.dir.y * 16;
+    }
+    if (!a->view_ready || a->game.phase != PH_PLAY || distance(a->view_focus, target) > 240) {
+        a->view_focus = target;
+        a->view_ready = true;
+        return;
+    }
+    float k = 1 - expf(-11 * dt);
+    a->view_focus.x += (target.x - a->view_focus.x) * k;
+    a->view_focus.y += (target.y - a->view_focus.y) * k;
+}
+/* Collect each actor's hit flash; a rise means a hit landed this frame. */
+static void hit_marks(const Game *g, float marks[2 + BOAR_COUNT]) {
+    marks[0] = g->hero.hurt_time;
+    marks[1] = g->boss.hit_time;
+    for (int i = 0; i < BOAR_COUNT; i++) marks[2 + i] = g->boars[i].hit_time;
+}
+static void add_shake(App *a, const float before[2 + BOAR_COUNT], float dt) {
+    float after[2 + BOAR_COUNT];
+    hit_marks(&a->game, after);
+    float push = 0;
+    if (after[0] > before[0] + .0001f) push = .6f;
+    for (int i = 1; i < 2 + BOAR_COUNT; i++)
+        if (after[i] > before[i] + .0001f)
+            push = fmaxf(push, a->game.hero.skilling && a->game.hero.technique == TECH_CLEAVE ? .55f : .3f);
+    a->trauma = fminf(1, fmaxf(0, a->trauma - 1.8f * dt) + push);
+    a->shake_clock += dt;
+    if (a->game.phase != PH_PLAY) a->trauma = 0;
+}
+/* Shake grows with trauma squared; the view stays on the map and on whole
+ * device pixels so the nearest-sampled painting does not shimmer. */
+static Vec2 view_camera(const App *a, float w, float h, float scale) {
+    Vec2 camera = world_camera(w, h, a->view_ready ? a->view_focus : camera_target(a));
+    float amount = a->trauma * a->trauma * 10, t = a->shake_clock;
+    camera.x += amount * (sinf(t * 47) * .6f + sinf(t * 83 + 1.3f) * .4f);
+    camera.y += amount * (sinf(t * 53 + 2.1f) * .6f + sinf(t * 71 + .4f) * .4f);
+    if (scale > 0) {
+        camera.x = roundf(camera.x * scale) / scale;
+        camera.y = roundf(camera.y * scale) / scale;
+    }
+    if (w < WORLD_W) camera.x = clampf(camera.x, 0, WORLD_W - w);
+    if (h < WORLD_H) camera.y = clampf(camera.y, 0, WORLD_H - h);
+    return camera;
+}
+static void draw(App *a) {
+    resize(a);
+    a->button_count = 0;
     float scale_x, scale_y;
     SDL_RenderGetScale(a->renderer, &scale_x, &scale_y);
     SDL_RenderSetScale(a->renderer, scale_x * WORLD_ZOOM, scale_y * WORLD_ZOOM);
-    a->camera = world_camera(a->width / WORLD_ZOOM, a->height / WORLD_ZOOM, focus);
+    a->camera = view_camera(a, a->width / WORLD_ZOOM, a->height / WORLD_ZOOM, scale_x * WORLD_ZOOM);
     gfx_world(&a->gfx, &a->game, a->width / WORLD_ZOOM, a->height / WORLD_ZOOM,
               a->camera, a->target_set, a->target);
     if (a->debug_collision) {
@@ -1485,9 +1542,13 @@ static void frame(App *a) {
     if (a->width > a->height) {
         if (a->game.phase == PH_PROLOGUE)
             a->story_elapsed += clampf(dt, 0, .05f);
+        float marks[2 + BOAR_COUNT];
+        hit_marks(&a->game, marks);
         combat_tick(a, dt);
         game_tick(&a->game, dt, input(a, dt));
         float wall = clampf(dt, 0, .05f);
+        add_shake(a, marks, wall);
+        follow_view(a, wall);
         trail_health(&a->hero_ghost, &a->hero_hold, &a->hero_seen, a->game.hero.hp,
                      a->game.hero.max_hp, wall);
         trail_health(&a->boss_ghost, &a->boss_hold, &a->boss_seen, a->game.boss.hp,
