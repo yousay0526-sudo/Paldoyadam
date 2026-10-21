@@ -4,8 +4,16 @@
 #include "game.h"
 #include "stb_truetype.h"
 
-/* Uniform world zoom enlarges actors and scenery together; UI stays unchanged. */
-#define WORLD_ZOOM 1.20f
+/* World zoom follows the screen height so every screen shows about the same
+ * slice of the world: phones (390 tall) stay at 1, a 1080p window zooms to
+ * 2.4. It enlarges actors and scenery together; UI stays unchanged. */
+#define ZOOM_VIEW_HEIGHT 450.0f
+#define ZOOM_MIN 1.0f
+#define ZOOM_MAX 3.0f
+/* Actors are drawn this much larger than the scenery's own scale so they
+ * match its doors, steps and tables. Drawing only; hit areas, ranges and
+ * collision stay in world units. */
+#define ACTOR_SCALE 1.4f
 
 /* Clockwise, starting at the back view. Each view is independently authored. */
 typedef enum {
@@ -79,5 +87,6 @@ void gfx_collision(Gfx *gfx, Vec2 camera);
 void gfx_world(Gfx *gfx, const Game *game, float width, float height, Vec2 camera,
                bool target_set, Vec2 target);
 Vec2 world_camera(float width, float height, Vec2 focus);
-Vec2 world_from_screen(Vec2 screen, Vec2 camera);
+float world_zoom(float screen_height);
+Vec2 world_from_screen(Vec2 screen, Vec2 camera, float zoom);
 #endif

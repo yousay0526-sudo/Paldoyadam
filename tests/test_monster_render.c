@@ -74,7 +74,7 @@ int main(int argc, char **argv) {
             CHECK(memcmp(&before,&e,sizeof e)==0); read_pixels(r,surface,actual);
             Picture *p=&gfx->monster_atlases[atlas];
             SDL_Rect src={pose==0?d%4*192:frame*192,pose==0?d/4*192:d*192,192,192};
-            float size=(boss?110:60)*monster_draw_scale[atlas][d];
+            float size=(boss?110:60)*ACTOR_SCALE*monster_draw_scale[atlas][d];
             SDL_FRect dest={feet.x-size*sx*.5f+dx,feet.y-size*sy*176/192+dy,size*sx,size*sy};
             clear(r); CHECK(SDL_RenderCopyF(r,p->texture,&src,&dest)==0);
             read_pixels(r,surface,expected); CHECK(memcmp(actual,expected,bytes)==0);

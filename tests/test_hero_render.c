@@ -61,10 +61,12 @@ static void directional_trails(Gfx *gfx, SDL_Surface *surface, Uint32 *pixels) {
             h->attack_hit = h->skill_hit = true;
             h->impact_start = h->impact_origin = h->pos;
             if (move == TECH_RETREAT) h->pos.x -= 36;
+            /* The trail rises to chest height, which grows with the actor. */
+            Vec2 feet = {144, 144 + 22 * ACTOR_SCALE};
             SDL_BlendMode before, after;
             CHECK(SDL_GetRenderDrawBlendMode(gfx->renderer, &before) == 0);
             SDL_SetRenderDrawColor(gfx->renderer, 11, 15, 19, 255); SDL_RenderClear(gfx->renderer);
-            gfx_attack_trace(gfx, &game, (Vec2){144,166});
+            gfx_attack_trace(gfx, &game, feet);
             CHECK(SDL_GetRenderDrawBlendMode(gfx->renderer, &after) == 0 && after == before);
             CHECK(SDL_RenderReadPixels(gfx->renderer, NULL, surface->format->format, pixels, surface->pitch) == 0);
             float cx = 144 + h->impact_origin.x - h->pos.x, cy = 144;
@@ -85,7 +87,7 @@ static void directional_trails(Gfx *gfx, SDL_Surface *surface, Uint32 *pixels) {
                 h->attack_elapsed = phase ? HERO_ATTACK_SECONDS - .001f : HERO_ATTACK_IMPACT - .01f;
                 h->skill_elapsed = phase ? HERO_SKILL_SECONDS - .001f : HERO_SKILL_IMPACT - .01f;
                 SDL_SetRenderDrawColor(gfx->renderer, 11, 15, 19, 255); SDL_RenderClear(gfx->renderer);
-                gfx_attack_trace(gfx, &game, (Vec2){144,166});
+                gfx_attack_trace(gfx, &game, feet);
                 CHECK(SDL_RenderReadPixels(gfx->renderer, NULL, surface->format->format, pixels, surface->pitch) == 0);
                 for (int i = 0; i < surface->w * surface->h; i++) CHECK(pixels[i] == background);
             }
@@ -131,7 +133,8 @@ static void technique_atlases(Gfx *gfx, SDL_Surface *surface, Uint32 *pixels, Ui
                     game.hero.attack_face = face;
                     capture(gfx, &game, surface, pixels);
                     float root = face > 0 ? 1 - 116.0f / 192 : 116.0f / 192;
-                    SDL_FRect dest = {48 - root * 80, 72 - 176.0f / 192 * 80, 80, 80};
+                    float box = 80 * ACTOR_SCALE;
+                    SDL_FRect dest = {48 - root * box, 72 - 176.0f / 192 * box, box, box};
                     SDL_SetRenderDrawColor(gfx->renderer, 11, 15, 19, 255);
                     SDL_RenderClear(gfx->renderer);
                     SDL_RenderCopyExF(gfx->renderer, p->texture, &source, &dest, 0,
@@ -294,7 +297,8 @@ static void eight_direction_motion(Gfx *gfx, SDL_Surface *surface, Uint32 *pixel
                 Picture *p = frame < 0 ? &gfx->hero_idle_directions : walk;
                 int cell = frame < 0 ? d : frame;
                 SDL_Rect source = {cell%4*192,cell/4*192,192,192};
-                SDL_FRect dest = {20,72-176.0f/192*56,56,56};
+                float box = 56 * ACTOR_SCALE;
+                SDL_FRect dest = {48-box/2,72-176.0f/192*box,box,box};
                 SDL_SetRenderDrawColor(gfx->renderer,11,15,19,255); SDL_RenderClear(gfx->renderer);
                 SDL_RenderCopyExF(gfx->renderer,p->texture,&source,&dest,0,NULL,SDL_FLIP_NONE);
                 CHECK(SDL_RenderReadPixels(gfx->renderer,NULL,surface->format->format,expected,surface->pitch) == 0);
@@ -309,7 +313,8 @@ static void eight_direction_motion(Gfx *gfx, SDL_Surface *surface, Uint32 *pixel
                 for (int y=0;y<surface->h;y++) for (int x=0;x<surface->w;x++) {
                     if (pixels[y*surface->w+x] == background) continue;
                     visible++;
-                    if (x<20*scale || x>=76*scale || y<20*scale || y>=77*scale) outside++;
+                    if (x<floorf(dest.x)*scale || x>=ceilf(dest.x+dest.w)*scale ||
+                        y<floorf(dest.y)*scale || y>=77*scale) outside++;
                 }
                 CHECK(visible>100 && outside==0);
                 game.hero.hurt_time=HIT_FLASH_SECONDS;

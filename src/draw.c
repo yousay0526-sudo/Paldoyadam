@@ -549,7 +549,7 @@ SDL_FRect gfx_enemy(Gfx *f, const Enemy *e, Vec2 feet, bool boss, float time, bo
     bool idle = atlas == MONSTER_BOAR_IDLE || atlas == MONSTER_BUTCHER_IDLE;
     SDL_Rect source = {idle ? direction % 4 * 192 : frame * 192,
                        idle ? direction / 4 * 192 : direction * 192, 192, 192};
-    float size = (boss ? 110 : 60) * monster_draw_scale[atlas][direction];
+    float size = (boss ? 110 : 60) * ACTOR_SCALE * monster_draw_scale[atlas][direction];
     float sx = 1, sy = 1, dx = 0, dy = 0, tilt = 0;
     Uint8 alpha = 255;
     if (e->hp <= 0) {
@@ -664,14 +664,14 @@ void gfx_attack_trace(Gfx *f, const Game *g, Vec2 feet) {
     float sweep = 1 - reveal * reveal * reveal, wipe = (1 - fade) * .8f;
     float radius = game_attack_range(g, move), half = game_attack_half_angle(move);
     Vec2 origin = h->impact_origin, start = h->impact_start;
-    Vec2 center = {feet.x + origin.x - h->pos.x, feet.y + origin.y - h->pos.y - 22};
+    Vec2 center = {feet.x + origin.x - h->pos.x, feet.y + origin.y - h->pos.y - 22 * ACTOR_SCALE};
     SDL_BlendMode previous;
     SDL_GetRenderDrawBlendMode(f->renderer, &previous);
     SDL_SetRenderDrawBlendMode(f->renderer, SDL_BLENDMODE_ADD);
     const SDL_Color glow = {120, 170, 205, 190}, edge = {235, 248, 255, 255};
     if (distance(origin, start) > .01f) {
         /* Forward moves leave a short dash streak from where the step began. */
-        Vec2 from = {feet.x + start.x - h->pos.x, feet.y + start.y - h->pos.y - 22};
+        Vec2 from = {feet.x + start.x - h->pos.x, feet.y + start.y - h->pos.y - 22 * ACTOR_SCALE};
         float dash = distance(from, center), along = atan2f(center.y - from.y, center.x - from.x);
         if (dash > 1)
             slash_streak(f, from, 0, dash, along, 5, glow, .55f * fade);
@@ -721,20 +721,22 @@ void gfx_hero(Gfx *f, const Game *g, Vec2 feet) {
     /* Idle/walk never reflect: the sword stays in the anatomical right hand.
      * Hero.dir already retains the last movement input, including while idle. */
     bool flip = attack >= 0 && g->hero.attack_face > 0;
-    SDL_FRect dest = {feet.x - 28, feet.y - 176.0f / 192 * 56, 56, 56};
+    float box = 56 * ACTOR_SCALE;
+    SDL_FRect dest = {feet.x - box / 2, feet.y - 176.0f / 192 * box, box, box};
     if (skill >= 0) {
         /* All prepared techniques share this foot root and scale. The source
          * poses already contain their lean; rotating them would move the feet. */
         float root_x = 116.0f / 192;
         if (flip) root_x = 1 - root_x;
-        dest = (SDL_FRect){feet.x - root_x * 80, feet.y - 176.0f / 192 * 80, 80, 80};
+        box = 80 * ACTOR_SCALE;
+        dest = (SDL_FRect){feet.x - root_x * box, feet.y - 176.0f / 192 * box, box, box};
     } else if (attack >= 0) {
         /* Atlas-space roots keep the supporting foot planted through the swing.
          * These anchors are also the alignment contract for future equipment layers. */
         const Vec2 roots[HERO_ATTACK_FRAMES] = {
             {290, 470}, {264, 470}, {310, 470}, {340, 455}, {280, 464}, {300, 465}};
         const float fit[HERO_ATTACK_FRAMES] = {1, 1, 1, 1, .95f, .88f};
-        float size = 64 * fit[attack];
+        float size = 64 * ACTOR_SCALE * fit[attack];
         float root_x = roots[attack].x / 512;
         if (flip) root_x = 1 - root_x;
         dest = (SDL_FRect){feet.x - root_x * size,
@@ -791,8 +793,11 @@ Vec2 world_camera(float w, float h, Vec2 p) {
     return (Vec2){w >= WORLD_W ? (WORLD_W - w) / 2 : clampf(p.x - w / 2, 0, WORLD_W - w),
                   h >= WORLD_H ? (WORLD_H - h) / 2 : clampf(p.y - h / 2, 0, WORLD_H - h)};
 }
-Vec2 world_from_screen(Vec2 p, Vec2 camera) {
-    return (Vec2){p.x / WORLD_ZOOM + camera.x, p.y / WORLD_ZOOM + camera.y};
+float world_zoom(float screen_height) {
+    return clampf(screen_height / ZOOM_VIEW_HEIGHT, ZOOM_MIN, ZOOM_MAX);
+}
+Vec2 world_from_screen(Vec2 p, Vec2 camera, float zoom) {
+    return (Vec2){p.x / zoom + camera.x, p.y / zoom + camera.y};
 }
 static Vec2 screen_pos(Vec2 p, Vec2 camera) {
     return (Vec2){p.x - camera.x, p.y - camera.y};
@@ -1014,34 +1019,36 @@ void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool has_ta
         Vec2 p;
         if (actors[a].kind == 0) {
             p = screen_pos(NPCS[i].pos, camera);
-            shadow(f, p, 11, 1);
+            float tall = 46 * ACTOR_SCALE;
+            shadow(f, p, 11 * ACTOR_SCALE, 1);
             if (i == MESSENGER)
-                gfx_sprite(f, &f->messenger, p, 46, 46, false);
+                gfx_sprite(f, &f->messenger, p, tall, tall, false);
             else {
-                SDL_FRect r = {p.x - 46 * (float)cells[i].w / 724 / 2, p.y - 46, 46 * (float)cells[i].w / 724,
-                               46};
+                SDL_FRect r = {p.x - tall * (float)cells[i].w / 724 / 2, p.y - tall, tall * (float)cells[i].w / 724,
+                               tall};
                 SDL_RenderCopyF(f->renderer, f->npcs.texture, &crops[i], &r);
             }
-            cover_actor(f, NPCS[i].pos, camera, 46, 48);
-            label(f, i == ELDER ? NPCS[i].name : NPCS[i].role, (Vec2){p.x, p.y - 69}, PAPER);
+            cover_actor(f, NPCS[i].pos, camera, tall, 48 * ACTOR_SCALE);
+            label(f, i == ELDER ? NPCS[i].name : NPCS[i].role, (Vec2){p.x, p.y - tall - 23}, PAPER);
             if (distance(game_objective(g), NPCS[i].pos) < 1)
-                marker(f, (Vec2){p.x, p.y - 79 + sinf(g->time * 3) * 2});
+                marker(f, (Vec2){p.x, p.y - tall - 33 + sinf(g->time * 3) * 2});
         } else if (actors[a].kind == 1) {
             const Enemy *e = &g->boars[i];
             p = screen_pos(e->pos, camera);
-            shadow(f, p, 17, e->hp > 0 ? 1 : clampf(e->dying / ENEMY_DEATH_SECONDS, 0, 1));
+            shadow(f, p, 17 * ACTOR_SCALE, e->hp > 0 ? 1 : clampf(e->dying / ENEMY_DEATH_SECONDS, 0, 1));
             SDL_FRect bounds = gfx_enemy(f, e, (Vec2){p.x, p.y + 3}, false, g->time, g->phase == PH_PLAY, e->pos.x < g->hero.pos.x);
             bounds.x += camera.x; bounds.y += camera.y;
             cover_region(f, e->pos, camera, bounds);
             if (e->hp <= 0) continue;
             if (e->hp < e->max_hp) {
-                gfx_rect(f, (SDL_FRect){p.x - 20, p.y - 55, 40, 4}, INK);
-                gfx_rect(f, (SDL_FRect){p.x - 20, p.y - 55, 40 * (float)e->hp / (float)e->max_hp, 4}, RED);
+                float bar = p.y - 50 * ACTOR_SCALE - 5;
+                gfx_rect(f, (SDL_FRect){p.x - 20, bar, 40, 4}, INK);
+                gfx_rect(f, (SDL_FRect){p.x - 20, bar, 40 * (float)e->hp / (float)e->max_hp, 4}, RED);
             } else
-                label(f, "변이한 멧돼지", (Vec2){p.x, p.y - 65}, (SDL_Color){219, 186, 162, 255});
+                label(f, "변이한 멧돼지", (Vec2){p.x, p.y - 50 * ACTOR_SCALE - 15}, (SDL_Color){219, 186, 162, 255});
         } else if (actors[a].kind == 2) {
             p = screen_pos(g->boss.pos, camera);
-            shadow(f, p, 23, g->boss.hp > 0 || g->training.active ? 1 : clampf(g->boss.dying / ENEMY_DEATH_SECONDS, 0, 1));
+            shadow(f, p, 23 * ACTOR_SCALE, g->boss.hp > 0 || g->training.active ? 1 : clampf(g->boss.dying / ENEMY_DEATH_SECONDS, 0, 1));
             if (g->training.active) {
                 SDL_Color straw = g->boss.hit_time > 0 ? PAPER : GOLD;
                 float sway = g->training.hit_time > 0 ? sinf(g->training.hit_time * 55) * 3 : 0;
@@ -1058,18 +1065,18 @@ void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool has_ta
             cover_region(f, g->boss.pos, camera, bounds);
             if (g->boss.hp <= 0) continue;
             if (g->boss.state == AI_RECOVER)
-                label(f, "빈틈", (Vec2){p.x, p.y - 98}, GOLD);
+                label(f, "빈틈", (Vec2){p.x, p.y - 98 * ACTOR_SCALE}, GOLD);
             else if (g->quest == Q_HUNT)
-                label(f, "변이한 백정", (Vec2){p.x, p.y - 98}, PAPER);
+                label(f, "변이한 백정", (Vec2){p.x, p.y - 98 * ACTOR_SCALE}, PAPER);
         } else {
             p = screen_pos(g->hero.pos, camera);
-            shadow(f, p, 10, 1);
+            shadow(f, p, 10 * ACTOR_SCALE, 1);
             gfx_hero(f, g, p);
             /* A faint silhouette keeps the player readable behind tall scenery. */
             SDL_SetTextureAlphaMod(f->map.texture, 205);
             cover_actor(f, g->hero.pos, camera,
-                        g->hero.skilling ? 180 : g->hero.attacking ? 96 : 56,
-                        g->hero.skilling ? 110 : g->hero.attacking ? 64 : 48);
+                        (g->hero.skilling ? 180 : g->hero.attacking ? 96 : 56) * ACTOR_SCALE,
+                        (g->hero.skilling ? 110 : g->hero.attacking ? 64 : 48) * ACTOR_SCALE);
             SDL_SetTextureAlphaMod(f->map.texture, 255);
         }
     }
@@ -1100,17 +1107,17 @@ void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool has_ta
             /* A shock ring expanding from the strike point. */
             float t = clampf(1 - e->life / .30f, 0, 1), grow = 1 - (1 - t) * (1 - t);
             c.a = (Uint8)(220 * (1 - t));
-            gfx_circle(f, (Vec2){p.x, p.y - 13}, 18 + 30 * grow, c);
+            gfx_circle(f, (Vec2){p.x, p.y - 13 * ACTOR_SCALE}, 18 + 30 * grow, c);
             c.a = (Uint8)(120 * (1 - t));
-            gfx_circle(f, (Vec2){p.x, p.y - 13}, 12 + 22 * grow, c);
+            gfx_circle(f, (Vec2){p.x, p.y - 13 * ACTOR_SCALE}, 12 + 22 * grow, c);
         }
         else if (e->kind == FX_WIND)
-            gfx_line(f, (Vec2){p.x, p.y - 17}, (Vec2){q.x, q.y - 22}, (SDL_Color){204, 238, 203, 255});
+            gfx_line(f, (Vec2){p.x, p.y - 17 * ACTOR_SCALE}, (Vec2){q.x, q.y - 22 * ACTOR_SCALE}, (SDL_Color){204, 238, 203, 255});
         else if (e->kind == FX_BOSS_SWING)
             gfx_sector(f, p, 65, e->angle, 1.1f, (SDL_Color){244, 178, 154, 100});
         else {
             float fade = clampf(e->life / .25f, 0, 1), radius = 5 + 10 * (1 - fade);
-            Vec2 center = {q.x, q.y - 24};
+            Vec2 center = {q.x, q.y - 24 * ACTOR_SCALE};
             SDL_Color light = e->damage ? (SDL_Color){255, 190, 155, (Uint8)(255 * fade)}
                                        : (SDL_Color){255, 239, 195, (Uint8)(255 * fade)};
             for (int ray = 0; ray < 6; ray++) {
