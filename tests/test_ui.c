@@ -164,6 +164,29 @@ static void training_controls_fit(App *app) {
     for (int index = 0; index < app->button_count; index++) returns += app->buttons[index].action == ACT_TITLE;
     CHECK(returns == 1);
 }
+/* Lost health lingers as a pale trail, then drains to the real value;
+ * healing and a fresh fight snap the trail up immediately. */
+static void health_trails(void) {
+    float ghost = 0, hold = 0;
+    int seen = 0;
+    trail_health(&ghost, &hold, &seen, 100, 100, .016f);
+    CHECK(ghost == 100 && hold == 0);
+    trail_health(&ghost, &hold, &seen, 82, 100, .016f);
+    CHECK(ghost == 100 && hold > .3f);
+    for (int i = 0; i < 20; i++) trail_health(&ghost, &hold, &seen, 82, 100, .016f);
+    CHECK(ghost == 100);
+    for (int i = 0; i < 5; i++) trail_health(&ghost, &hold, &seen, 82, 100, .016f);
+    CHECK(ghost > 82 && ghost < 100);
+    for (int i = 0; i < 60; i++) trail_health(&ghost, &hold, &seen, 82, 100, .016f);
+    CHECK(ghost == 82 && hold == 0);
+    trail_health(&ghost, &hold, &seen, 127, 100, .016f);
+    CHECK(ghost == 127);
+    /* A second hit while the trail lingers restarts the pause, keeping the old top. */
+    trail_health(&ghost, &hold, &seen, 100, 100, .016f);
+    for (int i = 0; i < 10; i++) trail_health(&ghost, &hold, &seen, 100, 100, .016f);
+    trail_health(&ghost, &hold, &seen, 90, 100, .016f);
+    CHECK(ghost == 127 && hold > .3f);
+}
 int main(int argc,char **argv) {
     SDL_SetMainReady();
     SDL_setenv("SDL_VIDEODRIVER","dummy",1);
@@ -173,6 +196,7 @@ int main(int argc,char **argv) {
     if (!surface || !a) return 1;
     a->renderer = SDL_CreateSoftwareRenderer(surface);
     if (!a->renderer || !gfx_load(&a->gfx,a->renderer,argc > 1 ? argv[1] : "assets")) return 1;
+    health_trails();
     all_narratives(a);
     panel_controls_fit(a);
     training_controls_fit(a);

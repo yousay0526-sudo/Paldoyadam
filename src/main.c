@@ -82,6 +82,9 @@ typedef struct {
     Uint64 secret_started, secret_last;
     int secret_taps;
     Route route;
+    /* HUD health trails: lost health lingers briefly, then drains away. */
+    float hero_ghost, boss_ghost, hero_hold, boss_hold;
+    int hero_seen, boss_seen;
     Uint64 previous_frame;
     double timer_frequency;
 } App;
@@ -514,6 +517,22 @@ static void draw_notification(App *a) {
     gfx_label(f, g->toast, r, size, (SDL_Color){228, 218, 192, (Uint8)(255 * fade)});
     SDL_RenderSetClipRect(a->renderer, NULL);
 }
+static void trail_health(float *ghost, float *hold, int *seen, int hp, int max_hp, float dt) {
+    if (hp < *seen) *hold = .35f;
+    *seen = hp;
+    if (hp >= *ghost) { *ghost = (float)hp; *hold = 0; return; }
+    if (*hold > 0) { *hold = fmaxf(0, *hold - dt); return; }
+    *ghost = fmaxf((float)hp, *ghost - max_hp * .9f * dt);
+}
+static void health_bar(Gfx *f, SDL_FRect r, int hp, float ghost, int max_hp, float radius,
+                       SDL_Color back) {
+    float scale = max_hp > 0 ? r.w / max_hp : 0;
+    SDL_FRect lost = {r.x, r.y, fminf(r.w, fmaxf(ghost, (float)hp) * scale), r.h};
+    SDL_FRect left = {r.x, r.y, fminf(r.w, fmaxf(0, (float)hp) * scale), r.h};
+    gfx_round(f, r, radius, back);
+    if (lost.w > left.w) gfx_round(f, lost, radius, (SDL_Color){238, 214, 160, 255});
+    if (left.w > 0) gfx_round(f, left, radius, RED);
+}
 static void draw_hud(App *a) {
     Gfx *f = &a->gfx;
     Game *g = &a->game;
@@ -521,10 +540,10 @@ static void draw_hud(App *a) {
     char text[512];
     hud_card(f, (SDL_FRect){12, 8, 190, 44}, 214);
     gfx_text(f, g->training.active ? "비밀 수련장 · 격리된 빈터" : "제1장 · 경상도 남부", 24, 13, 11, 0, GOLD);
-    gfx_round(f, (SDL_FRect){53, 38, 85, 4}, 2.5f, (SDL_Color){25, 18, 19, 255});
-    gfx_round(f, (SDL_FRect){53, 38, 85 * (float)g->hero.hp / 100, 4}, 2.5f, RED);
+    health_bar(f, (SDL_FRect){53, 38, 85, 4}, g->hero.hp, a->hero_ghost, g->hero.max_hp, 2.5f,
+               (SDL_Color){25, 18, 19, 255});
     gfx_text(f, "체력", 24, 32, 10, 0, MUTED);
-    snprintf(text, sizeof text, "%d/100", g->hero.hp);
+    snprintf(text, sizeof text, "%d/%d", g->hero.hp, g->hero.max_hp);
     gfx_text(f, text, 149, 32, 10, 0, MUTED);
     if (g->phase == PH_PLAY) {
         button(a, (SDL_FRect){w - 52, 4, 44, 44}, "정지", ACT_PAUSE, 0, true, false);
@@ -639,8 +658,8 @@ static void draw_hud(App *a) {
         gfx_text(f, "변이한 백정", r.x + 12, r.y + 7, 14, 0, PAPER);
         snprintf(text, sizeof text, "%d", g->boss.hp);
         gfx_text(f, text, r.x + bw - 44, r.y + 7, 13, 0, MUTED);
-        gfx_rect(f, (SDL_FRect){r.x + 12, r.y + 30, bw - 24, 4}, (SDL_Color){57, 38, 35, 255});
-        gfx_rect(f, (SDL_FRect){r.x + 12, r.y + 30, (bw - 24) * (float)g->boss.hp / 240, 4}, RED);
+        health_bar(f, (SDL_FRect){r.x + 12, r.y + 30, bw - 24, 4}, g->boss.hp, a->boss_ghost,
+                   g->boss.max_hp, 0, (SDL_Color){57, 38, 35, 255});
     }
     if (g->hero.bleed > 0) {
         snprintf(text, sizeof text, "출혈 · %.0f초", ceilf(g->hero.bleed));
@@ -1468,6 +1487,11 @@ static void frame(App *a) {
             a->story_elapsed += clampf(dt, 0, .05f);
         combat_tick(a, dt);
         game_tick(&a->game, dt, input(a, dt));
+        float wall = clampf(dt, 0, .05f);
+        trail_health(&a->hero_ghost, &a->hero_hold, &a->hero_seen, a->game.hero.hp,
+                     a->game.hero.max_hp, wall);
+        trail_health(&a->boss_ghost, &a->boss_hold, &a->boss_seen, a->game.boss.hp,
+                     a->game.boss.max_hp, wall);
     }
     unsigned notices = a->game.notices;
     a->game.notices = 0;
