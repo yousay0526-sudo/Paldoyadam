@@ -76,7 +76,7 @@ static void victims_and_enemy_timing(void) {
     Game g; game_reset(&g); game_start(&g);
     g.quest = Q_RECOVER; g.traces[0] = g.traces[1] = true; g.hero.pos = BOSS_HOME;
     for (int i = 0; i < BOAR_COUNT; i++) {
-        g.boars[i].pos = (Vec2){BOSS_HOME.x + 30 + i * 10, BOSS_HOME.y};
+        g.boars[i].pos = (Vec2){BOSS_HOME.x + 30 + i * 45, BOSS_HOME.y}; /* bodies apart */
         g.boars[i].state = AI_WINDUP; g.boars[i].timer = .4f;
         CHECK(game_damage(&g, &g.boars[i], 1, FX_HIT));
         CHECK(near(g.hitstop_time, HITSTOP_LIGHT_SECONDS)); /* Max, never sum. */

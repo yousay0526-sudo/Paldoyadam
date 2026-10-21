@@ -1,0 +1,50 @@
+{
+  "installed": [
+    {
+      "name": "boar-idle",
+      "path": "assets/monsters/boar-idle-8dir-v1.png",
+      "sha256": "f390d19ebf31a0452d98ae93cd618c3d709ec15eb866531c1be399f2ddd8cd66"
+    },
+    {
+      "name": "boar-walk",
+      "path": "assets/monsters/boar-walk-8dir-v1.png",
+      "sha256": "5342ae33a158ed12c0c15b9e8a7af08fe9370756549b5f7e17ed710a27bf221e"
+    },
+    {
+      "name": "boar-attack",
+      "path": "assets/monsters/boar-attack-8dir-v1.png",
+      "sha256": "8c12c957862ef1f504779c9a9eb302f252eb61a5ca305a62ec23798407436bd0"
+    },
+    {
+      "name": "butcher-idle",
+      "path": "assets/monsters/butcher-idle-8dir-v1.png",
+      "sha256": "f40ef507bb441b0bab3dfb0c46c1d95f26ea865fabf558005ab358567cd9ee3f"
+    },
+    {
+      "name": "butcher-walk",
+      "path": "assets/monsters/butcher-walk-8dir-v1.png",
+      "sha256": "71e3bbd2ddbe7aa2d100538b72d24bf50dcf91b088cef79e0bc2eef924abab2a"
+    },
+    {
+      "name": "butcher-skill",
+      "path": "assets/monsters/butcher-skill-8dir-v1.png",
+      "sha256": "f88dd46a1aa8dbbb195744b3dd2e4686bf43de7ca95a0695d67b8cdb8de3f975"
+    }
+  ],
+  "direction_order": [
+    "n",
+    "ne",
+    "e",
+    "se",
+    "s",
+    "sw",
+    "w",
+    "nw"
+  ],
+  "cell": 192,
+  "foot_root": [
+    96,
+    176
+  ],
+  "unused_candidate": "butcher-attack: no separate basic-attack AI pattern"
+}

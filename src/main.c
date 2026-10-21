@@ -53,6 +53,11 @@ typedef struct {
     int value;
     bool enabled;
 } Button;
+/* The simulation runs in fixed 1/60 s steps whatever the display rate; at
+ * most a quarter second is caught up after a stall. */
+#define SIM_STEP (1.0f / 60)
+#define SIM_MAX_STEPS 15
+typedef struct { Vec2 hero, boss, boars[BOAR_COUNT]; } Poses;
 typedef struct {
     Game game;
     Game training_return;
@@ -89,6 +94,10 @@ typedef struct {
     Vec2 view_focus;
     bool view_ready;
     float trauma, shake_clock;
+    /* Fixed-step simulation: unsimulated wall time, and where the actors
+     * stood before the latest step so drawing can blend between the two. */
+    float sim_accumulator;
+    Poses sim_previous;
     Uint64 previous_frame;
     double timer_frequency;
 } App;
@@ -1542,8 +1551,49 @@ static void smoke_scene(App *a, const char *scene) {
         a->game.hero.pos = (Vec2){NPCS[ELDER].pos.x + 25, NPCS[ELDER].pos.y + 25};
     }
 }
+static void capture_poses(const Game *g, Poses *p) {
+    p->hero = g->hero.pos;
+    p->boss = g->boss.pos;
+    for (int i = 0; i < BOAR_COUNT; i++) p->boars[i] = g->boars[i].pos;
+}
+/* Run whole fixed steps for the wall time that has built up. Returns the
+ * number of steps taken; the remainder waits for the next frame. */
+static int advance_simulation(App *a, float dt) {
+    float most = SIM_STEP * SIM_MAX_STEPS;
+    a->sim_accumulator = fminf(most, a->sim_accumulator + clampf(isfinite(dt) ? dt : 0, 0, most));
+    int steps = 0;
+    while (a->sim_accumulator >= SIM_STEP) {
+        capture_poses(&a->game, &a->sim_previous);
+        combat_tick(a, SIM_STEP);
+        game_tick(&a->game, SIM_STEP, input(a, SIM_STEP));
+        a->sim_accumulator -= SIM_STEP;
+        steps++;
+    }
+    return steps;
+}
+static Vec2 blend_pose(Vec2 from, Vec2 to, float t) {
+    /* A jump (retry, scene change) is drawn where it lands. */
+    if (distance(from, to) > 24)
+        return to;
+    return (Vec2){from.x + (to.x - from.x) * t, from.y + (to.y - from.y) * t};
+}
+/* Draw actors between the last two steps; restore_poses undoes it. */
+static void blend_poses(Game *g, const Poses *previous, float t) {
+    t = clampf(t, 0, 1);
+    g->hero.pos = blend_pose(previous->hero, g->hero.pos, t);
+    g->boss.pos = blend_pose(previous->boss, g->boss.pos, t);
+    for (int i = 0; i < BOAR_COUNT; i++)
+        g->boars[i].pos = blend_pose(previous->boars[i], g->boars[i].pos, t);
+}
+static void restore_poses(Game *g, const Poses *real) {
+    g->hero.pos = real->hero;
+    g->boss.pos = real->boss;
+    for (int i = 0; i < BOAR_COUNT; i++) g->boars[i].pos = real->boars[i];
+}
 /* Native and browser builds execute this exact same gameplay/rendering step. */
 static void frame(App *a) {
+    Poses shown;
+    bool blended = false;
     Uint64 now = SDL_GetPerformanceCounter();
     float dt = (float)((double)(now - a->previous_frame) / a->timer_frequency);
     a->previous_frame = now;
@@ -1554,10 +1604,12 @@ static void frame(App *a) {
             a->story_elapsed += clampf(dt, 0, .05f);
         float marks[2 + BOAR_COUNT];
         hit_marks(&a->game, marks);
-        combat_tick(a, dt);
-        game_tick(&a->game, dt, input(a, dt));
+        advance_simulation(a, dt);
         float wall = clampf(dt, 0, .05f);
         add_shake(a, marks, wall);
+        capture_poses(&a->game, &shown);
+        blend_poses(&a->game, &a->sim_previous, a->sim_accumulator / SIM_STEP);
+        blended = true;
         follow_view(a, wall);
         trail_health(&a->hero_ghost, &a->hero_hold, &a->hero_seen, a->game.hero.hp,
                      a->game.hero.max_hp, wall);
@@ -1578,6 +1630,8 @@ static void frame(App *a) {
             game_toast(&a->game, "백정 제압 +70문 · 이장에게 보고");
     }
     draw(a);
+    if (blended)
+        restore_poses(&a->game, &shown);
 }
 static void destroy_app(App *a) {
     gfx_free(&a->gfx);
