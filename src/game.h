@@ -85,7 +85,8 @@ typedef enum { ELDER, SMITH, HERBALIST, INNKEEPER, MESSENGER } NpcId;
 typedef enum { ITEM_SWORD, ITEM_ARMOR, ITEM_TONIC, ITEM_BANDAGE, ITEM_MEAL, ITEM_COUNT } Item;
 typedef enum { AI_IDLE, AI_CHASE, AI_WINDUP, AI_SWING, AI_RECOVER, AI_RETURN, AI_DEAD } AiState;
 typedef enum { NEAR_NONE, NEAR_NPC, NEAR_TRACE, NEAR_DROP } NearKind;
-typedef enum { FX_NUMBER, FX_HIT, FX_WIND, FX_SKILL, FX_BOSS_SWING } EffectKind;
+/* FX_DUST: amount 1 footstep, 2 dash, 3 fall; angle is the travel heading. */
+typedef enum { FX_NUMBER, FX_HIT, FX_WIND, FX_SKILL, FX_BOSS_SWING, FX_DUST } EffectKind;
 typedef enum { NOTICE_NONE = 0, NOTICE_BOSS = 1, NOTICE_DEATH = 2, NOTICE_VICTORY = 4 } Notice;
 typedef struct {
     Vec2 pos, dir;

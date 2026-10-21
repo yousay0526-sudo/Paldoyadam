@@ -759,11 +759,35 @@ static void marker(Gfx *f, Vec2 p) {
     gfx_line(f, (Vec2){p.x, p.y + 6}, (Vec2){p.x - 5, p.y}, GOLD);
     gfx_line(f, (Vec2){p.x - 5, p.y}, (Vec2){p.x, p.y - 6}, GOLD);
 }
-static void shadow(Gfx *f, Vec2 p, float r) {
-    for (int y = -4; y <= 4; y++) {
-        float length = r * sqrtf(fmaxf(0, 1 - (float)(y * y) / 25));
-        gfx_line(f, (Vec2){p.x - length, p.y + (float)y}, (Vec2){p.x + length, p.y + (float)y},
-                 (SDL_Color){4, 18, 16, 110});
+/* A soft contact shadow: dark at the feet, fading to nothing at the rim. */
+static void shadow(Gfx *f, Vec2 p, float r, float strength) {
+    enum { SIDES = 24 };
+    SDL_Vertex v[SIDES + 1];
+    int k[SIDES * 3];
+    v[0] = (SDL_Vertex){{p.x, p.y}, {4, 18, 16, (Uint8)(150 * strength)}, {0, 0}};
+    for (int i = 0; i < SIDES; i++) {
+        float a = 2 * PI * i / SIDES;
+        v[i + 1] = (SDL_Vertex){{p.x + cosf(a) * r * 1.15f, p.y + sinf(a) * 5.5f}, {4, 18, 16, 0}, {0, 0}};
+        k[i * 3] = 0; k[i * 3 + 1] = i + 1; k[i * 3 + 2] = (i + 1) % SIDES + 1;
+    }
+    SDL_RenderGeometry(f->renderer, NULL, v, SIDES + 1, k, SIDES * 3);
+}
+/* Stateless particles: every puff and chip is a pure function of the
+ * effect's age and a hash of where it spawned, so nothing else is stored. */
+static float scatter(Vec2 p, int i) {
+    return fmodf(fabsf(sinf(p.x * 12.9898f + p.y * 78.233f + i * 37.719f) * 43758.547f), 1);
+}
+static void dust(Gfx *f, const Effect *e, Vec2 p) {
+    const float total[] = {.35f, .35f, .45f, .55f};
+    int kind = e->amount < 1 ? 1 : e->amount > 3 ? 3 : e->amount, count = kind == 1 ? 3 : kind == 2 ? 7 : 10;
+    float t = clampf(1 - e->life / total[kind], 0, 1), spread = 1 - (1 - t) * (1 - t);
+    for (int i = 0; i < count; i++) {
+        float a = kind == 3 ? 2 * PI * (i + scatter(e->pos, i)) / count
+                            : e->angle + PI + (scatter(e->pos, i) - .5f) * (kind == 1 ? 1.6f : 1.2f);
+        float reach = (kind == 1 ? 10 : kind == 2 ? 20 : 26) * (.6f + .4f * scatter(e->pos, i + 9));
+        Vec2 c = {p.x + cosf(a) * reach * spread, p.y + sinf(a) * reach * spread * .45f - 2 - 5 * t};
+        float radius = (kind == 1 ? 3.5f : 4.5f) + (kind == 1 ? 4 : 6) * spread;
+        gfx_sector(f, c, radius, 0, PI, (SDL_Color){206, 184, 140, (Uint8)(130 * (1 - t))});
     }
 }
 /* Restore only the canopy/roof pixels over this actor. Scanline spans also
@@ -873,7 +897,7 @@ void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool has_ta
         if (g->drops[i].exists && !g->drops[i].collected) {
             Vec2 p = screen_pos(g->drops[i].pos, camera);
             float bounce = g->drops[i].age < .32f ? sinf(g->drops[i].age / .32f * PI) * 18 : 0;
-            shadow(f, p, 8);
+            shadow(f, p, 8, 1);
             Vec2 item = {p.x, p.y - 8 - bounce};
             gfx_sector(f, item, 6, 0, PI, (SDL_Color){189, 155, 94, 255});
             gfx_round_border(f, (SDL_FRect){item.x - 6, item.y - 6, 12, 12}, 4, GOLD);
@@ -923,6 +947,9 @@ void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool has_ta
         }
         actors[j + 1] = a;
     }
+    for (int i = 0; i < g->effect_count; i++)
+        if (g->effects[i].kind == FX_DUST)
+            dust(f, &g->effects[i], screen_pos(g->effects[i].pos, camera));
     /* NPC cells in the 2172 x 724 master strip, scaled to the runtime copy. */
     const SDL_Rect cells[4] = {
         {128, 0, 448, 724}, {606, 0, 438, 724}, {1142, 0, 368, 724}, {1674, 0, 423, 724}};
@@ -936,7 +963,7 @@ void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool has_ta
         Vec2 p;
         if (actors[a].kind == 0) {
             p = screen_pos(NPCS[i].pos, camera);
-            shadow(f, p, 11);
+            shadow(f, p, 11, 1);
             if (i == MESSENGER)
                 gfx_sprite(f, &f->messenger, p, 46, 46, false);
             else {
@@ -951,7 +978,7 @@ void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool has_ta
         } else if (actors[a].kind == 1) {
             const Enemy *e = &g->boars[i];
             p = screen_pos(e->pos, camera);
-            shadow(f, p, 17);
+            shadow(f, p, 17, e->hp > 0 ? 1 : clampf(e->dying / ENEMY_DEATH_SECONDS, 0, 1));
             gfx_enemy(f, &f->boar, (Vec2){p.x, p.y + 3}, 55, 48, e->pos.x < g->hero.pos.x, e,
                       (EnemyTiming){BOAR_WINDUP_SECONDS, 0, BOAR_RECOVER_SECONDS}, g->time,
                       g->phase == PH_PLAY);
@@ -964,7 +991,7 @@ void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool has_ta
                 label(f, "변이한 멧돼지", (Vec2){p.x, p.y - 65}, (SDL_Color){219, 186, 162, 255});
         } else if (actors[a].kind == 2) {
             p = screen_pos(g->boss.pos, camera);
-            shadow(f, p, 23);
+            shadow(f, p, 23, g->boss.hp > 0 || g->training.active ? 1 : clampf(g->boss.dying / ENEMY_DEATH_SECONDS, 0, 1));
             if (g->training.active) {
                 SDL_Color straw = g->boss.hit_time > 0 ? PAPER : GOLD;
                 float sway = g->training.hit_time > 0 ? sinf(g->training.hit_time * 55) * 3 : 0;
@@ -987,7 +1014,7 @@ void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool has_ta
                 label(f, "변이한 백정", (Vec2){p.x, p.y - 98}, PAPER);
         } else {
             p = screen_pos(g->hero.pos, camera);
-            shadow(f, p, 10);
+            shadow(f, p, 10, 1);
             gfx_hero(f, g, p);
             /* A faint silhouette keeps the player readable behind tall scenery. */
             SDL_SetTextureAlphaMod(f->map.texture, 205);
@@ -1018,8 +1045,16 @@ void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool has_ta
             float x = p.x + nudge, y = p.y - 6 - rise * 26 - size * .5f;
             gfx_center(f, s, x + 1, y + 1, size, (SDL_Color){20, 12, 10, (Uint8)(c.a * .8f)});
             gfx_center(f, s, x, y, size, c);
-        } else if (e->kind == FX_SKILL)
-            gfx_circle(f, (Vec2){p.x, p.y - 13}, 45, c);
+        } else if (e->kind == FX_DUST) {
+            continue;
+        } else if (e->kind == FX_SKILL) {
+            /* A shock ring expanding from the strike point. */
+            float t = clampf(1 - e->life / .30f, 0, 1), grow = 1 - (1 - t) * (1 - t);
+            c.a = (Uint8)(220 * (1 - t));
+            gfx_circle(f, (Vec2){p.x, p.y - 13}, 18 + 30 * grow, c);
+            c.a = (Uint8)(120 * (1 - t));
+            gfx_circle(f, (Vec2){p.x, p.y - 13}, 12 + 22 * grow, c);
+        }
         else if (e->kind == FX_WIND)
             gfx_line(f, (Vec2){p.x, p.y - 17}, (Vec2){q.x, q.y - 22}, (SDL_Color){204, 238, 203, 255});
         else if (e->kind == FX_BOSS_SWING)
@@ -1033,6 +1068,15 @@ void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool has_ta
                 float angle = e->angle + ray * PI / 3;
                 gfx_line(f, (Vec2){center.x + cosf(angle) * 3, center.y + sinf(angle) * 3},
                             (Vec2){center.x + cosf(angle) * radius, center.y + sinf(angle) * radius}, light);
+            }
+            /* Chips fly off the struck side and fall under gravity. */
+            float age = .25f - e->life;
+            for (int chip = 0; chip < 6; chip++) {
+                float a = e->angle + (scatter(e->target, chip) - .5f) * 2.2f;
+                float speed = 110 + 80 * scatter(e->target, chip + 6);
+                Vec2 at = {center.x + cosf(a) * speed * age,
+                           center.y + sinf(a) * speed * age - 40 * age + 260 * age * age};
+                gfx_rect(f, (SDL_FRect){at.x - 1.5f, at.y - 1.5f, 3, 3}, light);
             }
         }
     }
