@@ -1606,6 +1606,7 @@ int main(int argc, char **argv) {
         return 1;
     }
     game_reset(&a->game);
+    world_prepare();
     a->running = true;
     resize(a);
     if (smoke)

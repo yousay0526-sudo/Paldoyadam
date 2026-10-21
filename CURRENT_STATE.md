@@ -7,7 +7,15 @@
 - 현재 버전: `0.8.0` (C11/SDL2 기반 게임 및 Emscripten 웹 빌드)
 - 정본: `src/*.c`, `src/*.h`; 주요 문서: `README.md`, `docs/CONTROLS.md`, `docs/VALIDATION.md`, `docs/WEB.md`
 
-## 이번 작업: 감사 F5·F6 — 소스 압축과 조작 문서 정리 · PR 검토 대기
+## 이번 작업: 감사 R5 — 길찾기 격자를 시작할 때 미리 생성 · PR 검토 대기
+- 기준 main `c67a86e` (F5·F6 PR #20 병합, 사용자 승인으로 병합·Pages 배포 진행). 브랜치 `claude/project-thread-mm2qsg`.
+- 문제: 길찾기 격자(반경 10·16·23 각각 96×64칸)는 그 반경으로 처음 우회 경로를 찾는 순간에 만들어져, 그 프레임이 멈칫했다. Linux -O2 기준 격자 하나에 약 17ms, 셋이면 약 52ms다.
+- `src/world.c`·`src/world.h`: `world_prepare()` 추가. 기존 캐시 함수 `grid()`로 영웅·멧돼지·두목 반경 격자를 미리 만든다. `src/main.c`: 에셋 로드와 `game_reset` 직후, 첫 화면 전에 한 번 호출한다. 격자 내용, 경로 탐색, 캐시 3칸, 이동·충돌 규칙은 그대로다. 시작 시간만 약 52ms(네이티브 기준) 늘어난다.
+- `tests/test_world.c`: 차가운 상태에서 `world_prepare()` 뒤 세 반경의 우회 경로가 모두 성공하고, 세 경로 시간이 준비 시간의 4분의 1 미만인지 검사. `world_prepare()`를 비운 코드에서 실패를 확인했다.
+- Linux / SDL 2.30.0 dummy: 전체 CTest **9/9 통과**(월드 152 조건), ASan+UBSan 전체 **9/9 통과**(월드 검사 20회 반복 모두 통과), 코어 전용 5/5. 웹(WASM) 실제 시간과 휴대폰 체감은 미측정.
+- 남은 감사 항목: R2(서장 그림 지연 로드), 실기기·브라우저가 필요한 R1·R3·R8, CI 변경. 버전 변경 없음. GAME_BIBLE.md 없음.
+
+## 이전 작업: 감사 F5·F6 — 소스 압축과 조작 문서 정리 (PR #20, main `c67a86e`에 병합)
 - 기준 main `27a2bac` (F1 PR #19 병합, 사용자 승인으로 병합·Pages 배포 진행). 브랜치 `claude/project-thread-mm2qsg`. 게임 코드 변경 없음.
 - `scripts/package_source.py`: 루트 허용 목록에 `AGENTS.md`, `CURRENT_STATE.md`, `GAME_BIBLE.md` 추가. 실제로 있는 파일만 담기므로 없는 `GAME_BIBLE.md`는 만들지 않는다. 압축본 131개 파일에 두 문서 포함, 빌드 산출물·SDL 다운로드·local.properties 제외를 확인했고, 압축을 푼 사본에서 코어 빌드·CTest 5/5 통과.
 - `README.md`: 예약 입력 설명을 실제 동작(동작 중 마지막 유효 입력 한 개)으로 수정. 저장소에 없는 `docs/hero-walk-preview.gif` 링크 제거.
