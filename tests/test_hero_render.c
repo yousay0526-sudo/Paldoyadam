@@ -193,6 +193,32 @@ static void feedback_pixels(Gfx *gfx, SDL_Surface *surface, Uint32 *pixels, Uint
         SDL_SetTextureColorMod(picture->texture, 255,255,255); SDL_SetTextureAlphaMod(picture->texture, 255);
     }
 }
+/* The boar windup warning must cover exactly the reach that can hurt the
+ * hero: tinted just inside BOAR_STRIKE_RANGE and untouched just outside. */
+static void boar_warning_reach(Gfx *gfx, SDL_Surface *surface, Uint32 *pixels, Uint32 *baseline) {
+    SDL_RenderSetScale(gfx->renderer, 1, 1);
+    Game game; game_reset(&game); game_start(&game);
+    game.traces[0] = game.traces[1] = true; game.quest = Q_RECOVER;
+    game.hero.pos = (Vec2){200, 200};
+    Vec2 center = {surface->w / 2.0f, surface->h / 2.0f};
+    Vec2 camera = {game.boars[0].pos.x - center.x, game.boars[0].pos.y - center.y};
+    const float radii[] = {BOAR_STRIKE_RANGE - 2, BOAR_STRIKE_RANGE + 3};
+    for (int windup = 0; windup < 2; windup++) {
+        game.boars[0].state = windup ? AI_WINDUP : AI_CHASE;
+        gfx_world(gfx, &game, (float)surface->w, (float)surface->h, camera, false, (Vec2){0, 0});
+        CHECK(SDL_RenderReadPixels(gfx->renderer, NULL, surface->format->format,
+                                  windup ? pixels : baseline, surface->pitch) == 0);
+    }
+    /* Sample below and beside the feet, clear of the sprite above them. */
+    const float angles[] = {0, .785398163f, 1.57079633f, 2.35619449f, 3.14159265f};
+    for (size_t a = 0; a < sizeof angles / sizeof *angles; a++)
+        for (int r = 0; r < 2; r++) {
+            int x = (int)lroundf(center.x + cosf(angles[a]) * radii[r]);
+            int y = (int)lroundf(center.y + sinf(angles[a]) * radii[r]);
+            bool tinted = pixels[y * surface->w + x] != baseline[y * surface->w + x];
+            CHECK(tinted == (r == 0));
+        }
+}
 /* Exercise movement-derived views and pixel-compare with unreflected authored
  * cells. Legacy left/right face must never change the idle/walk sword hand. */
 static void eight_direction_motion(Gfx *gfx, SDL_Surface *surface, Uint32 *pixels,
@@ -289,6 +315,7 @@ int main(int argc, char **argv) {
     technique_atlases(gfx, surface, pixels, previous);
 
     feedback_pixels(gfx, surface, pixels, previous);
+    boar_warning_reach(gfx, surface, pixels, previous);
     eight_direction_motion(gfx, surface, pixels, previous, idle);
     Uint32 background = SDL_MapRGBA(surface->format, 11, 15, 19, 255);
     for (int scale = 1; scale <= 3; scale++) {
