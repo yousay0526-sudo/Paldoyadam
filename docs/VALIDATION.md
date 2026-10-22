@@ -1,5 +1,6 @@
 ## 2026-10-22 · 기본 몸과 정지 장비 조합 도구
 
+- [PR #40](https://github.com/yousay0526-sudo/Paldoyadam/pull/40) 코드 커밋 `a435327`의 [CI 39722890177](https://github.com/yousay0526-sudo/Paldoyadam/actions/runs/39722890177): Linux 전체 CMake/CTest, Emscripten 3.1.74 일반 웹·단일 HTML 빌드와 다운로드 아티팩트 성공. Pages 준비·deploy skipped. 이 결과를 기록하는 후속 변경은 문서만 수정하며 위 코드 커밋의 CI 결과와 구분한다.
 - 기준 main `04cb6c502b27b21777eeeca7dbac91c9feae1618`, 독립 브랜치 `graphics/equipment-layer-lab-20261022`. 본게임 소스/실행용 assets 변경 없음. 도구는 정지 한 자세이며 본게임에서 장착 외형/모션이 바뀐다는 의미가 아니다. [상세·원화·부위 계약](EQUIPMENT_LAYER_LAB.md).
 - Windows / CMake 4.4.4 / Ninja / Zig 0.14.1(Clang 19.1.7) / SDL 2.32.10: 전체 configure/build 성공. `cmake --build build-layer-lab/cmake --parallel 2`, `ctest --test-dir build-layer-lab/cmake --output-on-failure`: **10/10 통과**(게임·지형·수련·전투·피드백·native_render·입력·UI·영웅·몬스터). 로컬 도구체인의 SDL_MAIN_HANDLED 재정의 경고만 있었으며 이 경고를 고치려고 제품 소스를 수정하지 않았다.
 - `node --test tests/test_equipment_lab.mjs`: **3/3 통과**. 전체 768개 선택 JSON 왕복, 잘못된 버전/자세/ID 거부, 모든 참조 PNG 해시·RGBA·크기·공통 캔버스 경계. `python tests/test_equipment_lab.py`: **4/4 통과**. 실제 투명 픽셀, 원본 RGB 보존, 상하의 장착 시 목 아래 기본 몸 잔여 알파 0, 상의 자락/소매 유지·장화 제외, 웹 도구 복사.

@@ -8,6 +8,7 @@
 - 정본: `src/*.c`, `src/*.h`; 주요 문서: `README.md`, `docs/CONTROLS.md`, `docs/VALIDATION.md`, `docs/WEB.md`
 
 ## 이번 작업: 기본 몸과 정지 장비 조합 개발자 모드 · PR 검토용
+- [PR #40](https://github.com/yousay0526-sudo/Paldoyadam/pull/40), 코드 커밋 `a435327`의 [CI 39722890177](https://github.com/yousay0526-sudo/Paldoyadam/actions/runs/39722890177): Linux CMake/CTest, Emscripten 3.1.74 일반 웹·단일 HTML 빌드 및 다운로드 아티팩트 생성 성공. Pages 준비·deploy skipped. 이후 검증 결과를 기록하는 변경은 문서만 수정한다.
 - 최신 main `04cb6c5` 기준, 독립 브랜치 `graphics/equipment-layer-lab-20261022`. 승인된 성인 비율 원화와 경장/중장 디자인을 사용했다. `art/equipment-lab/`에 기본 몸·상의용 원본·독립 바지 원본·참조 원본 9PNG와 프롬프트를 보존한다.
 - `web/equipment-lab/`: 상의·하의·머리 장비·붉은 허리띠·무기 5부위의 정지 조합 화면. 14개 장비 선택지, 프리셋/무작위, 몸 숨김, 투명 PNG와 선택 JSON 저장/불러오기, 마지막 선택 복원. 본게임의 장비 수치/소유/세이브와 분리되어 있다. 훈련장 연결 요청은 사용자 철회에 따라 제외했다.
 - 사용자 지적으로 누끼 잔여 조각·흰 기본 옷 노출을 수정했다. **상의는 소매와 자락 전체, 하의는 완전한 바지·신발**이다. 허리에서 상의를 가로로 잘랐던 초기 분류를 폐기했고, 긴 외투 아래에 가려진 바지는 독립 원화로 보완했다. 검은 오른손 고정, 반전·팔다리 회전·혈흔 없음.
