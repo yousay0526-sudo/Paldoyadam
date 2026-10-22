@@ -1,5 +1,6 @@
 ## 2026-10-22 · Blender 장군 복장 구조·앞면 투사 시험
 
+- 아트/검사 코드 커밋 `64102cf`의 [CI 39728016059](https://github.com/yousay0526-sudo/Paldoyadam/actions/runs/39728016059) 성공: Ubuntu 24.04 전체 CMake/CTest의 게임·지형·수련·전투·피드백·입력·UI·영웅·몬스터 렌더링과 native_render, Emscripten 3.1.74 일반/단일 HTML 웹 빌드 및 다운로드 산출물 생성. Pages 준비·deploy skipped. 원화의 미술 품질 검사를 대체하지 않는다. 이 결과를 추가하는 후속 커밋은 문서만 변경한다. [초안 PR #41](https://github.com/yousay0526-sudo/Paldoyadam/pull/41).
 - 최신 main `04cb6c5`, 독립 브랜치 `art/blender-hero-style-study-20261022`. [전체 기록/재현/원본/한계](BLENDER_HERO_STUDY.md). 제품 소스와 실행 assets는 변경하지 않았다. 장비 조합 PR #40과 별개이며 미병합이다.
 - 공식 Blender 4.5.14 LTS Windows x64 포터블 SHA-256을 공식 파일과 대조했다. 별도 유료 프로그램/서비스는 쓰지 않았다. GPU 정보 조회 권한이 없어 실제 렌더는 Cycles CPU/12 samples로 명시했다.
 - `build_blender_hero_study.py --no-render`: 실제 3D 인체/장비와 공통 골격·동작을 생성해 압축 .blend 저장. `verify_blender_hero_study.py`: 저장 파일을 다시 열어 메시 20개, 뼈 19개, 포함 이미지 5개, 상대 경로, 오른손 검, 16프레임 액션, 유한 좌표를 확인했다. 17개 시간 키에서 평가된 양발 관절과 저작 목표의 최대 차이는 약 `9.69e-8m`. 의도한 관절 목표 검사이며 자연스러운 보행/접지/옷 충돌 검증을 뜻하지 않는다.

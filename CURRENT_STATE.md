@@ -8,6 +8,7 @@
 - 정본: `src/*.c`, `src/*.h`; 주요 문서: `README.md`, `docs/CONTROLS.md`, `docs/VALIDATION.md`, `docs/WEB.md`
 
 ## 이번 작업: Blender 장군 복장 첫 구조·화풍 시험 · 미술 검토용
+- 초안 [PR #41](https://github.com/yousay0526-sudo/Paldoyadam/pull/41). 아트/검사 코드 커밋 `64102cf`의 [CI 39728016059](https://github.com/yousay0526-sudo/Paldoyadam/actions/runs/39728016059) 성공: Linux 전체 CMake/CTest, Emscripten 3.1.74 일반/단일 HTML 웹 빌드와 다운로드 산출물 생성. Pages 준비·배포 skipped. 이 결과 추가 커밋은 문서만 바꾼다.
 - 기준 main `04cb6c5`, 독립 브랜치 `art/blender-hero-style-study-20261022`. 사용자가 Blender로 기존 화풍의 정지·짧은 걷기 시제품을 시작하는 데 동의했다. 장비 조합 PR #40은 별도 검토 상태로 보존한다.
 - 공식 포터블 Blender 4.5.14 LTS의 SHA-256을 검증해 작업 도구 폴더에 준비했다. 공식 CC0 성인 인체 메시를 기반으로 입체 장비 초안, 붉은 천 허리띠, 오른손 검, 메시 20개·뼈 19개·16프레임 걷기 시험이 있는 `art/blender-hero-study/hero-front-study.blend`를 생성했다. 이미지 5개는 파일에 포함하고 경로를 상대화했다.
 - **현재는 앞면 원화를 투사한 볼륨 초안이며 완성된 3D/8방향 모델이 아니다.** 앞면 색과 장식은 가깝지만 옆면에서 그림 늘어짐과 원화 속 손의 중복이 보인다. 뒷면은 임시 단색, 실제 고유 조형·가려진 면·UV·쥐는 손·옷 변형과 보행 품질은 남아 있다. 이 상태를 장비 양산 성공으로 간주하지 않는다.
