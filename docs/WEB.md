@@ -76,3 +76,8 @@ python -m http.server 8000 --directory dist/web
 - `--test-hooks`는 자동 입력 검사에 쓰는 읽기 전용 상태 조회 함수를 추가합니다. 기본 배포에는 포함되지 않습니다.
 
 자세한 실제 실행 기록은 [검증 기록](VALIDATION.md)을 참고하세요.
+
+
+## 정지 장비 조합 개발자 도구
+
+웹 빌드의 `equipment-lab/`에서 독립적으로 연다. 게임의 훈련장/인벤토리·저장 상태에는 연결하지 않았다. 단일 HTML 게임도 기존처럼 독립 파일이며 이 도구 자체는 별도 폴더의 모듈/PNG를 사용하므로 HTTP 서버가 필요하다. [사용법·범위](EQUIPMENT_LAYER_LAB.md).

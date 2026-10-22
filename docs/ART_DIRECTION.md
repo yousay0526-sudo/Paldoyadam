@@ -133,3 +133,8 @@ python3 scripts/prepare_hero_asset.py
 - `ACTOR_SCALE` = 1.4 draws the hero, NPCs, the messenger, boars and the butcher (all eight-direction monster sheets) larger than the scenery's own scale, so they match the painted doors, steps and tables. The hero is about 60 units tall (was 43). Shadows, roof/canopy occlusion boxes, name labels, the boar HP bar and chest-height effects (sword trail, hit sparks, wind line, technique ring) scale with it.
 - Only drawing changes. Hitboxes, attack ranges and sectors, collision radius, movement speed and knockback stay in world units. The training dummy keeps its drawn size.
 - Comparison: `docs/screen-scale-review.png`.
+
+
+## 2026-10-22 · 성인 비율 정지 장비 레이어
+
+승인 주인공과 경장/중장 디자인을 유지한 독립 정지 조합 도구를 만들었다. 기본 몸 위에 완전한 상의(소매와 긴 옷자락 포함), 독립 바지/신발, 머리 장비, 붉은 천 허리띠, 오른손 검을 겹친다. 상의를 허리에서 잘라 옷자락을 하의로 분류하지 않는다. 가려진 바지는 별도 원화로 보완한다. 반전·팔다리 회전·SD 비율·혈흔을 추가하지 않는다. 한 자세의 시제품이며 본게임 모션 장착 연결은 후속이다. [원화와 처리 계약](EQUIPMENT_LAYER_LAB.md).

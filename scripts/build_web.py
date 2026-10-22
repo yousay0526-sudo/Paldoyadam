@@ -8,6 +8,11 @@ import subprocess
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def copy_equipment_lab(output):
+    """Keep optional still-art tools outside the game's preloaded asset pack."""
+    shutil.copytree(ROOT / 'web/equipment-lab', output / 'equipment-lab', dirs_exist_ok=True)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, default=ROOT / 'dist' / 'web')
@@ -33,6 +38,7 @@ def main():
     if args.test_hooks:
         command += ['-DPALDO_WEB_TESTING=1', '-sEXPORTED_RUNTIME_METHODS=["UTF8ToString"]']
     subprocess.run(command, cwd=ROOT, check=True)
+    copy_equipment_lab(output)
     (output / '.nojekyll').touch()
     print(f'Browser build ready: {output / "index.html"}')
 

@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>팔도야담 · 장비 조합 개발자 모드</title>
+  <link rel="stylesheet" href="lab.css">
+</head>
+<body>
+  <header><div><span class="eyebrow">팔도야담 · 개발자 모드</span><h1>장비 조합</h1></div>
+    <span class="badge">정지 · 한 자세</span></header>
+  <main>
+    <section class="preview-panel" aria-label="캐릭터 미리보기">
+      <div class="preview-top"><span id="pose">원화를 불러오고 있습니다</span>
+        <div class="backgrounds" aria-label="미리보기 배경">
+          <button type="button" data-bg="ink" aria-pressed="true">먹색</button>
+          <button type="button" data-bg="paper" aria-pressed="false">밝게</button>
+          <button type="button" data-bg="check" aria-pressed="false">격자</button>
+        </div>
+      </div>
+      <div class="stage" data-background="ink"><canvas id="preview" width="1254" height="1254"
+        aria-label="선택한 몸과 장비를 합성한 캐릭터"></canvas></div>
+      <p id="status" role="status" aria-live="polite">이미지를 준비하고 있습니다.</p>
+      <div class="preview-actions">
+        <button type="button" id="save-png" class="primary" disabled>투명 PNG 저장</button>
+        <label class="check"><input type="checkbox" id="show-body" checked disabled>기본 몸 표시</label>
+      </div>
+    </section>
+    <aside aria-label="장비 선택">
+      <section class="controls">
+        <h2>부위별로 골라 입히기</h2>
+        <p class="hint">상하의와 머리 장비, 허리띠, 무기를 각각 섞어 볼 수 있습니다.</p>
+        <div id="slots"></div>
+        <fieldset disabled id="presets"><legend>한 벌로 보기</legend>
+          <div class="presets">
+            <button type="button" data-preset="base">기본 몸</button>
+            <button type="button" data-preset="general">장군</button>
+            <button type="button" data-preset="light">경장</button>
+            <button type="button" data-preset="heavy">중장</button>
+          </div>
+          <button type="button" id="randomize">무작위 조합</button>
+        </fieldset>
+      </section>
+      <section class="saved">
+        <h2>조합 보관</h2>
+        <p class="hint">마지막 선택은 이 브라우저에 기억됩니다.</p>
+        <div class="file-actions">
+          <button type="button" id="save-json" disabled>선택 파일 저장</button>
+          <label class="file-button" for="load-json">선택 파일 불러오기</label>
+          <input type="file" id="load-json" accept=".json,application/json" disabled>
+        </div>
+        <details><summary>레이어 이름 확인</summary><pre id="layer-names"></pre></details>
+      </section>
+    </aside>
+  </main>
+  <footer>원화 조합 검토용 화면입니다. 실제 게임의 장비·능력치·진행 상태에는 영향을 주지 않습니다.
+    <span>상의에는 소매·옷자락 전체, 하의에는 바지·신발이 포함됩니다. 걷기·공격·8방향은 아직 준비 전입니다.</span></footer>
+  <script type="module" src="lab.mjs"></script>
+</body>
+</html>
