@@ -1,0 +1,32 @@
+{
+  "reference": "art/hero/warrior-clarity-master.png",
+  "reference_sha256": "c02b88bf390cda385726da9fc478fda7ed2b401ccc230927d3a2017888b0e47f",
+  "candidate": "art/hero/equipment-reference-edit/upper-armor-candidate-v1.png",
+  "candidate_sha256": "024b10b7be5618be1c28e23caf7f4913c23766ed9ae35b59af870faf403a06ad",
+  "original_size": [
+    1254,
+    1254
+  ],
+  "candidate_size": [
+    1254,
+    1254
+  ],
+  "original_alpha32_bounds": [
+    195,
+    3,
+    965,
+    1246
+  ],
+  "candidate_alpha32_bounds": [
+    194,
+    2,
+    966,
+    1247
+  ],
+  "alpha32_silhouette_iou": 0.9887722125397396,
+  "candidate_alpha_zero_fraction": 0.6996005128087727,
+  "review": "docs/equipment-reference-comparison.png",
+  "review_sha256": "b65dde4a9d4a762592d15221856e8497cb5ae02c0a5e53652b4bda2f0ba42f1c",
+  "status": "Art review only; generated edit has small changes outside upper armor. Not pixel-identical or a separated gear layer.",
+  "processing": "Candidate saved byte-for-byte from built-in ImageGen. Review only: same full-canvas premultiplied resize and side-by-side composition; no repaint, recolor, flip, pose fitting or runtime install."
+}

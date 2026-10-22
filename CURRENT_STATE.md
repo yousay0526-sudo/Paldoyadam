@@ -1,6 +1,6 @@
 # CURRENT_STATE.md — 팔도야담 개발 상태
 
-최종 갱신: 2026-10-21
+최종 갱신: 2026-10-22
 
 ## 기준
 - GitHub 저장소: `yousay0526-sudo/Paldoyadam`
@@ -292,3 +292,20 @@
 - Windows CMake/CTest **10/10 통과**, Python 자산 검사 **2/2 통과**. 새 몬스터 SDL 렌더링 13,290,216개 조건과 기존 영웅 7,065,056개 조건, 게임/지형/수련/전투/피드백/SDL 입력/UI/native_render 검사 통과. 1/2/3배에서 기대한 방향·프레임·발/크기·반전 없음·타격 직전/경직·쓰러짐·텍스처 복원을 확인했다.
 - 실제 SDL 수련장 3개 크기 출력, 기준 main과 11장면 전후 22장 비교. 마을/상점/수련/지붕/수목/주인공 기술 3장면은 픽셀 일치, 나머지 적 장면 3개는 적 주변만 차이. 지붕/수목 경계에서 32방향 장면을 검토했다. [실제 SDL 모션](docs/monster-eight-direction-sdl.gif), [게임 전후](docs/monster-gameplay-comparison.png), [가림](docs/monster-cover-review.png), [표시·검증 상세](docs/MONSTER_MOTION_RUNTIME.md).
 - 추가 상주 RGBA 텍스처 20.25MiB, PNG 약 4.88MiB. 남음: 실제 iPhone/Android/APK·브라우저 실행 표시와 장시간 메모리/성능, 정교한 발 미끄러짐 조정. 웹 빌드는 PR CI에서 별도로 확인한다. GAME_BIBLE.md 없음. PR 검토 대기, main 병합·자동 병합·Pages 배포·버전 변경 없음.
+
+## 2026-10-22 · 기존 원화 기준 상체 장비 비교안 (미술 검토 대기)
+
+- 앞선 장비 시제품 PR #38은 사용자에게 체형·그림체·부품 회전 공격이 거부되어 draft/보류다.
+  그 그림/코드를 적용하거나 확장하지 않는다. 기존 성인 비율과 승인된 전신 원화를 기준으로 복귀했다.
+- 최신 main `04cb6c5`에서 독립 브랜치 `art/hero-equipment-reference-edit-20261022`.
+  내장 ImageGen으로 기존 `art/hero/warrior-clarity-master.png`를 직접 편집해
+  어깨·가슴의 금 사자 장식을 줄인 상체 갑옷 변경 한 장만 만들었다.
+- 원본/후보 모두 1254² RGBA. 원본은 보존하고 같은 전체 캔버스 배율로 비교했다.
+  기존 성인 비율·얼굴/상투·자세·긴 팔다리·오른손 검·붉은 허리띠를 유지하도록 요청했다.
+  생성 편집 특성상 얼굴 선·명암·하단 장식 등에 미세한 재묘사 차이가 남아 있다.
+- `art/hero/equipment-reference-edit/`: 후보 PNG/전체 프롬프트/크기·알파·해시 기록.
+  [비교 그림](docs/equipment-reference-comparison.png), [변경·검증·제한](docs/EQUIPMENT_REFERENCE_EDIT.md).
+- 본게임 코드/기존 assets/CMake/워크플로 변경 없음. 한 장의 미술 비교안이며 실제 장비 레이어나
+  걷기/공격/방향 아틀라스는 미구현. 원본 바이트·PNG 투명/크기·배치/비율·문서 참조를 확인했다.
+  런타임을 바꾸지 않아 CMake/CTest·실행 회귀는 새로 수행하지 않았다.
+- 사용자 미술 검토 후 다음 독립 단계를 판단한다. main 병합/Pages 배포/버전 변경 없음.

@@ -247,3 +247,22 @@ Verified with Clang 19.1.7 via official Zig 0.14.1, C11, and official SDL 2.32.1
 - Actual SDL game smoke scenes: village, attack3, attack6, roof and canopy at 844x390. See hero-scale-review.png and hero-attack-review.png.
 
 The candidate is based on public main bb03a4c4a7592e0e344eefbbacaa0d485a021f45. Browser/WebAssembly build and public deployment remain pending; the workflow now runs all native test groups before compiling the web build.
+
+## 2026-10-22 · 기존 원화 기준 상체 갑옷 변경 비교
+
+- 기준 main `04cb6c5`의 기존 전신 원화 한 장을 내장 ImageGen으로 편집했다.
+  원본 파일은 기준 Git blob과 바이트 일치하며 덮어쓰지 않았다.
+  이전 PR #38의 거부된 그림/모듈은 새 브랜치로 가져오지 않았다.
+- 원본/후보 모두 1254² RGBA, 후보의 완전 투명 픽셀 69.96%.
+  알파 32 초과 경계는 원본 (195,3)-(965,1246), 후보 (194,2)-(966,1247).
+  전체 캔버스에 동일한 배율을 적용해 [나란히 비교](equipment-reference-comparison.png)했다.
+  얼굴·성인 체형·자세·팔다리·검/손·허리띠·하체를 시각 검토했고 혈흔을 추가하지 않았다.
+- 생성 편집으로 갑옷 밖 선·명암·하단 장식에도 미세 차이가 있으므로 국소 픽셀 교체/레이어 분리 완료로
+  표현하지 않는다. 실루엣 겹침 수치는 배치 확인일 뿐 미술 품질 통과를 뜻하지 않는다.
+- 새 그림은 art/의 미술 검토안으로만 저장한다. `src/`, 기존 `assets/`, CMake/워크플로 변경 없음.
+  CMake/CTest·게임/브라우저/모바일 실행 검사는 이번에 수행하지 않았다.
+  PNG/알파/해시/전체 크기·비율/문서 참조와 변경 범위 검토만 수행했다.
+- 원본·생성본/전체 프롬프트·비교 SHA-256과 세부 제한:
+  [EQUIPMENT_REFERENCE_EDIT.md](EQUIPMENT_REFERENCE_EDIT.md),
+  `art/hero/equipment-reference-edit/review.json`.
+  장비 레이어/다른 방향/걷기·공격은 미구현. 사용자 검토 전 확대 적용·main 병합·Pages 배포 없음.
