@@ -133,3 +133,27 @@ python3 scripts/prepare_hero_asset.py
 - `ACTOR_SCALE` = 1.4 draws the hero, NPCs, the messenger, boars and the butcher (all eight-direction monster sheets) larger than the scenery's own scale, so they match the painted doors, steps and tables. The hero is about 60 units tall (was 43). Shadows, roof/canopy occlusion boxes, name labels, the boar HP bar and chest-height effects (sword trail, hit sparks, wind line, technique ring) scale with it.
 - Only drawing changes. Hitboxes, attack ranges and sectors, collision radius, movement speed and knockback stay in world units. The training dummy keeps its drawn size.
 - Comparison: `docs/screen-scale-review.png`.
+
+## 2026-10-22 · 기존 완성형 원화의 상체 장비 편집 비교안
+
+부품 조립 캐릭터/관절 회전 공격 시제품(PR #38)은 기존 성인 비율과 게임 분위기를 충족하지 못해
+사용자 불채택·보류 상태다. 그 후보를 정본으로 삼거나 8방향으로 확대하지 않는다.
+
+새 [원화 비교](equipment-reference-comparison.png)는 기존 `warrior-clarity-master.png`의
+전신 자세·성인 비율·얼굴·묘사를 기준으로, 상체 갑옷 장식만 바꾸도록 요청한 한 장의 생성 편집안이다.
+상투·오른손 환도·붉은 천 허리띠·하체는 기존 디자인을 유지한다. SD/부품 회전 모션 없음.
+사용자는 이 비교안을 보고 “ㅇㅇ 이게 내가 원했던 부분이야”라고 원화 방향을 승인했다.
+이 성인 비율·기존 얼굴/묘사·자세를 유지하며 장비만 바꾸는 방식을 후속 제작 기준으로 삼는다.
+갑옷 밖 미세 재묘사 차이는 남아 있고 실제 분리 레이어/모션은 아직 아니다.
+공격은 기존 전신 동작을 기준으로 하며, 거부된 SD 체형/부품 회전 시연을 재사용하지 않는다.
+원본은 보존한다. [제작·실제 검증·남은 문제](EQUIPMENT_REFERENCE_EDIT.md).
+
+### 추가 요청 · 장비 형태의 명확한 차이
+
+사용자는 1차 비교가 색/장식 변경처럼 보여, 외장 형태도 다르게 해 달라고 요청했다.
+[경장/중장 2차 비교](equipment-silhouette-comparison-v2.png)는 원본과 같은 성인 체형/화풍/자세를 기준으로 한다.
+경장은 짧은 누비 무복/가죽·둥근 천 어깨·바지/감개·낮은 장화,
+중장은 넓은 철제 어깨판·큰 겹침 가슴판·긴 직선 갑옷 자락·투구/철제 보호구로 구별한다.
+무기 코등이/칼날과 머리/팔/다리 장비도 다르게 했다. 붉은 천 허리띠·오른손 검·빈 왼손은 공통이다.
+아이템명/수치/역사 설정을 확정한 것이 아니고, 두 새 디자인은 사용자 검토 대기다.
+실제 분리 레이어/모션이 아닌 정지 완성형 원화다. [기록/전체 프롬프트/제한](EQUIPMENT_REFERENCE_EDIT.md).
