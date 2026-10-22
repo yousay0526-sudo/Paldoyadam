@@ -1,0 +1,380 @@
+{
+  "source_size": [
+    1254,
+    1254
+  ],
+  "source_sha256": "28e6c116f7d44b8519c9be027bc8c062d2483cdbbf7fc1297a91b114136eec28",
+  "output_sha256": "b55ae27035fe1d7c9fcbfd8d9871bc2626bd2979f702dda195ffd2c2efeeff34",
+  "transparent_fraction": 0.7249126434326172,
+  "parts": [
+    {
+      "name": "head",
+      "source": "cutout-south-master.png",
+      "source_sha256": "28e6c116f7d44b8519c9be027bc8c062d2483cdbbf7fc1297a91b114136eec28",
+      "source_cell": [
+        0,
+        0,
+        314,
+        314
+      ],
+      "source_bounds": [
+        102,
+        17,
+        298,
+        306
+      ],
+      "rect": [
+        52,
+        16,
+        152,
+        224
+      ]
+    },
+    {
+      "name": "tunic",
+      "source": "cutout-south-master.png",
+      "source_sha256": "28e6c116f7d44b8519c9be027bc8c062d2483cdbbf7fc1297a91b114136eec28",
+      "source_cell": [
+        314,
+        0,
+        627,
+        314
+      ],
+      "source_bounds": [
+        392,
+        36,
+        600,
+        302
+      ],
+      "rect": [
+        296,
+        16,
+        175,
+        224
+      ]
+    },
+    {
+      "name": "sash",
+      "source": "cutout-south-master.png",
+      "source_sha256": "28e6c116f7d44b8519c9be027bc8c062d2483cdbbf7fc1297a91b114136eec28",
+      "source_cell": [
+        627,
+        0,
+        940,
+        314
+      ],
+      "source_bounds": [
+        673,
+        82,
+        938,
+        293
+      ],
+      "rect": [
+        528,
+        39,
+        224,
+        178
+      ]
+    },
+    {
+      "name": "right_upper_arm",
+      "source": "cutout-south-master.png",
+      "source_sha256": "28e6c116f7d44b8519c9be027bc8c062d2483cdbbf7fc1297a91b114136eec28",
+      "source_cell": [
+        940,
+        0,
+        1254,
+        314
+      ],
+      "source_bounds": [
+        1002,
+        18,
+        1145,
+        305
+      ],
+      "rect": [
+        840,
+        16,
+        112,
+        224
+      ]
+    },
+    {
+      "name": "right_forearm_hand",
+      "source": "cutout-south-master.png",
+      "source_sha256": "28e6c116f7d44b8519c9be027bc8c062d2483cdbbf7fc1297a91b114136eec28",
+      "source_cell": [
+        0,
+        314,
+        314,
+        627
+      ],
+      "source_bounds": [
+        125,
+        336,
+        234,
+        609
+      ],
+      "rect": [
+        83,
+        272,
+        89,
+        224
+      ]
+    },
+    {
+      "name": "left_upper_arm",
+      "source": "cutout-south-master.png",
+      "source_sha256": "28e6c116f7d44b8519c9be027bc8c062d2483cdbbf7fc1297a91b114136eec28",
+      "source_cell": [
+        314,
+        314,
+        627,
+        627
+      ],
+      "source_bounds": [
+        416,
+        340,
+        558,
+        611
+      ],
+      "rect": [
+        325,
+        272,
+        117,
+        224
+      ]
+    },
+    {
+      "name": "left_forearm_hand",
+      "source": "cutout-south-master.png",
+      "source_sha256": "28e6c116f7d44b8519c9be027bc8c062d2483cdbbf7fc1297a91b114136eec28",
+      "source_cell": [
+        627,
+        314,
+        940,
+        627
+      ],
+      "source_bounds": [
+        726,
+        326,
+        841,
+        608
+      ],
+      "rect": [
+        594,
+        272,
+        91,
+        224
+      ]
+    },
+    {
+      "name": "right_base_leg",
+      "source": "cutout-south-master.png",
+      "source_sha256": "28e6c116f7d44b8519c9be027bc8c062d2483cdbbf7fc1297a91b114136eec28",
+      "source_cell": [
+        940,
+        314,
+        1254,
+        627
+      ],
+      "source_bounds": [
+        1000,
+        321,
+        1127,
+        624
+      ],
+      "rect": [
+        849,
+        272,
+        94,
+        224
+      ]
+    },
+    {
+      "name": "left_base_leg",
+      "source": "cutout-south-master.png",
+      "source_sha256": "28e6c116f7d44b8519c9be027bc8c062d2483cdbbf7fc1297a91b114136eec28",
+      "source_cell": [
+        0,
+        627,
+        314,
+        940
+      ],
+      "source_bounds": [
+        126,
+        629,
+        250,
+        931
+      ],
+      "rect": [
+        82,
+        528,
+        92,
+        224
+      ]
+    },
+    {
+      "name": "armor_torso",
+      "source": "cutout-south-master.png",
+      "source_sha256": "28e6c116f7d44b8519c9be027bc8c062d2483cdbbf7fc1297a91b114136eec28",
+      "source_cell": [
+        314,
+        627,
+        627,
+        940
+      ],
+      "source_bounds": [
+        372,
+        643,
+        619,
+        916
+      ],
+      "rect": [
+        282,
+        528,
+        203,
+        224
+      ]
+    },
+    {
+      "name": "right_armor_leg",
+      "source": "cutout-south-master.png",
+      "source_sha256": "28e6c116f7d44b8519c9be027bc8c062d2483cdbbf7fc1297a91b114136eec28",
+      "source_cell": [
+        627,
+        627,
+        940,
+        940
+      ],
+      "source_bounds": [
+        692,
+        628,
+        823,
+        931
+      ],
+      "rect": [
+        591,
+        528,
+        97,
+        224
+      ]
+    },
+    {
+      "name": "left_armor_leg",
+      "source": "cutout-south-master.png",
+      "source_sha256": "28e6c116f7d44b8519c9be027bc8c062d2483cdbbf7fc1297a91b114136eec28",
+      "source_cell": [
+        940,
+        627,
+        1254,
+        940
+      ],
+      "source_bounds": [
+        1002,
+        627,
+        1134,
+        933
+      ],
+      "rect": [
+        847,
+        528,
+        97,
+        224
+      ]
+    },
+    {
+      "name": "helmet",
+      "source": "helmet-open-master.png",
+      "source_sha256": "73d73a3387399bf55807fdeb747fb67e97afad95ef35159db85e7baddc8d286b",
+      "source_cell": [
+        0,
+        940,
+        314,
+        1254
+      ],
+      "source_bounds": [
+        75,
+        947,
+        304,
+        1236
+      ],
+      "rect": [
+        39,
+        784,
+        177,
+        224
+      ]
+    },
+    {
+      "name": "plain_hwando",
+      "source": "cutout-south-master.png",
+      "source_sha256": "28e6c116f7d44b8519c9be027bc8c062d2483cdbbf7fc1297a91b114136eec28",
+      "source_cell": [
+        314,
+        940,
+        627,
+        1254
+      ],
+      "source_bounds": [
+        453,
+        933,
+        539,
+        1244
+      ],
+      "rect": [
+        353,
+        784,
+        62,
+        224
+      ]
+    },
+    {
+      "name": "ornate_hwando",
+      "source": "cutout-south-master.png",
+      "source_sha256": "28e6c116f7d44b8519c9be027bc8c062d2483cdbbf7fc1297a91b114136eec28",
+      "source_cell": [
+        627,
+        940,
+        940,
+        1254
+      ],
+      "source_bounds": [
+        746,
+        926,
+        824,
+        1246
+      ],
+      "rect": [
+        612,
+        784,
+        55,
+        224
+      ]
+    },
+    {
+      "name": "pelvis",
+      "source": "cutout-south-master.png",
+      "source_sha256": "28e6c116f7d44b8519c9be027bc8c062d2483cdbbf7fc1297a91b114136eec28",
+      "source_cell": [
+        940,
+        940,
+        1254,
+        1254
+      ],
+      "source_bounds": [
+        957,
+        980,
+        1189,
+        1166
+      ],
+      "rect": [
+        784,
+        806,
+        224,
+        180
+      ]
+    }
+  ],
+  "processing": "alpha<5 specks only; crop; premultiplied Lanczos; no flip/recolor/paint"
+}

@@ -26,7 +26,7 @@ jobs:
           sudo apt-get install -y libsdl2-dev
       - name: Test C gameplay, terrain, controls and rendering
         run: |
-          cmake -S . -B build-native -DCMAKE_BUILD_TYPE=Release
+          cmake -S . -B build-native -DCMAKE_BUILD_TYPE=Release -DPALDO_BUILD_EQUIPMENT_PREVIEW=ON
           cmake --build build-native --parallel 2
           ctest --test-dir build-native --output-on-failure
       - name: Get the official Emscripten SDK

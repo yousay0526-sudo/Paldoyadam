@@ -133,3 +133,21 @@ python3 scripts/prepare_hero_asset.py
 - `ACTOR_SCALE` = 1.4 draws the hero, NPCs, the messenger, boars and the butcher (all eight-direction monster sheets) larger than the scenery's own scale, so they match the painted doors, steps and tables. The hero is about 60 units tall (was 43). Shadows, roof/canopy occlusion boxes, name labels, the boar HP bar and chest-height effects (sword trail, hit sparks, wind line, technique ring) scale with it.
 - Only drawing changes. Hitboxes, attack ranges and sectors, collision radius, movement speed and knockback stay in world units. The training dummy keeps its drawn size.
 - Comparison: `docs/screen-scale-review.png`.
+
+## 2026-10-22 · 장비 외형 분리 시제품 (남쪽 한 방향)
+
+**후속 사용자 검토: 불채택.** 새 조립 캐릭터의 비율과 부품 회전 공격은 게임의 기존 원화와
+어울리지 않으며 승인된 스타일이 아니다. PR #38은 초안·보류 상태다.
+아래 실험을 다른 방향으로 확대하거나 기존 주인공을 대체하지 않는다.
+기존 승인 원화의 성인 비율·얼굴·묘사·전신 프레임 동작을 유지하면서 장비 부위만 수정하는 기준으로 돌아간다.
+
+[EQUIPMENT_PROTOTYPE.md](EQUIPMENT_PROTOTYPE.md)에 새 분리 원화와 표시 계약을 기록했다.
+내장 ImageGen으로 흰 속옷의 몸/팔/다리, 갑옷 상·하의, 투구, 검 2종을 만들었다.
+기존 주인공의 남쪽 얼굴·상투·수염·남색/청록/금 장비와 **붉은 천 허리띠**를 기준으로 한다.
+원화는 1254² RGBA, 실행 부품 시트는 1024² RGBA/4×4, 검 없는 몸에 오른손 무기를 붙인다.
+얼굴을 가리던 투구는 실제 투명한 얼굴 구멍으로 교정했다. 피·혈흔 없음.
+
+이는 기존 8방향 완성형 그림을 대체하는 승인 정본이 아니라, 독립 실행 장비 시제품용이다.
+현재는 남쪽 한 방향의 단순 관절 동작만 있다. 나머지 방향을 반전해서 만들지 않는다.
+상의 소매·무릎·몸통 원근·옷자락과 방향/자세별 가림은 후속 제작이 필요하다.
+본게임 `gfx_hero`와 기존 원화/실행 assets는 보존하며, 원화 검토 뒤 8방향 확장을 진행한다.

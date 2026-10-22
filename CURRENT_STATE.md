@@ -1,6 +1,6 @@
 # CURRENT_STATE.md — 팔도야담 개발 상태
 
-최종 갱신: 2026-10-21
+최종 갱신: 2026-10-22
 
 ## 기준
 - GitHub 저장소: `yousay0526-sudo/Paldoyadam`
@@ -292,3 +292,40 @@
 - Windows CMake/CTest **10/10 통과**, Python 자산 검사 **2/2 통과**. 새 몬스터 SDL 렌더링 13,290,216개 조건과 기존 영웅 7,065,056개 조건, 게임/지형/수련/전투/피드백/SDL 입력/UI/native_render 검사 통과. 1/2/3배에서 기대한 방향·프레임·발/크기·반전 없음·타격 직전/경직·쓰러짐·텍스처 복원을 확인했다.
 - 실제 SDL 수련장 3개 크기 출력, 기준 main과 11장면 전후 22장 비교. 마을/상점/수련/지붕/수목/주인공 기술 3장면은 픽셀 일치, 나머지 적 장면 3개는 적 주변만 차이. 지붕/수목 경계에서 32방향 장면을 검토했다. [실제 SDL 모션](docs/monster-eight-direction-sdl.gif), [게임 전후](docs/monster-gameplay-comparison.png), [가림](docs/monster-cover-review.png), [표시·검증 상세](docs/MONSTER_MOTION_RUNTIME.md).
 - 추가 상주 RGBA 텍스처 20.25MiB, PNG 약 4.88MiB. 남음: 실제 iPhone/Android/APK·브라우저 실행 표시와 장시간 메모리/성능, 정교한 발 미끄러짐 조정. 웹 빌드는 PR CI에서 별도로 확인한다. GAME_BIBLE.md 없음. PR 검토 대기, main 병합·자동 병합·Pages 배포·버전 변경 없음.
+
+## 2026-10-22 · Spine 없는 장비 외형 시제품 1차 (사용자 불채택·보류)
+
+- **사용자 미술 검토에서 불채택.** 기존 성인 비율·승인 원화를 유지하라는 요청과 달리
+  머리가 크고 몸이 짧아진 새 조립 캐릭터 및 부품 회전 공격을 만들었다.
+  게임 분위기·체형·공격 동작 품질 요구를 충족하지 못했으며, 기능 검사 통과를 미술 승인으로 해석하면 안 된다.
+  PR #38은 draft로 전환했고 이 후보를 본게임에 적용하거나 다른 방향으로 확장하지 않는다.
+- 수정 기준: `art/hero/warrior-clarity-master.png`, `art/hero/directions/`,
+  기존 공격/기술 원화의 얼굴·머리/몸 비율·어깨·팔다리·갑옷 묘사와 전신 동작을 기준으로 한다.
+  새 SD 체형으로 재디자인하지 않고 장비 변경 부위와 가려진 부분만 보완한다.
+  정지 한 프레임에서 기존 그림과 장비 변경 그림을 직접 비교한 뒤 동작별 제작을 판단한다.
+  공격은 몸통 비틀림·하체 지지·무게중심·옷자락까지 기존 전신 프레임을 기준으로 하고,
+  정지 부품을 단순 회전한 모션으로 대체하지 않는다. 아래 구현/테스트는 불채택 후보의 이력이다.
+
+- 기준 최신 main `04cb6c5`, 독립 브랜치 `graphics/equipment-appearance-prototype-20261021`.
+  사용자가 Spine 비용 없이 구현을 승인했다. 대량 8방향 원화 전에 **남쪽 한 방향 독립 시제품**으로 분리 구조를 검토한다.
+- `src/equipment.c/h`는 몸/관절과 외형 선택을 분리한다. 상의·하의·투구 켜기/끄기 × 무기 없음/기본/장식 환도로 24조합.
+  정지·단순 관절 걷기·6키 베기 경로를 공유하며 검은 해부학적 오른손에 붙는다. 반전 없음, 붉은 천 허리띠 유지, 혈흔 없음.
+- `tools/equipment_preview.c`: 화면 버튼·1~4·I/W/A·Space로 교체/동작/일시정지를 시연한다.
+  CMake `PALDO_BUILD_EQUIPMENT_PREVIEW=ON`일 때만 별도 실행 파일을 만든다. 본게임 소스/기존 assets·가방·능력치·조작·전투/0.64초 무공·NPC/퀘스트/맵은 수정하지 않았다.
+- 내장 ImageGen으로 16부품 원화를 만들고 얼굴을 가리던 투구만 별도 교정했다.
+  원본/전체 프롬프트/1024² RGBA 실행본/알파 및 SHA-256은 `art/hero/equipment/`,
+  비파괴 선택·축소 스크립트는 `scripts/prepare_equipment_assets.py`.
+  시제품 원화는 assets 밖에 있어 본게임 웹 다운로드/텍스처에 추가하지 않는다.
+- Windows Clang 19.1.7/SDL 2.32.10 CMake/CTest **11/11 통과**.
+  새 장비 검사 **8,171,148조건**: 조합별 렌더, 오른손/검 연결, 순환/복귀, 1/2/3배 경계와 새 도구의 버튼/키/2배 좌표 변환.
+  기존 영웅·몬스터·전투·입력·모바일 크기 UI 검사 포함. 59장 실제 SDL 출력으로 24조합 PNG/동작 GIF/3크기 리뷰.
+- [구현·실행·제한](docs/EQUIPMENT_PROTOTYPE.md), [비교](docs/equipment-preview.png),
+  [움직임](docs/equipment-motion-review.gif), [24조합](docs/equipment-loadouts-review.png).
+- 남음: 다른 7방향, 무릎/몸통 원근·옷자락·자세별 가림, 네 무공, 본게임 장비창/인벤토리 연결.
+  현재 상의는 민소매이고 흰 소매/장화/손목 보호구는 기본 몸이다.
+  실제 휴대폰 터치·브라우저 시제품·APK·ASan/성능은 미검증. Spine 의존성·구매 없음.
+  사용자 검토 전 다음 독립 단계/ main 병합/Pages 배포/버전 변경은 하지 않는다.
+- 검토 PR [#38](https://github.com/yousay0526-sudo/Paldoyadam/pull/38).
+  Linux CI에서도 **11/11**, 일반 웹/단일 HTML 빌드 통과
+  ([검증 실행](https://github.com/yousay0526-sudo/Paldoyadam/actions/runs/39697639619), `f7c067d`).
+  Pages 배포 작업은 건너뛰었다. Linux에서 발견한 시제품 초기화 경고는 명시 초기화로 정리했다.
