@@ -84,7 +84,7 @@ static void scene(Gfx *g, EquipmentArt *art, Preview *p, int width, int height, 
 int main(int argc,char **argv) {
     const char *assets="assets",*parts="art/hero/equipment/cutout-south-v1.png",*smoke=NULL;
     int width=960,height=600;
-    Preview p={{true,true,true,1},EQ_WALK,0,false,{{0}}};
+    Preview p={.gear={true,true,true,1},.motion=EQ_WALK};
     bool hold_phase=false;
     for(int i=1;i<argc;i++) {
         if (!strcmp(argv[i],"--assets") && i+1<argc) assets=argv[++i];

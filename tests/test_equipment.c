@@ -22,7 +22,7 @@ static void preview_controls(Gfx *g, EquipmentArt *art) {
     const int sizes[][2]={{640,390},{844,390},{1280,720}};
     for(int n=0;n<3;n++) {
         int w=sizes[n][0],h=sizes[n][1];
-        Preview p={{0},EQ_IDLE,0,false,{{0}}};
+        Preview p={.motion=EQ_IDLE};
         scene(g,art,&p,w,h,true);
         for(int b=0;b<7;b++) {
             SDL_FRect r=p.buttons[b];

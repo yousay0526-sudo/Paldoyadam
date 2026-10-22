@@ -314,3 +314,7 @@
   현재 상의는 민소매이고 흰 소매/장화/손목 보호구는 기본 몸이다.
   실제 휴대폰 터치·브라우저 시제품·APK·ASan/성능은 미검증. Spine 의존성·구매 없음.
   사용자 검토 전 다음 독립 단계/ main 병합/Pages 배포/버전 변경은 하지 않는다.
+- 검토 PR [#38](https://github.com/yousay0526-sudo/Paldoyadam/pull/38).
+  Linux CI에서도 **11/11**, 일반 웹/단일 HTML 빌드 통과
+  ([검증 실행](https://github.com/yousay0526-sudo/Paldoyadam/actions/runs/39697639619), `f7c067d`).
+  Pages 배포 작업은 건너뛰었다. Linux에서 발견한 시제품 초기화 경고는 명시 초기화로 정리했다.

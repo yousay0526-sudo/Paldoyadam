@@ -284,3 +284,10 @@ The candidate is based on public main bb03a4c4a7592e0e344eefbbacaa0d485a021f45. 
 실제 휴대폰 터치·시제품 브라우저 실행·APK·ASan/UBSan·성능은 미검증.
 실행 방법과 후속 범위는 [EQUIPMENT_PROTOTYPE.md](EQUIPMENT_PROTOTYPE.md).
 main 병합·Pages 배포·버전 변경 없음.
+
+PR [#38](https://github.com/yousay0526-sudo/Paldoyadam/pull/38)의
+[Linux CI](https://github.com/yousay0526-sudo/Paldoyadam/actions/runs/39697639619)
+(`f7c067d`)도 **11/11 통과**, Emscripten 3.1.74 일반 웹/단일 HTML 빌드 모두 성공.
+Pages artifact/deploy는 PR 조건에 따라 건너뛰었다.
+이 실행에서 발견한 새 도구의 부분 구조체 초기화 경고는 명시 초기화로 정리했다.
+기존 `draw.c:550`의 signedness 경고와 Actions 런타임의 Node 경고는 기존 범위로 남긴다.
