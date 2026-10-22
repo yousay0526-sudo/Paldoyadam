@@ -1,6 +1,6 @@
 """Label/composite actual Blender renders for review; never redraw the actor."""
 from pathlib import Path
-import hashlib,json,shutil
+import hashlib,json
 from PIL import Image,ImageDraw,ImageFont
 ROOT=Path(__file__).resolve().parents[1];SRC=ROOT/'build-blender-study/renders';ART=ROOT/'art/blender-hero-study';OUT=ART/'renders';OUT.mkdir(exist_ok=True)
 font_path=Path('C:/Windows/Fonts/malgun.ttf')
@@ -34,15 +34,26 @@ board.save(ROOT/'docs/blender-style-comparison.png')
 diagnosis=Image.new('RGB',(1536,835),(31,46,51));d=ImageDraw.Draw(diagnosis)
 d.text((30,16),'진단용 구조 초안 · 재질 숨김',font=font,fill='#ede2cb');d.text((798,16),'옆면 진단 · 투사 그림의 늘어짐/중복 미해결',font=font,fill='#ede2cb')
 paste(diagnosis,Image.open(SRC/'clay-front.png'),(0,50));paste(diagnosis,Image.open(SRC/'side-diagnostic.png'),(768,50));diagnosis.save(ROOT/'docs/blender-volume-diagnostic.png')
-frames=[];hashes=[]
-for p in sorted(SRC.glob('walk-*.png')):
+frames=[];mechanics_frames=[];hashes=[];mechanic_hashes=[]
+for index in range(1,25):
+    p=SRC/f'walk-{index:02d}.png'
     im=Image.open(p);assert im.mode=='RGBA' and im.size==(512,512)
     bbox=im.getchannel('A').getbbox();assert bbox is not None
     assert min(bbox[0],bbox[1],512-bbox[2],512-bbox[3])>=4,(p.name,bbox)
-    hashes.append(hashlib.sha256(p.read_bytes()).hexdigest())
-    frame=Image.new('RGB',(512,550),(31,46,51));paste(frame,im,(0,30));ImageDraw.Draw(frame).text((15,7),'Blender 걷기 구조 시험 · 화풍/가림 보완 전',font=small,fill='#ede2cb');frames.append(frame)
-assert len(frames)==8 and len(set(hashes))==8
-frames[0].save(ROOT/'docs/blender-walk-study.gif',save_all=True,append_images=frames[1:],duration=[80,80,90,80,80,90,80,80],loop=0,disposal=2)
-report['walk']=dict(sampled_frames=8,timeline_frames=16,fps=24,frame_sha256=hashes,gif_total_ms=660)
+    hashes.append(hashlib.sha256(im.tobytes()).hexdigest())
+    assert im.info.get('Camera')=='CAM_approved_front' and int(im.info['Frame'])==index
+    mp=SRC/f'mechanics-{index:02d}.png';mechanics=Image.open(mp)
+    assert mechanics.mode=='RGBA' and mechanics.size==(512,512)
+    assert mechanics.info.get('Camera')=='CAM_walk_mechanics' and int(mechanics.info['Frame'])==index
+    mb=mechanics.getchannel('A').getbbox();assert mb and min(mb[0],mb[1],512-mb[2],512-mb[3])>=4,(mp.name,mb)
+    mechanic_hashes.append(hashlib.sha256(mechanics.tobytes()).hexdigest())
+    frame=Image.new('RGB',(512,565),(31,46,51));paste(frame,im,(0,40))
+    ImageDraw.Draw(frame).text((15,7),'보행 수정 · 실제 Blender 렌더',font=small,fill='#ede2cb');frames.append(frame)
+    diagnosis_frame=Image.new('RGB',(512,565),(31,46,51));paste(diagnosis_frame,mechanics,(0,40))
+    ImageDraw.Draw(diagnosis_frame).text((15,7),'옆면 구조 · 팔/다리 교차와 옷 변형 확인',font=small,fill='#ede2cb');mechanics_frames.append(diagnosis_frame)
+assert len(frames)==24 and len(set(hashes))==24 and len(set(mechanic_hashes))==24
+frames[0].save(ROOT/'docs/blender-walk-study.gif',save_all=True,append_images=frames[1:],duration=[40,40,40,40,40,50]*4,loop=0,disposal=2)
+mechanics_frames[0].save(ROOT/'docs/blender-walk-mechanics.gif',save_all=True,append_images=mechanics_frames[1:],duration=[40,40,40,40,40,50]*4,loop=0,disposal=2)
+report['walk']=dict(sampled_frames=24,timeline_frames=24,fps=24,frame_rgba_sha256=hashes,mechanics_frame_rgba_sha256=mechanic_hashes,gif_total_ms=1000)
 (ART/'render-validation.json').write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n',encoding='utf8')
-print('Validated 3 actual Blender RGBA views and 8 distinct unclipped walking renders')
+print('Validated 3 actual Blender RGBA views and 24 front + 24 mechanics walking renders')

@@ -4,7 +4,7 @@ Run with Blender --background --factory-startup --disable-autoexec --python
 this_file.py -- --human-bundle /path/to/human_base_meshes_bundle.blend.
 The packed .blend is editable and self-contained. No game files are replaced.
 """
-import argparse,hashlib,json,math,os,sys
+import argparse,hashlib,json,math,os,runpy,sys
 from pathlib import Path
 import bpy,bmesh
 from mathutils import Vector,Matrix
@@ -14,7 +14,7 @@ ROOT=Path(__file__).resolve().parents[1]
 OUT=ROOT/'art/blender-hero-study'
 args=argparse.ArgumentParser()
 args.add_argument('--human-bundle',type=Path,required=True)
-args.add_argument('--render-walk',action='store_true')
+args.add_argument('--render-walk',action='store_true',help='Compatibility flag; rendering now includes the full walk by default')
 args.add_argument('--no-render',action='store_true')
 options=args.parse_args(sys.argv[sys.argv.index('--')+1:] if '--' in sys.argv else [])
 options.human_bundle=(ROOT/options.human_bundle).resolve()
@@ -49,6 +49,11 @@ diagnostic_camera.name='CAM_side_diagnostic';diagnostic_camera.animation_data_cl
 scene.collection.objects.link(diagnostic_camera)
 diagnostic_camera.location=CENTER+Vector((4,-4,1.5))
 diagnostic_camera.rotation_euler=(CENTER-diagnostic_camera.location).to_track_quat('-Z','Y').to_euler()
+mechanics_camera=diagnostic_camera.copy();mechanics_camera.data=diagnostic_camera.data.copy()
+mechanics_camera.name='CAM_walk_mechanics';scene.collection.objects.link(mechanics_camera)
+mechanics_camera.data.ortho_scale=2.75
+mechanics_camera.location=CENTER+Vector((4,-1.2,1.1))
+mechanics_camera.rotation_euler=(CENTER-mechanics_camera.location).to_track_quat('-Z','Y').to_euler()
 
 def solid(name,color):
     mat=bpy.data.materials.new(name);mat.diffuse_color=(*color,1);mat.use_nodes=True
@@ -150,13 +155,14 @@ def geometry(name,verts,faces,front,back,bone,front_flags=None):
 def loft(name,rows,depth,bone,material='upper',back=navy,center_depth=0,N=32):
     verts=[];faces=[];flags=[]
     for v,left,right in rows:
+        row_depth=center_depth(v) if callable(center_depth) else center_depth
         for j in range(N):
-            phi=2*math.pi*j/N;verts.append(point((left+right)/2+(right-left)/2*math.cos(phi),v,center_depth+depth*math.sin(phi)))
+            phi=2*math.pi*j/N;verts.append(point((left+right)/2+(right-left)/2*math.cos(phi),v,row_depth+depth*math.sin(phi)))
     for i in range(len(rows)-1):
         for j in range(N):
             faces.append((i*N+j,i*N+(j+1)%N,(i+1)*N+(j+1)%N,(i+1)*N+j))
             flags.append(math.sin(2*math.pi*(j+.5)/N)<0)
-    faces += [tuple(reversed(range(N))),tuple((len(rows)-1)*N+j for j in range(N))];flags += [False,False]
+    faces += [tuple(reversed(range(N))),tuple((len(rows)-1)*N+j for j in range(N))];flags += [True,True]
     return geometry(name,verts,faces,mats[material],back,bone,flags)
 
 def plate(name,outline,depth,bone,material='weapon',back=navy,thickness=.008):
@@ -173,20 +179,36 @@ def plate(name,outline,depth,bone,material='weapon',back=navy,thickness=.008):
 
 def coat_weight(p):
     uv=source_uv(p);v=(1-uv.y)*1254
-    strength=max(0,min(1,(v-500)/250));side='R' if p.x<0 else 'L'
-    return {'pelvis':1-strength*.65,'coat.'+side:strength*.65}
+    strength=max(0,min(1,(v-535)/440));strength=strength*strength*(3-2*strength)
+    left=max(0,min(1,(p.x+.15)/.30))
+    result={'pelvis':1-strength*.75}
+    for side,amount in [('R',1-left),('L',left)]:
+        result['thigh.'+side]=strength*.48*amount
+        result['coat.'+side]=strength*.27*amount
+    return result
+
+def sleeve_weight(side):
+    h,k,_=targets['upper_arm.'+side];_,w,_=targets['forearm.'+side]
+    axis=(w-h).normalized();elbow=(k-h).dot(axis)
+    def skinning(p):
+        blend=max(0,min(1,((p-h).dot(axis)-elbow+.09)/.18))
+        blend=blend*blend*(3-2*blend)
+        return {'upper_arm.'+side:1-blend,'forearm.'+side:blend}
+    return skinning
 
 loft('ARMOR_Torso',[(210,560,713),(260,525,755),(330,510,775),(410,515,770),(480,515,758),(535,500,775)],.145,'chest',center_depth=.015)
-loft('ARMOR_Complete_coat',[(500,510,770),(575,480,805),(675,455,850),(775,445,875),(875,410,945),(970,445,915),(1035,500,825)],.20,coat_weight,center_depth=.025)
+# Follow the clothing outline below the elbow: the reference hand must not be
+# projected on this surface as well as on its separate, wrist-bound volume.
+loft('ARMOR_Complete_coat',[(500,510,770),(575,480,795),(650,455,800),(700,450,795),(745,445,805),(780,435,855),(875,410,945),(970,445,915),(1035,500,825)],.20,coat_weight,center_depth=.025)
 for side,rows,pauldron,bracer in [
  ('R',[(270,424,548),(350,382,530),(440,347,482),(510,352,452)],[(190,475,535),(240,425,557),(330,385,540),(405,360,508),(435,375,480)],[(445,371,460),(490,359,451),(545,351,435),(594,345,429)]),
  ('L',[(285,750,875),(365,765,915),(450,790,947),(535,812,921)],[(240,760,837),(295,739,880),(375,755,917),(445,776,941),(473,814,915)],[(520,816,915),(580,820,910),(650,815,901),(708,821,897)])]:
-    loft('SLEEVE.'+side,rows,.10,'upper_arm.'+side,center_depth=.005)
-    loft('PAULDRON.'+side,pauldron,.13,'upper_arm.'+side,center_depth=-.03)
+    loft('SLEEVE.'+side,rows,.10,sleeve_weight(side),center_depth=.005)
+    loft('PAULDRON.'+side,pauldron,.13,lambda p,s=side:{'chest':.35,'upper_arm.'+s:.65},center_depth=-.03)
     loft('BRACER.'+side,bracer,.065,'forearm.'+side,center_depth=-.175)
 
-loft('TROUSERS_BOOT.R',[(450,520,640),(570,485,645),(710,470,630),(850,470,628),(920,495,620),(1010,510,612),(1080,485,610),(1135,445,592),(1160,450,550)],.095,'thigh.R','lower',center_depth=.52)
-loft('TROUSERS_BOOT.L',[(450,640,728),(570,640,785),(710,645,825),(850,662,855),(950,710,850),(1060,730,854),(1160,750,880),(1220,770,890),(1235,795,870)],.095,'thigh.L','lower',center_depth=.15)
+loft('TROUSERS_BOOT.R',[(570,485,645),(710,470,630),(850,470,628),(920,495,620),(1010,510,612),(1080,485,610),(1135,445,592),(1160,450,550)],.095,'thigh.R','lower',center_depth=lambda v:.25+.27*max(0,min(1,(v-600)/450)))
+loft('TROUSERS_BOOT.L',[(570,640,785),(710,645,825),(850,662,855),(950,710,850),(1060,730,854),(1160,750,880),(1220,770,890),(1235,795,870)],.095,'thigh.L','lower',center_depth=lambda v:.25-.10*max(0,min(1,(v-600)/450)))
 # Lower vertices bend with the shin/foot, rather than rotating whole legs.
 for ob in [o for o in meshes if o.name.startswith('TROUSERS_BOOT')]:
     side=ob.name[-1]
@@ -195,7 +217,8 @@ for ob in [o for o in meshes if o.name.startswith('TROUSERS_BOOT')]:
         uv=source_uv(vert.co);v=(1-uv.y)*1254
         knee=900 if side=='R' else 930;ankle=1090 if side=='R' else 1150
         shin=max(0,min(1,(v-(knee-65))/130));foot=max(0,min(1,(v-(ankle-35))/90))
-        data={'thigh.'+side:1-shin,'shin.'+side:shin*(1-foot),'foot.'+side:shin*foot}
+        hip=max(0,min(1,(v-540)/140));hip=hip*hip*(3-2*hip)
+        data={'pelvis':1-hip,'thigh.'+side:hip*(1-shin),'shin.'+side:hip*shin*(1-foot),'foot.'+side:hip*shin*foot}
         for name,value in data.items():
             if value>0:(ob.vertex_groups.get(name) or ob.vertex_groups.new(name=name)).add([vert.index],value,'REPLACE')
 
@@ -203,6 +226,7 @@ loft('SASH_Wrapped_red_cloth',[(448,510,735),(475,505,735),(510,510,735),(533,53
 plate('SASH_Front_tail',[(677,512),(708,520),(716,570),(733,650),(758,731),(781,796),(797,844),(741,891),(714,824),(687,744),(672,656),(662,574)],-.31,'coat.L','belt',red,.005)
 loft('SASH_Lion_buckle',[(466,570,612),(482,548,635),(510,552,634),(533,585,610)],.018,'pelvis','belt',gold,center_depth=-.31,N=24)
 plate('WEAPON_Right_hand_hwando',[(188,1090),(208,1090),(399,704),(422,677),(425,646),(444,615),(446,583),(428,567),(389,573),(369,597),(362,623),(344,642),(344,668),(360,698),(302,832)],-.30,'hand.R','weapon',gold,.012)
+loft('HAND.L',[(672,835,891),(690,807,889),(712,810,881),(733,831,869),(740,840,855)],.032,'hand.L','upper',skin,center_depth=-.235,N=24)
 
 # Load only the official human and its eyeballs. Strip source transforms and
 # optional sculpt modifiers; do not execute anything from the source .blend.
@@ -236,7 +260,7 @@ for name in names[:3]:
         scores=[1/(distance+.012)**5 for distance,bone in rank];total=sum(scores);w={rank[i][1]:scores[i]/total for i in range(len(rank))}
         new=sum((map_vertex(p,bone)*value for bone,value in w.items()),Vector())
         if p.z>1.48:new.x*=1.16
-        vert.co=new;data.append(w);visible.append(p.z>1.45 or (abs(p.x)>.365 and p.z<1.01))
+        vert.co=new;data.append(w);visible.append(p.z>1.45)
     body.data.materials.clear();body.data.materials.append(mats['skin']);body.data.materials.append(transparent)
     for face in body.data.polygons:
         face.material_index=0 if all(visible[v] for v in face.vertices) else 1;face.use_smooth=True
@@ -256,43 +280,73 @@ def matrix_for(name,head,tail):
     rh,rt,_=targets[name];rotation=(rt-rh).rotation_difference(tail-head).to_matrix().to_4x4()
     return Matrix.Translation(head)@rotation@Matrix.Translation(-rh)@rig_data.bones[name].matrix_local
 def solve_knee(hip,ankle,rest_h,rest_k,rest_a):
-    a=(rest_k-rest_h).length;b=(rest_a-rest_k).length;axis=ankle-hip;length=min(axis.length,a+b-.0001);axis.normalize()
+    a=(rest_k-rest_h).length;b=(rest_a-rest_k).length;axis=ankle-hip;length=axis.length;axis.normalize()
+    assert abs(a-b)+.0001<length<a+b-.0001,('Unreachable leg target',length,a+b)
     d=(a*a-b*b+length*length)/(2*length);height=math.sqrt(max(0,a*a-d*d))
-    pole=rest_k-rest_h;pole-=axis*pole.dot(axis)
-    if pole.length<.0001:pole=Vector((0,-1,0))-axis*axis.dot(Vector((0,-1,0)))
+    # Both knees bend toward the walking direction, never from the asymmetric
+    # illustration's accidental depth estimate (which bent one knee backward).
+    pole=Vector((0,-1,0));pole-=axis*pole.dot(axis)
     return hip+axis*d+pole.normalized()*height
 
-rig.animation_data_create();action=bpy.data.actions.new('Walk_16frames_root_motion_study');rig.animation_data.action=action
+FRAMES=24;STRIDE=.72;STANCE=.60
+def foot_path(q):
+    front=STRIDE*STANCE/2;back=-front
+    if q<STANCE:return front-STRIDE*q,0,0
+    u=(q-STANCE)/(1-STANCE)
+    # Hermite tangents give zero world velocity at lift-off and landing.
+    relative=back+(front-back)*(3*u*u-2*u*u*u)-STRIDE*(1-STANCE)*(2*u*u*u-3*u*u+u)
+    return relative,.080*math.sin(math.pi*u)**2,-math.radians(10)*math.sin(math.pi*u)
+
+def rotate_from_parent(name,angle,axis='X'):
+    bone=rig.pose.bones[name];h,_,parent=targets[name]
+    deform=rig.pose.bones[parent].matrix@rig_data.bones[parent].matrix_local.inverted()
+    bone.matrix=deform@Matrix.Translation(h)@Matrix.Rotation(angle,4,axis)@Matrix.Translation(-h)@rig_data.bones[name].matrix_local
+    bpy.context.view_layer.update()
+
+rig.animation_data_create();action=bpy.data.actions.new('Walk_24frames_opposed_stride');rig.animation_data.action=action
 contact=[]
-for frame in range(1,18):
+for frame in range(1,FRAMES+2):
     scene.frame_set(frame)
-    t=(frame-1)/16;phase=t*2*math.pi;root_delta=Vector((0,-.18*t,.006*(1-math.cos(phase*2))))
+    t=(frame-1)/FRAMES;phase=t*2*math.pi
+    root_delta=Vector((.009*math.sin(phase),-STRIDE*t,-.055+.002*(1-math.cos(phase*2))))
     for name,(h,tail,parent) in targets.items():
         rig.pose.bones[name].matrix=Matrix.Translation(root_delta)@rig_data.bones[name].matrix_local
         bpy.context.view_layer.update()
     bpy.context.view_layer.update()
+    rotate_from_parent('pelvis',math.radians(2.5)*math.sin(phase),'Z')
+    rotate_from_parent('chest',-math.radians(4)*math.sin(phase),'Z')
     for side,offset in [('R',0),('L',.5)]:
         ph=(t+offset)%1
-        def foot_offset(q):return -.045+.18*q if q<.5 else .045-.18*(q-.5)
-        lift=0 if ph<.5 else .035*math.sin(2*math.pi*(ph-.5))
+        relative,lift,pitch=foot_path(ph)
         h,k,_=targets['thigh.'+side];a,toe,_=targets['foot.'+side]
-        ankle=a+Vector((0,-.18*t+foot_offset(ph)-foot_offset(offset),lift))
-        hip=h+root_delta;knee=solve_knee(hip,ankle,h,k,a)
-        for name,head,tail in [('thigh.'+side,hip,knee),('shin.'+side,knee,ankle),('foot.'+side,ankle,ankle+(toe-a))]:
+        ankle=Vector((a.x,h.y-.03-STRIDE*t-relative,a.z+lift))
+        pelvis_deform=rig.pose.bones['pelvis'].matrix@rig_data.bones['pelvis'].matrix_local.inverted()
+        hip=pelvis_deform@h;knee=solve_knee(hip,ankle,h,k,a)
+        for name,head,tail in [('thigh.'+side,hip,knee),('shin.'+side,knee,ankle),('foot.'+side,ankle,ankle+Matrix.Rotation(pitch,3,'X')@(toe-a))]:
             rig.pose.bones[name].matrix=matrix_for(name,head,tail)
             bpy.context.view_layer.update()
-        contact.append(dict(frame=frame,side=side,stance=ph<.5,ankle=list(ankle)))
-    for side,sign in [('R',1),('L',-1)]:
-        for name,angle in [('upper_arm.'+side,math.radians(3 if side=='R' else 6)*sign*math.sin(phase)),('coat.'+side,math.radians(1.5)*sign*math.sin(phase))]:
-            h,tail,_=targets[name];rotation=Matrix.Rotation(angle,4,'X')
-            rig.pose.bones[name].matrix=Matrix.Translation(h+root_delta)@rotation@Matrix.Translation(-h)@rig_data.bones[name].matrix_local
-            bpy.context.view_layer.update()
+        contact.append(dict(frame=frame,side=side,phase=ph,stance=ph<STANCE,ankle=list(ankle)))
+    for side,offset in [('R',0),('L',.5)]:
+        arm_phase=phase+offset*2*math.pi
+        rotate_from_parent('upper_arm.'+side,math.radians(21 if side=='R' else 24)*math.cos(arm_phase))
+        rotate_from_parent('forearm.'+side,-math.radians(5+5*(1-math.cos(arm_phase))))
+        # The hem follows its thigh through skin weights, plus a smaller delayed
+        # swing. Its waist stays on the pelvis; sleeves bend at the elbow.
+        rotate_from_parent('coat.'+side,-math.radians(6)*math.cos(arm_phase-.25))
     bpy.context.view_layer.update()
     for bone in rig.pose.bones:
         for path in ['location','rotation_quaternion','scale']:bone.keyframe_insert(data_path=path,frame=frame,group=bone.name)
-    camera.location=camera_base+Vector((0,-.18*t,0));camera.keyframe_insert(data_path='location',frame=frame)
+    camera.location=camera_base+Vector((0,-STRIDE*t,0));camera.keyframe_insert(data_path='location',frame=frame)
 
-scene.frame_start=1;scene.frame_end=16;scene.frame_set(1)
+# Keep an explicit unanimated reference pose, outside the walking playback.
+scene.frame_set(0)
+for bone in rig.pose.bones:
+    bone.matrix_basis=Matrix.Identity(4)
+    for path in ['location','rotation_quaternion','scale']:bone.keyframe_insert(data_path=path,frame=0,group=bone.name)
+camera.location=camera_base;camera.keyframe_insert(data_path='location',frame=0)
+for curve in action.fcurves:
+    for key in curve.keyframe_points:key.interpolation='LINEAR'
+scene.frame_start=1;scene.frame_end=FRAMES;scene.frame_set(1)
 rig['study_limitations']='Front-projected reference paint; reverse surfaces intentionally unpainted. Not an eight-direction production character. Cloth, hidden textures and hand grips need artist correction.'
 scene['source_art']='Approved warrior-clarity-master and PR40 still equipment textures'
 scene['render_provenance']='Actual Blender Cycles CPU renders; no AI-generated render preview'
@@ -312,22 +366,11 @@ bpy.ops.wm.save_as_mainfile(filepath=str(OUT/'hero-front-study.blend'),compress=
 
 stats=dict(blender=bpy.app.version_string,source_license=asset_license,source_mesh_bundle_sha256=hashlib.sha256(options.human_bundle.read_bytes()).hexdigest(),
     objects=[dict(name=o.name,vertices=len(o.data.vertices),faces=len(o.data.polygons),depth=round(float(o.dimensions.y),5)) for o in meshes],
-    bones=len(rig_data.bones),frame_start=1,frame_end=16,fps=24,packed_images=[im.name for im in bpy.data.images if im.packed_file],
+    bones=len(rig_data.bones),frame_start=1,frame_end=FRAMES,fps=24,stride_m=STRIDE,stance_fraction=STANCE,packed_images=[im.name for im in bpy.data.images if im.packed_file],
     projection_only=True,game_assets_modified=False,contacts=contact)
 (OUT/'study.json').write_text(json.dumps(stats,ensure_ascii=False,indent=2)+'\n',encoding='utf8')
 if options.no_render:
     print('STUDY_GENERATED_WITHOUT_RENDER',flush=True)
     sys.exit(0)
-scene.render.filepath=str(RENDER/'front.png');bpy.ops.render.render(write_still=True)
-scene.view_layers[0].material_override=clay
-scene.render.filepath=str(RENDER/'clay-front.png');bpy.ops.render.render(write_still=True)
-# A separate side diagnosis deliberately exposes the unsupported paint view.
-scene.view_layers[0].material_override=None
-scene.camera=diagnostic_camera
-scene.render.filepath=str(RENDER/'side-diagnostic.png');bpy.ops.render.render(write_still=True)
-scene.camera=camera
-if options.render_walk:
-    scene.render.resolution_x=512;scene.render.resolution_y=512
-    for frame in range(1,17,2):
-        scene.frame_set(frame);scene.render.filepath=str(RENDER/f'walk-{frame:02d}.png');bpy.ops.render.render(write_still=True)
+runpy.run_path(str(ROOT/'scripts/render_blender_hero_study.py'),run_name='__main__')
 print('STUDY_READY',json.dumps({'blend':str(OUT/'hero-front-study.blend'),'objects':len(meshes),'bones':len(rig_data.bones)}),flush=True)
