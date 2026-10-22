@@ -247,3 +247,40 @@ Verified with Clang 19.1.7 via official Zig 0.14.1, C11, and official SDL 2.32.1
 - Actual SDL game smoke scenes: village, attack3, attack6, roof and canopy at 844x390. See hero-scale-review.png and hero-attack-review.png.
 
 The candidate is based on public main bb03a4c4a7592e0e344eefbbacaa0d485a021f45. Browser/WebAssembly build and public deployment remain pending; the workflow now runs all native test groups before compiling the web build.
+
+## 2026-10-22 · 무료 장비 외형 시제품 1차
+
+기준 main `04cb6c5`, Windows / Clang 19.1.7 (Zig 0.14.1) / SDL 2.32.10 / CMake 4.4.
+장비 표시용 C11/SDL 모듈과 독립 도구만 추가했다. 기존 게임 소스와 assets 변경 없음.
+
+- `cmake -S . -B build-gear/cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DPALDO_BUILD_EQUIPMENT_PREVIEW=ON`
+  (로컬 Zig toolchain/SDL include·library 지정), `cmake --build build-gear/cmake --parallel 2`,
+  `ctest --test-dir build-gear/cmake --output-on-failure`: **11/11 통과**, 최종 12.43초.
+  기존 3개 검사 파일의 `SDL_MAIN_HANDLED` 재정의 경고는 로컬 컴파일 옵션 때문이며 새 소스 경고 없음.
+- 기존 gameplay/world_navigation/isolated_training/directional_combat/hit_feedback/native_render/
+  player_controls/responsive_ui/hero_animation/monster_animation 모두 통과.
+- 새 `equipment_layers`: **8,171,148조건** 통과. 24조합의 고유 SDL 출력·상의/하의/투구 교체,
+  세 동작의 동일한 오른손 좌표·검 손잡이 연결, 정지/걷기/베기 복귀, 1/2/3배 전체 회전 경계,
+  NaN 크기 거부/위상 처리, 누락 파일 실패와 안전한 정리를 검사한다.
+  시제품 실제 이벤트 처리기의 키·버튼·반복 차단·일시정지/종료, SDL 큐에서 읽은 이벤트,
+  640×390/844×390/1280×720 배치 및 2배 화면 좌표 변환도 검사했다.
+- 준비 스크립트: 원본 실제 1254² RGBA, 16부품 연결 알파 선택, 1024² RGBA 실행본
+  완전 투명 픽셀 72.49%, 비율 유지/셀 여백, 투구 얼굴 구멍의 알파 0 검사.
+  원본은 보존하며 교정본은 투구 셀만 사용. RGB/붉은색 삭제·반전·덧그리기 없음.
+- 실제 SDL **59장**: 정지 24조합, 걷기 16위상, 베기 16위상, 640×390/844×390/1280×720.
+  [비교](equipment-preview.png), [24조합](equipment-loadouts-review.png),
+  [동작 GIF](equipment-motion-review.gif).
+  투구 내부 불투명 부분·목 정렬·머리 위 검과 제목 겹침을 발견해 교정한 후 다시 출력했다.
+- 초안의 새 픽셀 검사가 3배 검을 담기엔 작은 검사 캔버스에서 실패하여 1024²로 넓혔다.
+  SDL 소프트웨어 백엔드의 배경 알파가 불투명하게 읽히는 경우도 반영했다.
+  제품 그림의 잘림을 허용하거나 검사 경계를 느슨하게 한 것이 아니다.
+- CI 네이티브 CMake 옵션에 시제품 ON 한 줄만 추가했다. 웹/Android 게임 소스 목록,
+  Pages 조건·권한·배포 절차는 유지한다. 이 문서의 로컬 결과는 PR CI 결과와 구분한다.
+- 마지막 호환성 검토에서 SDL 2.0.22에 추가된 사각형 도우미 대신 직접 범위 비교를 사용해
+  기존 최소 SDL 2.0.18 요구를 유지했다. 해당 수정 후 재빌드·`equipment_layers` **1/1 재통과**.
+  준비 스크립트 재실행 후 PNG·메타데이터·C 영역 표 3개 모두 바이트 일치도 확인했다.
+
+남음: 남쪽 한 방향 시연만 구현. 본게임 장비창 연결·나머지 7방향·네 무공·완성 모션,
+실제 휴대폰 터치·시제품 브라우저 실행·APK·ASan/UBSan·성능은 미검증.
+실행 방법과 후속 범위는 [EQUIPMENT_PROTOTYPE.md](EQUIPMENT_PROTOTYPE.md).
+main 병합·Pages 배포·버전 변경 없음.
