@@ -1,3 +1,13 @@
+## 2026-10-22 · 기본 몸과 정지 장비 조합 도구
+
+- [PR #40](https://github.com/yousay0526-sudo/Paldoyadam/pull/40) 코드 커밋 `a435327`의 [CI 39722890177](https://github.com/yousay0526-sudo/Paldoyadam/actions/runs/39722890177): Linux 전체 CMake/CTest, Emscripten 3.1.74 일반 웹·단일 HTML 빌드와 다운로드 아티팩트 성공. Pages 준비·deploy skipped. 이 결과를 기록하는 후속 변경은 문서만 수정하며 위 코드 커밋의 CI 결과와 구분한다.
+- 기준 main `04cb6c502b27b21777eeeca7dbac91c9feae1618`, 독립 브랜치 `graphics/equipment-layer-lab-20261022`. 본게임 소스/실행용 assets 변경 없음. 도구는 정지 한 자세이며 본게임에서 장착 외형/모션이 바뀐다는 의미가 아니다. [상세·원화·부위 계약](EQUIPMENT_LAYER_LAB.md).
+- Windows / CMake 4.4.4 / Ninja / Zig 0.14.1(Clang 19.1.7) / SDL 2.32.10: 전체 configure/build 성공. `cmake --build build-layer-lab/cmake --parallel 2`, `ctest --test-dir build-layer-lab/cmake --output-on-failure`: **10/10 통과**(게임·지형·수련·전투·피드백·native_render·입력·UI·영웅·몬스터). 로컬 도구체인의 SDL_MAIN_HANDLED 재정의 경고만 있었으며 이 경고를 고치려고 제품 소스를 수정하지 않았다.
+- `node --test tests/test_equipment_lab.mjs`: **3/3 통과**. 전체 768개 선택 JSON 왕복, 잘못된 버전/자세/ID 거부, 모든 참조 PNG 해시·RGBA·크기·공통 캔버스 경계. `python tests/test_equipment_lab.py`: **4/4 통과**. 실제 투명 픽셀, 원본 RGB 보존, 상하의 장착 시 목 아래 기본 몸 잔여 알파 0, 상의 자락/소매 유지·장화 제외, 웹 도구 복사.
+- 실제 IAB 브라우저: 프리셋, 경장 상의+중장 바지/반대 조합, 머리/띠/검 독립 변경, 기본 몸 표시/숨김, 새로고침 선택 복원, 투명 PNG 저장, JSON 저장·기본 몸 전환 후 파일 불러오기 성공. 저장 PNG의 1254×1254/RGBA/알파 0..255 확인. 390×844(내용 폭 375)에서 가로 넘침 없음, 1280×900 확인, 임시 화면 크기 설정 원복. 콘솔 error 없음. [조합 비교](equipment-lab-review.png), [브라우저](equipment-lab-browser.png).
+- 수정·복구: 초안의 대략적인 가림 다각형 때문에 흰 소매/허리와 다른 옷 조각이 남았고, 허리선 분할이 상의 자락을 하의에 넣었다. 전체 교체 영역 가림, 자연스러운 상의 밑단과 별도 소매 윤곽, 독립 바지 원본으로 수정했다. 흰 깃·소매 안감은 상의 원화 자체의 디테일이다. 초기 Python 별칭 실행 실패는 번들 Python 경로 사용으로 복구했다. sandbox 기본 Temp 쓰기 실패는 검사의 임시 폴더를 쓰기 가능한 저장소로 한정해 복구했다. 불필요하게 불투명 알파 255만 요구했던 검사도 실제 원본 최대 알파 254를 허용하는 유효 범위 검사로 바로잡았다.
+- 로컬 HTTP 서버는 일반 sandbox 네트워크에서 연결이 막혀 loopback 전용 서버를 허용된 실행 환경에서 시작했다. 외부 공개 서버를 열지 않았다. 로컬 Emscripten 전체 컴파일은 미실행이며 일반/단일 HTML 빌드는 PR CI 확인 대상이다. Android/iPhone/APK·모든 768 조합의 미술 검수·움직이는 장비 모션은 미검증/미구현이다. 버전 변경, main 병합, 자동 병합, Pages 배포 없음.
+
 ## 2026-10-21 · 승인된 몬스터 8방향 게임 연결
 
 - 기준 main `649b02f087e7a016378756ec1ac72861c997d30b`, 기존 독립 브랜치/PR #32에서 원화 승인 후 진행. 최신 몸 분리·고정 시간/위치 보간·벽 미끄러짐 변경을 보존했다. 실행 PNG 6개를 설치했고 백정의 짧은 평타 후보는 미설치다. 현재 백정의 단일 큰 공격 패턴을 바꾸지 않았다.

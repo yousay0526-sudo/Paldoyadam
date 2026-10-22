@@ -1,0 +1,37 @@
+{
+  "sources": {
+    "general": {
+      "path": "art/hero/warrior-clarity-master.png",
+      "sha256": "c02b88bf390cda385726da9fc478fda7ed2b401ccc230927d3a2017888b0e47f",
+      "clean_path": "art/equipment-lab/general-clean-master.png",
+      "clean_sha256": "2b951e954174d18cbd08fcf6b38e958e9a3059227fb67f4fe0153a0af10c7c8e",
+      "lower_path": "art/equipment-lab/general-lower-master.png",
+      "lower_sha256": "b95a7631974b6e7d487fabef4ab14867f341db8a6e6286510ed9ab3235384ab9"
+    },
+    "light": {
+      "path": "art/equipment-lab/light-master.png",
+      "sha256": "b7f37e075060fe4720faa090329c4ee681124f4dabd7fc09c679387f82bbd4e8",
+      "clean_path": "art/equipment-lab/light-clean-master.png",
+      "clean_sha256": "2ac9cd260630e2eb98a6eb815d8f69ded4048bc39ad6892f63e6277cec5e6238",
+      "lower_path": "art/equipment-lab/light-lower-master.png",
+      "lower_sha256": "62b25e4df4e6b39539852f3a3f23d4c92a932280f66afcab210d575265caf8dc"
+    },
+    "heavy": {
+      "path": "art/equipment-lab/heavy-master.png",
+      "sha256": "af4cb5c31253f47ec7a1a6142e989fb3fa1f040c239d4b533a2743bcdc7d0ac0",
+      "clean_path": "art/equipment-lab/heavy-clean-master.png",
+      "clean_sha256": "04f5feebd0f7a3b733c758284de48495dd49fb690d9af5ac60c3f3f964631a88",
+      "lower_path": "art/equipment-lab/heavy-lower-master.png",
+      "lower_sha256": "8b3c81878893813fdc43ee3d5bd55a1839c2c8ae286589ebcdcc343ed5e15dee"
+    }
+  },
+  "body_sha256": "f56f4ca4ce7552ff1b3671015d18b6aa6938bf06cd2755ca65549b2fcfb84cfc",
+  "source_canvas": [
+    1254,
+    1254
+  ],
+  "processing": "Contour selection, cloth-colour mask cleanup, connected silhouette selection and crop. Original RGB preserved; no mirror, scaling or bone rotation.",
+  "source_art_ref": "PR #39 ae7ea48: light/heavy source bytes preserved.",
+  "slot_contract": "Upper includes complete jacket/coat and sleeves down to its natural hem; lower contains independently authored complete trousers/greaves/boots, never coat panels. Red cloth belts separate. Weapon includes right gripping-hand patch.",
+  "catalog_sha256": "70e1ba88988df96692824907d84bff3a528bd7bcaca661300b5b4d657b518134"
+}
