@@ -1,0 +1,34 @@
+{
+  "upper": {
+    "source_pr": 40,
+    "source_commit": "a43532724ecac8fc1469cbdcc03b34238dee92b4",
+    "source_file": "general-upper.png",
+    "source_sha256": "82be2e91f149d8b3e0842b1066ed839f40094d40767d58d7b210d846d31ac4d5",
+    "output_sha256": "26290efb39189a0eb3fb327546c69bcaf62afd3f8f2d37f7b386b8b754221ac1",
+    "processing": "Place unmodified source RGBA at catalog offset; no scaling/repainting."
+  },
+  "lower": {
+    "source_pr": 40,
+    "source_commit": "a43532724ecac8fc1469cbdcc03b34238dee92b4",
+    "source_file": "general-lower.png",
+    "source_sha256": "1a80e6d4af76983fab4f3f6b1cd9cbed85f205d1ca3499035d2492ff360f1e84",
+    "output_sha256": "6469701ede13e42e60e6e4fc1dd5d714f4b1929e3f251795489c0cbd2da97be4",
+    "processing": "Place unmodified source RGBA at catalog offset; no scaling/repainting."
+  },
+  "belt": {
+    "source_pr": 40,
+    "source_commit": "a43532724ecac8fc1469cbdcc03b34238dee92b4",
+    "source_file": "general-belt.png",
+    "source_sha256": "3b2af62f644fc6d597b10a8b4e7bb33fb92179f92d658c7a696cd6b5590a2823",
+    "output_sha256": "c48aedaea057a8b448981d0c973023df185df3bac781d701d7e851423f392b49",
+    "processing": "Place unmodified source RGBA at catalog offset; no scaling/repainting."
+  },
+  "weapon": {
+    "source_pr": 40,
+    "source_commit": "a43532724ecac8fc1469cbdcc03b34238dee92b4",
+    "source_file": "general-weapon.png",
+    "source_sha256": "6c1d793d18f93f7a846ee9d3bece08c81cef28b1a48447883ba063157b7395e5",
+    "output_sha256": "dcb03c327f07a11bcbe56d671033fbca522d3d6fbe984fafa87969bf26d0077b",
+    "processing": "Place unmodified source RGBA at catalog offset; no scaling/repainting."
+  }
+}

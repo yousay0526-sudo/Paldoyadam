@@ -1,0 +1,156 @@
+{
+  "art_accepted": false,
+  "diagnostic_only": true,
+  "source_commit": "cf548e6e6f72a757914b97234efddec82d6e64a6",
+  "blend_sha256": "8275bcdaf1897bcff6f943051f2516a13f81b268a6d12d8632c12bb004a06c58",
+  "frames": [
+    1.0,
+    1.5,
+    2.0,
+    2.5,
+    3.0,
+    3.5,
+    4.0,
+    4.5,
+    5.0,
+    5.5,
+    6.0,
+    6.5,
+    7.0,
+    7.5,
+    8.0,
+    8.5,
+    9.0,
+    9.5,
+    10.0,
+    10.5,
+    11.0,
+    11.5,
+    12.0,
+    12.5,
+    13.0,
+    13.5,
+    14.0,
+    14.5,
+    15.0,
+    15.5,
+    16.0,
+    16.5,
+    17.0,
+    17.5,
+    18.0,
+    18.5,
+    19.0,
+    19.5,
+    20.0,
+    20.5,
+    21.0,
+    21.5,
+    22.0,
+    22.5,
+    23.0,
+    23.5,
+    24.0,
+    24.5,
+    25.0
+  ],
+  "measurement": "Evaluated mesh edge length divided by rest edge length; local extremes, not whole-garment size.",
+  "objects": {
+    "WEAPON_Right_hand_hwando": {
+      "vertices": 30,
+      "faces": 41,
+      "modifiers": [
+        "ARMATURE"
+      ],
+      "shape_keys": false,
+      "edge_ratio_min": 0.9999874778345219,
+      "edge_ratio_max": 1.000013410490228,
+      "min_frame": 15.5,
+      "max_frame": 15.0
+    },
+    "PAULDRON.R": {
+      "vertices": 160,
+      "faces": 130,
+      "modifiers": [
+        "ARMATURE"
+      ],
+      "shape_keys": false,
+      "edge_ratio_min": 0.9999926908906751,
+      "edge_ratio_max": 1.0000067998464934,
+      "min_frame": 15.0,
+      "max_frame": 21.5
+    },
+    "PAULDRON.L": {
+      "vertices": 160,
+      "faces": 130,
+      "modifiers": [
+        "ARMATURE"
+      ],
+      "shape_keys": false,
+      "edge_ratio_min": 0.9999921069617733,
+      "edge_ratio_max": 1.0000079228512155,
+      "min_frame": 1.0,
+      "max_frame": 1.5
+    },
+    "ARMOR_Complete_coat": {
+      "vertices": 288,
+      "faces": 258,
+      "modifiers": [
+        "ARMATURE"
+      ],
+      "shape_keys": false,
+      "edge_ratio_min": 0.7695844294039892,
+      "edge_ratio_max": 1.6956206978750783,
+      "min_frame": 22.0,
+      "max_frame": 4.0
+    },
+    "SLEEVE.R": {
+      "vertices": 128,
+      "faces": 98,
+      "modifiers": [
+        "ARMATURE"
+      ],
+      "shape_keys": false,
+      "edge_ratio_min": 0.8587303088228966,
+      "edge_ratio_max": 1.142931850042501,
+      "min_frame": 13.0,
+      "max_frame": 13.0
+    },
+    "SLEEVE.L": {
+      "vertices": 128,
+      "faces": 98,
+      "modifiers": [
+        "ARMATURE"
+      ],
+      "shape_keys": false,
+      "edge_ratio_min": 0.8875323249635868,
+      "edge_ratio_max": 1.1350494180010764,
+      "min_frame": 25.0,
+      "max_frame": 1.0
+    },
+    "TROUSERS_BOOT.R": {
+      "vertices": 256,
+      "faces": 226,
+      "modifiers": [
+        "ARMATURE"
+      ],
+      "shape_keys": false,
+      "edge_ratio_min": 0.4936563148445822,
+      "edge_ratio_max": 1.6230523143980957,
+      "min_frame": 19.0,
+      "max_frame": 20.0
+    },
+    "TROUSERS_BOOT.L": {
+      "vertices": 256,
+      "faces": 226,
+      "modifiers": [
+        "ARMATURE"
+      ],
+      "shape_keys": false,
+      "edge_ratio_min": 0.3810325964111655,
+      "edge_ratio_max": 1.5851975303167216,
+      "min_frame": 8.0,
+      "max_frame": 7.0
+    }
+  }
+}

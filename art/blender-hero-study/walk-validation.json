@@ -1,0 +1,30 @@
+{
+  "frame_count": 24,
+  "half_frame_samples": 49,
+  "forward_travel_m": 0.7200000286102295,
+  "minimum_knee_forward_bend_m": 0.08977106213569641,
+  "joint_connection_max_error_m": 3.03925246810483e-07,
+  "stance_foot_world_drift_m": 0.00030425912051187427,
+  "chest_vertical_range_m": 0.004000067710876465,
+  "cycle_relative_position_error_m": 2.2991410082890797e-07,
+  "cycle_rotation_error_radians": 0.0,
+  "sides": {
+    "R": {
+      "ankle_fore_aft_range_m": 0.45010418351739645,
+      "wrist_fore_aft_range_m": 0.26317620649933815,
+      "same_side_arm_leg_correlation": -0.9466420894529768
+    },
+    "L": {
+      "ankle_fore_aft_range_m": 0.45010411739349365,
+      "wrist_fore_aft_range_m": 0.3826298117637634,
+      "same_side_arm_leg_correlation": -0.9395894094882066
+    }
+  },
+  "garment_motion_relative_to_pelvis_m": {
+    "SLEEVE.R": 0.2758482941280382,
+    "SLEEVE.L": 0.327042793183209,
+    "TROUSERS_BOOT.R": 0.44313127561094934,
+    "TROUSERS_BOOT.L": 0.37928647491615136,
+    "ARMOR_Complete_coat": 0.1890565447695122
+  }
+}
