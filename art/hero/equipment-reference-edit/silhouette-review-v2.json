@@ -1,0 +1,58 @@
+{
+  "records": [
+    {
+      "name": "original",
+      "path": "art/hero/warrior-clarity-master.png",
+      "sha256": "c02b88bf390cda385726da9fc478fda7ed2b401ccc230927d3a2017888b0e47f",
+      "size": [
+        1254,
+        1254
+      ],
+      "alpha_zero_fraction": 0.6997817510282884,
+      "alpha32_bounds": [
+        195,
+        3,
+        965,
+        1246
+      ]
+    },
+    {
+      "name": "light",
+      "path": "art/hero/equipment-reference-edit/light-outfit-v2.png",
+      "sha256": "b7f37e075060fe4720faa090329c4ee681124f4dabd7fc09c679387f82bbd4e8",
+      "size": [
+        1254,
+        1254
+      ],
+      "alpha_zero_fraction": 0.7220263577604298,
+      "alpha32_bounds": [
+        190,
+        2,
+        961,
+        1247
+      ]
+    },
+    {
+      "name": "heavy",
+      "path": "art/hero/equipment-reference-edit/heavy-outfit-v2.png",
+      "sha256": "af4cb5c31253f47ec7a1a6142e989fb3fa1f040c239d4b533a2743bcdc7d0ac0",
+      "size": [
+        1254,
+        1254
+      ],
+      "alpha_zero_fraction": 0.6897328866606127,
+      "alpha32_bounds": [
+        167,
+        3,
+        951,
+        1248
+      ]
+    }
+  ],
+  "review": "docs/equipment-silhouette-comparison-v2.png",
+  "review_sha256": "177d0e6baafa8b636fbc4988e1de1a296fe4d7829daef931b30e6d6f1e54f277",
+  "scope": "Two complete still-image outfit candidates, not separated equipment layers, authored motion frames or runtime atlases.",
+  "checks": "Original byte-identical to Git; RGBA/transparency/size/bounds; equal full-canvas scale review; face/anatomy/right-hand sword/red cloth sash/no gore visual inspection.",
+  "limitations": "Generative edits are not pixel-identical outside clothing. Heavy blade is intentionally broader; light shoulder silhouette narrower and heavy coat longer. No CMake/CTest/runtime tests for art-only changes.",
+  "processing": "Generated masters copied byte-for-byte. Review only premultiplied-alpha reduction and side-by-side layout, no recolor/repaint/flip/nonuniform stretch."
+}
