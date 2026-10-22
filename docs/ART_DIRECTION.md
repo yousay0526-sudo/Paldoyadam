@@ -133,3 +133,8 @@ python3 scripts/prepare_hero_asset.py
 - `ACTOR_SCALE` = 1.4 draws the hero, NPCs, the messenger, boars and the butcher (all eight-direction monster sheets) larger than the scenery's own scale, so they match the painted doors, steps and tables. The hero is about 60 units tall (was 43). Shadows, roof/canopy occlusion boxes, name labels, the boar HP bar and chest-height effects (sword trail, hit sparks, wind line, technique ring) scale with it.
 - Only drawing changes. Hitboxes, attack ranges and sectors, collision radius, movement speed and knockback stay in world units. The training dummy keeps its drawn size.
 - Comparison: `docs/screen-scale-review.png`.
+
+
+## 2026-10-22 · Blender 구조·앞면 화풍 시험
+
+기존 성인 비율·갑옷·붉은 천 허리띠·오른손 검을 기준으로 Blender 첫 구조 시제품을 만들었다. 현재는 원화의 앞면 투사와 입체 볼륨/골격 시험이며, 앞면 유사성이 고유 3D 조형·모든 방향의 UV/재질 완성을 의미하지 않는다. 옆면 그림 늘어짐과 중복, 숨은 면·옷·손 가림을 보완하기 전에는 장비/방향을 양산하거나 기존 게임 PNG를 교체하지 않는다. [실제 렌더·한계·재현 기록](BLENDER_HERO_STUDY.md).

@@ -1,0 +1,81 @@
+{
+  "front": {
+    "raw_render_sha256": "270d1ef7cec55b317d1188701b2510af6a9d0e0b65e4d102734401faa2e8d1a8",
+    "blender_project": "hero-front-study.blend",
+    "camera": "CAM_approved_front",
+    "frame": "01",
+    "size": [
+      768,
+      768
+    ],
+    "alpha": [
+      0,
+      255
+    ],
+    "bounds": [
+      133,
+      21,
+      563,
+      736
+    ],
+    "public_sha256": "2495f3d24c14c2b714d8d1d9f53f642ac4bb1c0fdd8903607cd0d3664e6c56ec"
+  },
+  "clay-front": {
+    "raw_render_sha256": "3c1445b73787ad841291f11c58f424927324c4855d72194cd95e7506a88a3c23",
+    "blender_project": "hero-front-study.blend",
+    "camera": "CAM_approved_front",
+    "frame": "01",
+    "size": [
+      768,
+      768
+    ],
+    "alpha": [
+      0,
+      255
+    ],
+    "bounds": [
+      130,
+      21,
+      570,
+      737
+    ],
+    "public_sha256": "125d64c0dd923fbb413847ef2d1fd6939ba16a8346e92a0a361ca90178aca1e5"
+  },
+  "side-diagnostic": {
+    "raw_render_sha256": "ee5fe27b266c428c267650ab07420d762e7b75b8c036fdfaedd8541ab2e5bcb9",
+    "blender_project": "hero-front-study.blend",
+    "camera": "CAM_side_diagnostic",
+    "frame": "01",
+    "size": [
+      768,
+      768
+    ],
+    "alpha": [
+      0,
+      255
+    ],
+    "bounds": [
+      69,
+      27,
+      542,
+      760
+    ],
+    "public_sha256": "019fab1414b657fe95e40b6987957a750699e29531dba9a737b8a1d659848021"
+  },
+  "walk": {
+    "sampled_frames": 8,
+    "timeline_frames": 16,
+    "fps": 24,
+    "frame_sha256": [
+      "04794ea19d3866a7fe83981ec68a68a2266de03d7062fd51ecbb1d0aa8727969",
+      "381c2a404bc0602bdd1648ad37f9b101b52c40d7d1c210ce4f01f5d78e439b8d",
+      "1978b78ed1c42bfd823cf549c71e6ff0fd181647acfc6ed3f9c1ce2483b42fd2",
+      "9f76d7cb810c5c93d22f9ffebdfbab37fe65189651ee1522f10f81fdc6ca877e",
+      "01186520108c730aaa0b9ad96351a7f8dcd4433de8709abcbb11f706dcc3adcd",
+      "39d6d2cfbd56fa497209b941b64d307120f30bd3fca74c155d9ba0bc3c37c3ac",
+      "b344995f8832342fc188d5b0bf8d612293a777113883c6f636e5835da88b6df0",
+      "a2758eb6207f1515ddf2235b2413be494142b600bd6fc18adde7fe736e2f266f"
+    ],
+    "gif_total_ms": 660
+  }
+}

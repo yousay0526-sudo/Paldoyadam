@@ -1,0 +1,484 @@
+{
+  "blender": "4.5.14 LTS",
+  "source_license": {
+    "license": "CC0; official human base meshes bundle"
+  },
+  "source_mesh_bundle_sha256": "6ce3e6523c08d8756f211c134d6aaae244cccf6d4c235b75df3f881b31ad946b",
+  "objects": [
+    {
+      "name": "ARMOR_Torso",
+      "vertices": 192,
+      "faces": 162,
+      "depth": 0.43522
+    },
+    {
+      "name": "ARMOR_Complete_coat",
+      "vertices": 224,
+      "faces": 194,
+      "depth": 0.64284
+    },
+    {
+      "name": "SLEEVE.R",
+      "vertices": 128,
+      "faces": 98,
+      "depth": 0.30793
+    },
+    {
+      "name": "PAULDRON.R",
+      "vertices": 160,
+      "faces": 130,
+      "depth": 0.36745
+    },
+    {
+      "name": "BRACER.R",
+      "vertices": 128,
+      "faces": 98,
+      "depth": 0.19672
+    },
+    {
+      "name": "SLEEVE.L",
+      "vertices": 128,
+      "faces": 98,
+      "depth": 0.31284
+    },
+    {
+      "name": "PAULDRON.L",
+      "vertices": 160,
+      "faces": 130,
+      "depth": 0.36156
+    },
+    {
+      "name": "BRACER.L",
+      "vertices": 128,
+      "faces": 98,
+      "depth": 0.21585
+    },
+    {
+      "name": "TROUSERS_BOOT.R",
+      "vertices": 288,
+      "faces": 258,
+      "depth": 0.52896
+    },
+    {
+      "name": "TROUSERS_BOOT.L",
+      "vertices": 288,
+      "faces": 258,
+      "depth": 0.56575
+    },
+    {
+      "name": "SASH_Wrapped_red_cloth",
+      "vertices": 128,
+      "faces": 98,
+      "depth": 0.36505
+    },
+    {
+      "name": "SASH_Front_tail",
+      "vertices": 24,
+      "faces": 32,
+      "depth": 0.19066
+    },
+    {
+      "name": "SASH_Lion_buckle",
+      "vertices": 96,
+      "faces": 74,
+      "depth": 0.0671
+    },
+    {
+      "name": "WEAPON_Right_hand_hwando",
+      "vertices": 30,
+      "faces": 41,
+      "depth": 0.26795
+    },
+    {
+      "name": "BODY_CC0_adult",
+      "vertices": 10582,
+      "faces": 10590,
+      "depth": 0.79714
+    },
+    {
+      "name": "EYE.R",
+      "vertices": 546,
+      "faces": 544,
+      "depth": 0.22345
+    },
+    {
+      "name": "EYE.L",
+      "vertices": 546,
+      "faces": 544,
+      "depth": 0.22307
+    },
+    {
+      "name": "HAIR_Volume",
+      "vertices": 160,
+      "faces": 130,
+      "depth": 0.21133
+    },
+    {
+      "name": "HAIR_Topknot",
+      "vertices": 96,
+      "faces": 74,
+      "depth": 0.11404
+    },
+    {
+      "name": "HAIR_Gold_pin",
+      "vertices": 16,
+      "faces": 20,
+      "depth": 0.01595
+    }
+  ],
+  "bones": 19,
+  "frame_start": 1,
+  "frame_end": 16,
+  "fps": 24,
+  "packed_images": [
+    "belt.png",
+    "lower.png",
+    "upper.png",
+    "warrior-clarity-master.png",
+    "weapon.png"
+  ],
+  "projection_only": true,
+  "game_assets_modified": false,
+  "contacts": [
+    {
+      "frame": 1,
+      "side": "R",
+      "stance": true,
+      "ankle": [
+        -0.1428571492433548,
+        0.26254141330718994,
+        0.09026394784450531
+      ]
+    },
+    {
+      "frame": 1,
+      "side": "L",
+      "stance": false,
+      "ankle": [
+        0.261904776096344,
+        -0.12368471920490265,
+        0.09892727434635162
+      ]
+    },
+    {
+      "frame": 2,
+      "side": "R",
+      "stance": true,
+      "ankle": [
+        -0.1428571492433548,
+        0.26254141330718994,
+        0.09026394784450531
+      ]
+    },
+    {
+      "frame": 2,
+      "side": "L",
+      "stance": false,
+      "ankle": [
+        0.261904776096344,
+        -0.14618471264839172,
+        0.11232119798660278
+      ]
+    },
+    {
+      "frame": 3,
+      "side": "R",
+      "stance": true,
+      "ankle": [
+        -0.1428571492433548,
+        0.26254141330718994,
+        0.09026394784450531
+      ]
+    },
+    {
+      "frame": 3,
+      "side": "L",
+      "stance": false,
+      "ankle": [
+        0.261904776096344,
+        -0.168684720993042,
+        0.12367600947618484
+      ]
+    },
+    {
+      "frame": 4,
+      "side": "R",
+      "stance": true,
+      "ankle": [
+        -0.1428571492433548,
+        0.26254141330718994,
+        0.09026394784450531
+      ]
+    },
+    {
+      "frame": 4,
+      "side": "L",
+      "stance": false,
+      "ankle": [
+        0.261904776096344,
+        -0.19118472933769226,
+        0.13126306235790253
+      ]
+    },
+    {
+      "frame": 5,
+      "side": "R",
+      "stance": true,
+      "ankle": [
+        -0.1428571492433548,
+        0.26254141330718994,
+        0.09026394784450531
+      ]
+    },
+    {
+      "frame": 5,
+      "side": "L",
+      "stance": false,
+      "ankle": [
+        0.261904776096344,
+        -0.21368472278118134,
+        0.13392727077007294
+      ]
+    },
+    {
+      "frame": 6,
+      "side": "R",
+      "stance": true,
+      "ankle": [
+        -0.1428571492433548,
+        0.26254141330718994,
+        0.09026394784450531
+      ]
+    },
+    {
+      "frame": 6,
+      "side": "L",
+      "stance": false,
+      "ankle": [
+        0.261904776096344,
+        -0.2361847162246704,
+        0.13126306235790253
+      ]
+    },
+    {
+      "frame": 7,
+      "side": "R",
+      "stance": true,
+      "ankle": [
+        -0.1428571492433548,
+        0.26254141330718994,
+        0.09026394784450531
+      ]
+    },
+    {
+      "frame": 7,
+      "side": "L",
+      "stance": false,
+      "ankle": [
+        0.261904776096344,
+        -0.2586847245693207,
+        0.12367600947618484
+      ]
+    },
+    {
+      "frame": 8,
+      "side": "R",
+      "stance": true,
+      "ankle": [
+        -0.1428571492433548,
+        0.26254141330718994,
+        0.09026394784450531
+      ]
+    },
+    {
+      "frame": 8,
+      "side": "L",
+      "stance": false,
+      "ankle": [
+        0.261904776096344,
+        -0.28118473291397095,
+        0.11232119798660278
+      ]
+    },
+    {
+      "frame": 9,
+      "side": "R",
+      "stance": false,
+      "ankle": [
+        -0.1428571492433548,
+        0.26254141330718994,
+        0.09026394784450531
+      ]
+    },
+    {
+      "frame": 9,
+      "side": "L",
+      "stance": true,
+      "ankle": [
+        0.261904776096344,
+        -0.30368471145629883,
+        0.09892727434635162
+      ]
+    },
+    {
+      "frame": 10,
+      "side": "R",
+      "stance": false,
+      "ankle": [
+        -0.1428571492433548,
+        0.24004140496253967,
+        0.10365787148475647
+      ]
+    },
+    {
+      "frame": 10,
+      "side": "L",
+      "stance": true,
+      "ankle": [
+        0.261904776096344,
+        -0.30368471145629883,
+        0.09892727434635162
+      ]
+    },
+    {
+      "frame": 11,
+      "side": "R",
+      "stance": false,
+      "ankle": [
+        -0.1428571492433548,
+        0.2175414115190506,
+        0.11501268297433853
+      ]
+    },
+    {
+      "frame": 11,
+      "side": "L",
+      "stance": true,
+      "ankle": [
+        0.261904776096344,
+        -0.30368471145629883,
+        0.09892727434635162
+      ]
+    },
+    {
+      "frame": 12,
+      "side": "R",
+      "stance": false,
+      "ankle": [
+        -0.1428571492433548,
+        0.19504141807556152,
+        0.12259973585605621
+      ]
+    },
+    {
+      "frame": 12,
+      "side": "L",
+      "stance": true,
+      "ankle": [
+        0.261904776096344,
+        -0.30368471145629883,
+        0.09892727434635162
+      ]
+    },
+    {
+      "frame": 13,
+      "side": "R",
+      "stance": false,
+      "ankle": [
+        -0.1428571492433548,
+        0.17254140973091125,
+        0.12526394426822662
+      ]
+    },
+    {
+      "frame": 13,
+      "side": "L",
+      "stance": true,
+      "ankle": [
+        0.261904776096344,
+        -0.30368471145629883,
+        0.09892727434635162
+      ]
+    },
+    {
+      "frame": 14,
+      "side": "R",
+      "stance": false,
+      "ankle": [
+        -0.1428571492433548,
+        0.15004141628742218,
+        0.12259973585605621
+      ]
+    },
+    {
+      "frame": 14,
+      "side": "L",
+      "stance": true,
+      "ankle": [
+        0.261904776096344,
+        -0.30368471145629883,
+        0.09892727434635162
+      ]
+    },
+    {
+      "frame": 15,
+      "side": "R",
+      "stance": false,
+      "ankle": [
+        -0.1428571492433548,
+        0.1275414079427719,
+        0.11501268297433853
+      ]
+    },
+    {
+      "frame": 15,
+      "side": "L",
+      "stance": true,
+      "ankle": [
+        0.261904776096344,
+        -0.30368471145629883,
+        0.09892727434635162
+      ]
+    },
+    {
+      "frame": 16,
+      "side": "R",
+      "stance": false,
+      "ankle": [
+        -0.1428571492433548,
+        0.10504141449928284,
+        0.10365787148475647
+      ]
+    },
+    {
+      "frame": 16,
+      "side": "L",
+      "stance": true,
+      "ankle": [
+        0.261904776096344,
+        -0.30368471145629883,
+        0.09892727434635162
+      ]
+    },
+    {
+      "frame": 17,
+      "side": "R",
+      "stance": true,
+      "ankle": [
+        -0.1428571492433548,
+        0.08254140615463257,
+        0.09026394784450531
+      ]
+    },
+    {
+      "frame": 17,
+      "side": "L",
+      "stance": false,
+      "ankle": [
+        0.261904776096344,
+        -0.30368471145629883,
+        0.09892727434635162
+      ]
+    }
+  ]
+}
