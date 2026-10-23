@@ -1,0 +1,245 @@
+{
+  "parent_commit": "6b846e62e48976d54c27066488fafb314afdec56",
+  "cause": "Original W blade remained in unarmed body; removal axis reused an equipment mount line above the real blade.",
+  "external_roi_base_px": [
+    28,
+    97,
+    73,
+    136
+  ],
+  "source_original_alpha_gt16_probe_pixels": 305,
+  "remaining_source_probe_before": 289,
+  "remaining_source_probe_after": 0,
+  "external_region_any_alpha_before": 378,
+  "external_region_any_alpha_after": 0,
+  "other_7_directions_changed_pixels": 0,
+  "per_atlas_changed_pixels": {
+    "layers/weapon-rear-4x.png": {
+      "N": 0,
+      "NE": 0,
+      "E": 0,
+      "SE": 0,
+      "S": 0,
+      "SW": 0,
+      "W": 0,
+      "NW": 0
+    },
+    "layers/weapon-full-4x.png": {
+      "N": 0,
+      "NE": 0,
+      "E": 0,
+      "SE": 0,
+      "S": 0,
+      "SW": 0,
+      "W": 0,
+      "NW": 0
+    },
+    "layers/headgear-front-4x.png": {
+      "N": 0,
+      "NE": 0,
+      "E": 0,
+      "SE": 0,
+      "S": 0,
+      "SW": 0,
+      "W": 0,
+      "NW": 0
+    },
+    "layers/base-without-weapon-4x.png": {
+      "N": 0,
+      "NE": 0,
+      "E": 0,
+      "SE": 0,
+      "S": 0,
+      "SW": 0,
+      "W": 7088,
+      "NW": 0
+    },
+    "layers/body-core-4x.png": {
+      "N": 0,
+      "NE": 0,
+      "E": 0,
+      "SE": 0,
+      "S": 0,
+      "SW": 0,
+      "W": 7072,
+      "NW": 0
+    },
+    "layers/preview-equipped-4x.png": {
+      "N": 0,
+      "NE": 0,
+      "E": 0,
+      "SE": 0,
+      "S": 0,
+      "SW": 0,
+      "W": 6894,
+      "NW": 0
+    },
+    "layers/weapon-front-4x.png": {
+      "N": 0,
+      "NE": 0,
+      "E": 0,
+      "SE": 0,
+      "S": 0,
+      "SW": 0,
+      "W": 0,
+      "NW": 0
+    },
+    "layers/head-foreground-4x.png": {
+      "N": 0,
+      "NE": 0,
+      "E": 0,
+      "SE": 0,
+      "S": 0,
+      "SW": 0,
+      "W": 0,
+      "NW": 0
+    },
+    "layers/right-hand-4x.png": {
+      "N": 0,
+      "NE": 0,
+      "E": 0,
+      "SE": 0,
+      "S": 0,
+      "SW": 0,
+      "W": 0,
+      "NW": 0
+    },
+    "layers/headgear-rear-4x.png": {
+      "N": 0,
+      "NE": 0,
+      "E": 0,
+      "SE": 0,
+      "S": 0,
+      "SW": 0,
+      "W": 0,
+      "NW": 0
+    },
+    "layers/headgear-full-4x.png": {
+      "N": 0,
+      "NE": 0,
+      "E": 0,
+      "SE": 0,
+      "S": 0,
+      "SW": 0,
+      "W": 0,
+      "NW": 0
+    },
+    "masks/old-weapon-remove-4x.png": {
+      "N": 0,
+      "NE": 0,
+      "E": 0,
+      "SE": 0,
+      "S": 0,
+      "SW": 0,
+      "W": 25296,
+      "NW": 0
+    },
+    "masks/hand-occluder-4x.png": {
+      "N": 0,
+      "NE": 0,
+      "E": 0,
+      "SE": 0,
+      "S": 0,
+      "SW": 0,
+      "W": 0,
+      "NW": 0
+    },
+    "masks/headgear-front-selector-4x.png": {
+      "N": 0,
+      "NE": 0,
+      "E": 0,
+      "SE": 0,
+      "S": 0,
+      "SW": 0,
+      "W": 0,
+      "NW": 0
+    },
+    "masks/weapon-front-selector-4x.png": {
+      "N": 0,
+      "NE": 0,
+      "E": 0,
+      "SE": 0,
+      "S": 0,
+      "SW": 0,
+      "W": 0,
+      "NW": 0
+    },
+    "masks/head-occluder-4x.png": {
+      "N": 0,
+      "NE": 0,
+      "E": 0,
+      "SE": 0,
+      "S": 0,
+      "SW": 0,
+      "W": 0,
+      "NW": 0
+    },
+    "masks/head-foreground-selector-4x.png": {
+      "N": 0,
+      "NE": 0,
+      "E": 0,
+      "SE": 0,
+      "S": 0,
+      "SW": 0,
+      "W": 0,
+      "NW": 0
+    },
+    "masks/body-occluder-4x.png": {
+      "N": 0,
+      "NE": 0,
+      "E": 0,
+      "SE": 0,
+      "S": 0,
+      "SW": 0,
+      "W": 6992,
+      "NW": 0
+    },
+    "masks/right-hand-selector-4x.png": {
+      "N": 0,
+      "NE": 0,
+      "E": 0,
+      "SE": 0,
+      "S": 0,
+      "SW": 0,
+      "W": 0,
+      "NW": 0
+    }
+  },
+  "unchanged_new_item_layers": [
+    "layers/weapon-rear-4x.png",
+    "layers/weapon-full-4x.png",
+    "layers/headgear-front-4x.png",
+    "layers/weapon-front-4x.png",
+    "layers/headgear-rear-4x.png",
+    "layers/headgear-full-4x.png",
+    "masks/headgear-front-selector-4x.png",
+    "masks/weapon-front-selector-4x.png"
+  ],
+  "exported_contract_recomposition_changed_pixels": 0,
+  "repeated_files": 35,
+  "repeated_sha256_differences": [],
+  "existing_tracked_files_checked": 266,
+  "existing_files_preserved": 253,
+  "permitted_changed_files": [
+    "CURRENT_STATE.md",
+    "art/hero/gear/modular-samples/idle-fit-v2/README.md",
+    "art/hero/gear/modular-samples/idle-fit-v2/comparison-hands.png",
+    "art/hero/gear/modular-samples/idle-fit-v2/layers/base-without-weapon-4x.png",
+    "art/hero/gear/modular-samples/idle-fit-v2/layers/body-core-4x.png",
+    "art/hero/gear/modular-samples/idle-fit-v2/layers/preview-equipped-4x.png",
+    "art/hero/gear/modular-samples/idle-fit-v2/masks/body-occluder-4x.png",
+    "art/hero/gear/modular-samples/idle-fit-v2/masks/old-weapon-remove-4x.png",
+    "art/hero/gear/modular-samples/idle-fit-v2/preview-equipped-8dir.png",
+    "art/hero/gear/modular-samples/idle-fit-v2/preview-masks-8dir.png",
+    "art/hero/gear/modular-samples/idle-fit-v2/regression-check.json",
+    "art/hero/gear/modular-samples/idle-fit-v2/validation.json",
+    "scripts/prepare_modular_equipment_fit.py"
+  ],
+  "unexpected_changes": [],
+  "game_tests_executed": false,
+  "game_assets_changed": false,
+  "limitations": [
+    "Static art preparation only; no C/SDL/browser/device tests run.",
+    "Existing unrelated hilt proportion and hidden W palm review items remain."
+  ]
+}

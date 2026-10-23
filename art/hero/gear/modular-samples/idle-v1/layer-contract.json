@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "status": "review_only_not_runtime",
+  "direction_order": [
+    "N",
+    "NE",
+    "E",
+    "SE",
+    "S",
+    "SW",
+    "W",
+    "NW"
+  ],
+  "anatomical_weapon_hand": "right",
+  "mirroring_allowed": false,
+  "draw_order": [
+    "headgear-rear",
+    "weapon-rear",
+    "body-core",
+    "weapon-front",
+    "right-hand",
+    "headgear-front",
+    "head-foreground"
+  ],
+  "mask_convention": "L PNG, 0 transparent/255 occluding. Selectors are binary item-part selectors; occluders are body alpha at that pose. Body-core/right-hand/head-foreground are disjoint RGBA layers: do not also draw base-without-weapon or apply the occluder a second time.",
+  "body_occlusion": "Rear items are naturally occluded by the disjoint body parts; front weapons are occluded by the original right hand. Crown/near brim are front; far brim is rear. Original face/nape pixels are drawn once on top.",
+  "slots": [
+    {
+      "id": "paeraengi-example",
+      "slot": "head",
+      "front": "layers/headgear-front-4x.png",
+      "rear": "layers/headgear-rear-4x.png",
+      "full": "layers/headgear-full-4x.png"
+    },
+    {
+      "id": "hwando-indigo-example",
+      "slot": "weapon_right",
+      "front": "layers/weapon-front-4x.png",
+      "rear": "layers/weapon-rear-4x.png",
+      "full": "layers/weapon-full-4x.png"
+    }
+  ],
+  "scope": "Idle only. No walking/attack transfer. New poses require individually painted equipment, anchors and occlusion review; no automatic hand swapping or horizontal flips."
+}
