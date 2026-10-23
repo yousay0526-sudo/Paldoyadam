@@ -1,0 +1,16 @@
+{
+  "direction": "E",
+  "source_cell_index": 2,
+  "native_cell": 192,
+  "crop_native": [
+    64,
+    128,
+    128,
+    192
+  ],
+  "reference_display_size": [
+    1024,
+    1024
+  ],
+  "method": "Fixed square crop; only whole-canvas uniform resizing allowed."
+}

@@ -1,0 +1,321 @@
+{
+  "status": "unapproved_revision_candidate",
+  "runtime_ready": false,
+  "generation_attempts_this_revision": 2,
+  "selected_attempt": 2,
+  "generated_size": [
+    2048,
+    768
+  ],
+  "source_sha256": "a41659e07dd1c9c28b4d64f12b0ad5d78cee148d383995baaf76b2072037b581",
+  "reference_sha256": {
+    "idle-8dir-body-nolegs.png": "de7d22d3dea028bc5aade122dc5c164ba8672c5874506b6eca2ca63a04e2f859",
+    "idle-8dir-guide4x.png": "b063db9b02f4752dec6c0d2c5ef39cb190a0483dcf4e4223a55cd2aac607e5b9",
+    "idle-8dir-occluder.png": "b3e236de4e921c0b9b0276c2091d02b17d80e5bf497dbaa2c69cc86b4968edb2",
+    "leg-guides.json": "a56efc2161e59ba2f3ee4e1a548093546b2a3ee622247309d2ae55d119b8cf09"
+  },
+  "protected_opaque_pixels_changed": 0,
+  "results": [
+    {
+      "direction": "N",
+      "visible_silhouette_iou": 0.7159,
+      "lowest_visible_leg_y": 177.75,
+      "contact_envelope_pass": false,
+      "cell_border_clear": true,
+      "max_joint_error_px": null,
+      "per_foot_contact_failure_count": null
+    },
+    {
+      "direction": "NE",
+      "visible_silhouette_iou": 0.644,
+      "lowest_visible_leg_y": 187.75,
+      "contact_envelope_pass": false,
+      "cell_border_clear": true,
+      "max_joint_error_px": null,
+      "per_foot_contact_failure_count": null
+    },
+    {
+      "direction": "E",
+      "visible_silhouette_iou": 0.7308,
+      "lowest_visible_leg_y": 178.5,
+      "contact_envelope_pass": false,
+      "cell_border_clear": true,
+      "max_joint_error_px": null,
+      "per_foot_contact_failure_count": null
+    },
+    {
+      "direction": "SE",
+      "visible_silhouette_iou": 0.6581,
+      "lowest_visible_leg_y": 180.25,
+      "contact_envelope_pass": false,
+      "cell_border_clear": true,
+      "max_joint_error_px": null,
+      "per_foot_contact_failure_count": null
+    },
+    {
+      "direction": "S",
+      "visible_silhouette_iou": 0.7122,
+      "lowest_visible_leg_y": 178.75,
+      "contact_envelope_pass": false,
+      "cell_border_clear": true,
+      "max_joint_error_px": null,
+      "per_foot_contact_failure_count": null
+    },
+    {
+      "direction": "SW",
+      "visible_silhouette_iou": 0.6571,
+      "lowest_visible_leg_y": 178.75,
+      "contact_envelope_pass": false,
+      "cell_border_clear": true,
+      "max_joint_error_px": null,
+      "per_foot_contact_failure_count": null
+    },
+    {
+      "direction": "W",
+      "visible_silhouette_iou": 0.7074,
+      "lowest_visible_leg_y": 178.75,
+      "contact_envelope_pass": false,
+      "cell_border_clear": true,
+      "max_joint_error_px": null,
+      "per_foot_contact_failure_count": null
+    },
+    {
+      "direction": "NW",
+      "visible_silhouette_iou": 0.6136,
+      "lowest_visible_leg_y": 178.25,
+      "contact_envelope_pass": false,
+      "cell_border_clear": true,
+      "max_joint_error_px": null,
+      "per_foot_contact_failure_count": null
+    }
+  ],
+  "removed_disconnected_source_pixels": 31,
+  "method": "Same native crop (64,140,128,188) per direction; uniform inverse 2x crop enlargement; no per-foot or per-direction fitting, warping or flipping. Original occluder and body copied unchanged. Pale border-connected background extracted, disconnected components smaller than 64 source pixels (one native pixel area) omitted; not a full hidden-leg layer.",
+  "not_measured": [
+    "Complete independent ankle/heel/toe landmark set",
+    "Per-foot contact and projection definition",
+    "Full hidden-leg silhouette",
+    "SDL/game render"
+  ],
+  "visual_review": [
+    "E far foot now visible",
+    "Two separated transverse straps replace Y shapes in front/side views",
+    "N heel loop is clearer but rear-view orientation remains questionable in N/NE/NW",
+    "Ankle bands remain too high and several shoes too large"
+  ],
+  "ankle_only_review": {
+    "method": "Manual visual estimates of indigo ankle-band centers from selected generated-source.png, in 2048x768 sheet pixels, read before comparison to JSON. Approximate uncertainty +/-4 source pixels (+/-0.5 native pixel). Heel/toe centerline cannot be reliably read from this painted preview; this is an ankle-only diagnostic and is not a passing full-joint test.",
+    "max_error_native_px": 8.133,
+    "results": [
+      {
+        "direction": "N",
+        "side": "left",
+        "observed_native": [
+          88.5,
+          165.125
+        ],
+        "target_native": [
+          89.58,
+          168.25
+        ],
+        "error_native_px": 3.306
+      },
+      {
+        "direction": "N",
+        "side": "right",
+        "observed_native": [
+          107.75,
+          165.5
+        ],
+        "target_native": [
+          107.58,
+          166.65
+        ],
+        "error_native_px": 1.162
+      },
+      {
+        "direction": "NE",
+        "side": "left",
+        "observed_native": [
+          89.375,
+          163.125
+        ],
+        "target_native": [
+          89.29,
+          165.98
+        ],
+        "error_native_px": 2.856
+      },
+      {
+        "direction": "NE",
+        "side": "right",
+        "observed_native": [
+          107.125,
+          166.375
+        ],
+        "target_native": [
+          105.56,
+          168.92
+        ],
+        "error_native_px": 2.988
+      },
+      {
+        "direction": "E",
+        "side": "left",
+        "observed_native": [
+          89.75,
+          161.625
+        ],
+        "target_native": [
+          91.66,
+          164.57
+        ],
+        "error_native_px": 3.51
+      },
+      {
+        "direction": "E",
+        "side": "right",
+        "observed_native": [
+          96.875,
+          166.25
+        ],
+        "target_native": [
+          96.66,
+          170.33
+        ],
+        "error_native_px": 4.086
+      },
+      {
+        "direction": "SE",
+        "side": "left",
+        "observed_native": [
+          103.75,
+          158.125
+        ],
+        "target_native": [
+          101.09,
+          164.85
+        ],
+        "error_native_px": 7.232
+      },
+      {
+        "direction": "SE",
+        "side": "right",
+        "observed_native": [
+          90.75,
+          166.375
+        ],
+        "target_native": [
+          91.9,
+          170.05
+        ],
+        "error_native_px": 3.851
+      },
+      {
+        "direction": "S",
+        "side": "left",
+        "observed_native": [
+          105.75,
+          165.0
+        ],
+        "target_native": [
+          105.76,
+          166.65
+        ],
+        "error_native_px": 1.65
+      },
+      {
+        "direction": "S",
+        "side": "right",
+        "observed_native": [
+          87.125,
+          165.0
+        ],
+        "target_native": [
+          87.76,
+          168.25
+        ],
+        "error_native_px": 3.311
+      },
+      {
+        "direction": "SW",
+        "side": "right",
+        "observed_native": [
+          89.25,
+          157.875
+        ],
+        "target_native": [
+          88.57,
+          165.98
+        ],
+        "error_native_px": 8.133
+      },
+      {
+        "direction": "SW",
+        "side": "left",
+        "observed_native": [
+          105.625,
+          164.125
+        ],
+        "target_native": [
+          104.84,
+          168.92
+        ],
+        "error_native_px": 4.859
+      },
+      {
+        "direction": "W",
+        "side": "right",
+        "observed_native": [
+          95.875,
+          160.75
+        ],
+        "target_native": [
+          97.31,
+          164.57
+        ],
+        "error_native_px": 4.081
+      },
+      {
+        "direction": "W",
+        "side": "left",
+        "observed_native": [
+          101.25,
+          165.625
+        ],
+        "target_native": [
+          102.31,
+          170.33
+        ],
+        "error_native_px": 4.823
+      },
+      {
+        "direction": "NW",
+        "side": "right",
+        "observed_native": [
+          111.125,
+          160.625
+        ],
+        "target_native": [
+          105.91,
+          164.85
+        ],
+        "error_native_px": 6.712
+      },
+      {
+        "direction": "NW",
+        "side": "left",
+        "observed_native": [
+          96.25,
+          167.0
+        ],
+        "target_native": [
+          96.72,
+          170.05
+        ],
+        "error_native_px": 3.086
+      }
+    ],
+    "complete_joint_validation": false
+  }
+}

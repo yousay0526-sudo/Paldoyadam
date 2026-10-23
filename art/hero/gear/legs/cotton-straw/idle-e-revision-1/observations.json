@@ -1,0 +1,29 @@
+{
+  "source_size": [1254, 1254],
+  "method": "Attempt 3 source-only observations. Ankle-band centers are centers of source RGB indigo-component bounding boxes, detected with no guide coordinates, visually checked on the source; estimated uncertainty +/-0.5 native px. Heel/toe are manual estimates of the visible sock heel/toe centerline, not outer outsole extrema, uncertainty +/-1.0 native px; anatomical centers cannot be certified from this painting. Far toe is hidden and remains null. Coordinates are not snapped, copied from the guide, or corrected after comparison. All points below are in unmodified generated-source pixels.",
+  "landmarks": [
+    {"side": "left", "landmark": "ankle", "source_xy": [485.0, 652.5], "uncertainty_native_px": 0.5, "visibility": "visible band; inner edge partly occluded by near trouser"},
+    {"side": "right", "landmark": "ankle", "source_xy": [673.5, 775.0], "uncertainty_native_px": 0.5, "visibility": "visible band"},
+    {"side": "left", "landmark": "heel", "source_xy": [400, 752], "uncertainty_native_px": 1.0, "visibility": "visible rear white sock lobe; anatomical center is approximate"},
+    {"side": "left", "landmark": "toe", "source_xy": null, "uncertainty_native_px": null, "visibility": "occluded by the near leg; no inferred or guide-copied coordinate"},
+    {"side": "right", "landmark": "heel", "source_xy": [574, 882], "uncertainty_native_px": 1.0, "visibility": "rear white sock lobe center just above outsole; approximate"},
+    {"side": "right", "landmark": "toe", "source_xy": [930, 901], "uncertainty_native_px": 1.0, "visibility": "front white sock cap center just above outsole; approximate"}
+  ],
+  "shoe_inspection_regions_source": {
+    "left_visible_segment": [350, 695, 595, 830],
+    "right_footwear": [505, 814, 985, 990]
+  },
+  "shoe_review": {
+    "near_transverse_straps_visually_separated": true,
+    "near_heel_loop_counted_as_transverse_strap": false,
+    "far_two_transverse_straps_fully_verifiable": false,
+    "far_strap_note": "One full visible band/loop and another short fragment are present, but the near leg occludes the rest; two independent complete transverse straps cannot be certified.",
+    "far_foot_visible": true,
+    "far_foot_orientation_readability": "Rear visible white lobe can read as a toe; heel construction still needs art review."
+  },
+  "per_foot_contact": {
+    "near": "Measure the actual outsole envelope; this does not prove game/world contact.",
+    "far": "Unresolved: JSON contact=true with a higher projected foot. No agreed conversion from joint centerline to sole/ground contact. Do not move the far foot to y176 to force agreement.",
+    "failure_count": null
+  }
+}

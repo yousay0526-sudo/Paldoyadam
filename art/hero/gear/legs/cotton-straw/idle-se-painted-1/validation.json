@@ -1,0 +1,80 @@
+{
+  "status": "painterly_style_study_unapproved_not_aligned",
+  "direction": "SE",
+  "baseline_commit": "a9b6712174236047b1a01b25e6ada49873258d78",
+  "production_decision": "Modular hand-painted 2D equipment matching the original character. User rejected procedural flat/vector candidates; those are historical records only.",
+  "generation_steps": [
+    "Full-pose painterly style edit",
+    "Image edit separating leg equipment and filling hidden areas"
+  ],
+  "source_sizes": {
+    "generated-source.png": [
+      1254,
+      1254
+    ],
+    "generated-legs-source.png": [
+      1254,
+      1254
+    ]
+  },
+  "normalization": "Uniform full-square resize to 768px. No foot translation, independent scaling, warping, reflection, or guide-silhouette clipping.",
+  "protected_opaque_pixels_changed": 0,
+  "visible_silhouette_iou": 0.3471,
+  "isolated_band_comparisons": [
+    {
+      "side": "near",
+      "observed_native": [
+        87.75,
+        159.5
+      ],
+      "guide_native": [
+        91.9,
+        170.05
+      ],
+      "distance_px": 11.337
+    },
+    {
+      "side": "far",
+      "observed_native": [
+        113.0,
+        146.75
+      ],
+      "guide_native": [
+        101.09,
+        164.85
+      ],
+      "distance_px": 21.667
+    }
+  ],
+  "literal_contact_y175_177": {
+    "near": {
+      "observed_outsole_y": 184.25,
+      "pass": false
+    },
+    "far": {
+      "observed_outsole_y": 168.0,
+      "pass": false
+    }
+  },
+  "cell_border_clear": true,
+  "anatomical_joint_max_error": null,
+  "overall_idle_approved": false,
+  "runtime_ready": false,
+  "art_review": {
+    "cloth": "Painterly overlapping folds and midtones restored; user approval pending",
+    "sandals": "Two separate instep straps and woven sole detail visible in separated artwork; original sword occludes far foot in composite",
+    "assembly": "Separation edit changed proportions/placement; far ankle is high and far foot too far right. Canonical occluder exposes uneven transition. Do not use as aligned equipment."
+  },
+  "pending": [
+    "User approval of painterly material treatment",
+    "Redraw proportions/placement at the fixed frame while preserving this art quality",
+    "Anatomical heel/toe validation",
+    "Existing contact-contract ambiguity remains unresolved"
+  ],
+  "reference_sha256": {
+    "idle-8dir-body-nolegs.png": "de7d22d3dea028bc5aade122dc5c164ba8672c5874506b6eca2ca63a04e2f859",
+    "idle-8dir-guide4x.png": "b063db9b02f4752dec6c0d2c5ef39cb190a0483dcf4e4223a55cd2aac607e5b9",
+    "idle-8dir-occluder.png": "b3e236de4e921c0b9b0276c2091d02b17d80e5bf497dbaa2c69cc86b4968edb2",
+    "leg-guides.json": "a56efc2161e59ba2f3ee4e1a548093546b2a3ee622247309d2ae55d119b8cf09"
+  }
+}

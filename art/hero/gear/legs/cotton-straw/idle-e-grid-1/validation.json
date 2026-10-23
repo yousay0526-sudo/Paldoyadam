@@ -1,0 +1,224 @@
+{
+  "baseline_commit": "a1a32de45ca76542edbc2c7e666f637c6c3c2aea",
+  "direction": "E",
+  "method": "Fresh absolute-grid drawing; final raster compared to unchanged guide. No guide-mask clipping, previous-foot movement, distortion or image sampling. Only original body/occluder used for preservation.",
+  "runtime_ready": false,
+  "status": "unapproved_direct_grid_review",
+  "visible_silhouette_iou": 0.7585,
+  "lowest_visible_leg_y": 176.75,
+  "global_envelope_175_177_pass": true,
+  "protected_opaque_pixels_changed": 0,
+  "cell_border_clear": true,
+  "source_only_band_observations": [
+    {
+      "bbox_4x": [
+        353,
+        654,
+        370,
+        662
+      ],
+      "area_4x": 138,
+      "center_native": [
+        90.375,
+        164.5
+      ],
+      "side": "left",
+      "target_native": [
+        91.66,
+        164.57
+      ],
+      "error_native_px": 1.287
+    },
+    {
+      "bbox_4x": [
+        373,
+        677,
+        400,
+        685
+      ],
+      "area_4x": 198,
+      "center_native": [
+        96.625,
+        170.25
+      ],
+      "side": "right",
+      "target_native": [
+        96.66,
+        170.33
+      ],
+      "error_native_px": 0.087
+    }
+  ],
+  "ankle_method": "Visible-band RGB connected component bounding-box centers, read from final raster before loading target coordinates. +/-0.25 native px raster/contour uncertainty; partially occluded far band is reported as visible center, not hidden anatomical center.",
+  "full_joint_max_error_native_px": null,
+  "per_foot_contact_pass": null,
+  "reference_sha256": {
+    "idle-8dir-body-nolegs.png": "de7d22d3dea028bc5aade122dc5c164ba8672c5874506b6eca2ca63a04e2f859",
+    "idle-8dir-guide4x.png": "b063db9b02f4752dec6c0d2c5ef39cb190a0483dcf4e4223a55cd2aac607e5b9",
+    "idle-8dir-occluder.png": "b3e236de4e921c0b9b0276c2091d02b17d80e5bf497dbaa2c69cc86b4968edb2",
+    "leg-guides.json": "a56efc2161e59ba2f3ee4e1a548093546b2a3ee622247309d2ae55d119b8cf09"
+  },
+  "alpha_threshold_sensitivity": {
+    "64": {
+      "visible_silhouette_iou": 0.7614,
+      "lowest_visible_y": 176.75
+    },
+    "128": {
+      "visible_silhouette_iou": 0.7585,
+      "lowest_visible_y": 176.75
+    },
+    "192": {
+      "visible_silhouette_iou": 0.7506,
+      "lowest_visible_y": 176.5
+    }
+  },
+  "ankle_max_error_native_px": 1.287,
+  "gates": {
+    "visible_iou_0_75_pass": true,
+    "visible_band_centers_1_5px_pass": true,
+    "global_envelope_175_177_pass": true,
+    "overall_idle_approved": false
+  },
+  "isolated_part_observations": {
+    "left": {
+      "bands": [
+        {
+          "bbox_4x": [
+            353,
+            654,
+            378,
+            662
+          ],
+          "area_4x": 198,
+          "center_native": [
+            91.375,
+            164.5
+          ],
+          "target_native": [
+            91.66,
+            164.57
+          ],
+          "error_native_px": 0.293
+        }
+      ],
+      "image": "far-unoccluded-4x.png",
+      "lowest_painted_y": 171.25
+    },
+    "right": {
+      "bands": [
+        {
+          "bbox_4x": [
+            373,
+            677,
+            400,
+            685
+          ],
+          "area_4x": 198,
+          "center_native": [
+            96.625,
+            170.25
+          ],
+          "target_native": [
+            96.66,
+            170.33
+          ],
+          "error_native_px": 0.087
+        }
+      ],
+      "image": "near-unoccluded-4x.png",
+      "lowest_painted_y": 176.75
+    }
+  },
+  "sock_cap_centerline_aids": [
+    {
+      "side": "left",
+      "landmark": "heel",
+      "bbox_4x": [
+        346,
+        663,
+        359,
+        671
+      ],
+      "area_4x": 77,
+      "center_native": [
+        88.04545454545455,
+        166.71103896103895
+      ],
+      "target_native": [
+        87.66,
+        166.94
+      ],
+      "proxy_error_native_px": 0.448
+    },
+    {
+      "side": "left",
+      "landmark": "toe",
+      "bbox_4x": [
+        408,
+        664,
+        418,
+        671
+      ],
+      "area_4x": 55,
+      "center_native": [
+        103.22727272727273,
+        166.96363636363637
+      ],
+      "target_native": [
+        103.66,
+        166.94
+      ],
+      "proxy_error_native_px": 0.433
+    },
+    {
+      "side": "right",
+      "landmark": "heel",
+      "bbox_4x": [
+        367,
+        687,
+        379,
+        695
+      ],
+      "area_4x": 77,
+      "center_native": [
+        93.25,
+        172.67532467532467
+      ],
+      "target_native": [
+        92.66,
+        172.7
+      ],
+      "proxy_error_native_px": 0.591
+    },
+    {
+      "side": "right",
+      "landmark": "toe",
+      "bbox_4x": [
+        427,
+        689,
+        438,
+        695
+      ],
+      "area_4x": 62,
+      "center_native": [
+        108.02016129032258,
+        173.06451612903226
+      ],
+      "target_native": [
+        108.66,
+        172.7
+      ],
+      "proxy_error_native_px": 0.736
+    }
+  ],
+  "contact_note": "Near/global outsole envelope only. Far painted outsole is higher in projection; contact=true to projected heel/toe/outsole relationship is undefined. Per-foot physical contact remains null.",
+  "art_review": {
+    "isolated_two_transverse_straps_each_foot": true,
+    "near_composite_two_straps_readable": true,
+    "far_composite_straps_fully_readable": false,
+    "heel_loops_separate_from_transverse_bands": true,
+    "dangling_indigo_knots": false,
+    "style_approval": "pending; directly painted paths are simpler/flatter than generated candidates; higher sock toe and heel construction require user art review",
+    "runtime_ready": false
+  }
+}

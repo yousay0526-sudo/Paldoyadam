@@ -1,0 +1,141 @@
+{
+  "stage": "1_design_candidate_only",
+  "approval_status": "pending",
+  "runtime_ready": false,
+  "generator": "image_gen",
+  "generation_attempts": 4,
+  "selected_attempt": 4,
+  "generated_size": [
+    1774,
+    887
+  ],
+  "master_size": [
+    3072,
+    1536
+  ],
+  "frame_cell_px": 768,
+  "canvas_resolution_normalization": "Entire 1774x887 output uniformly resampled to 3072x1536 with Lanczos; no per-cell translations, fitting, mirroring or warping.",
+  "body_preservation": "Original supplied 192px body expanded 4x nearest-neighbour; only original occluder-protected pixels copied. Existing boot remnants outside the occluder omitted in composite; input files unchanged.",
+  "protected_opaque_body_pixel_count": 25696,
+  "protected_opaque_body_pixels_changed": 0,
+  "silhouette_measurement": "Visible guide blue/orange color mask, outside provided occluder, versus actual extracted art alpha>=128. Not full hidden-leg IoU; source full legs behind skirt have not been generated.",
+  "thresholds": {
+    "joint_error_px": 1.5,
+    "silhouette_iou": 0.75,
+    "contact_y_range": [
+      175,
+      177
+    ]
+  },
+  "results": [
+    {
+      "direction": "N",
+      "max_joint_error_px": null,
+      "joint_error_status": "not_measured_independent_heel_toe_landmarks_required",
+      "visible_silhouette_iou": 0.6432,
+      "lowest_visible_leg_y": 178.0,
+      "contact_envelope_pass": false,
+      "per_foot_contact_failure_count": null,
+      "per_foot_contact_status": "not_measured_feet_overlap_and_far_foot_perspective",
+      "cell_border_clear": true
+    },
+    {
+      "direction": "NE",
+      "max_joint_error_px": null,
+      "joint_error_status": "not_measured_independent_heel_toe_landmarks_required",
+      "visible_silhouette_iou": 0.481,
+      "lowest_visible_leg_y": 178.5,
+      "contact_envelope_pass": false,
+      "per_foot_contact_failure_count": null,
+      "per_foot_contact_status": "not_measured_feet_overlap_and_far_foot_perspective",
+      "cell_border_clear": true
+    },
+    {
+      "direction": "E",
+      "max_joint_error_px": null,
+      "joint_error_status": "not_measured_independent_heel_toe_landmarks_required",
+      "visible_silhouette_iou": 0.6557,
+      "lowest_visible_leg_y": 178.0,
+      "contact_envelope_pass": false,
+      "per_foot_contact_failure_count": null,
+      "per_foot_contact_status": "not_measured_feet_overlap_and_far_foot_perspective",
+      "cell_border_clear": true
+    },
+    {
+      "direction": "SE",
+      "max_joint_error_px": null,
+      "joint_error_status": "not_measured_independent_heel_toe_landmarks_required",
+      "visible_silhouette_iou": 0.5548,
+      "lowest_visible_leg_y": 180.25,
+      "contact_envelope_pass": false,
+      "per_foot_contact_failure_count": null,
+      "per_foot_contact_status": "not_measured_feet_overlap_and_far_foot_perspective",
+      "cell_border_clear": true
+    },
+    {
+      "direction": "S",
+      "max_joint_error_px": null,
+      "joint_error_status": "not_measured_independent_heel_toe_landmarks_required",
+      "visible_silhouette_iou": 0.6322,
+      "lowest_visible_leg_y": 176.5,
+      "contact_envelope_pass": true,
+      "per_foot_contact_failure_count": null,
+      "per_foot_contact_status": "not_measured_feet_overlap_and_far_foot_perspective",
+      "cell_border_clear": true
+    },
+    {
+      "direction": "SW",
+      "max_joint_error_px": null,
+      "joint_error_status": "not_measured_independent_heel_toe_landmarks_required",
+      "visible_silhouette_iou": 0.5969,
+      "lowest_visible_leg_y": 177.5,
+      "contact_envelope_pass": false,
+      "per_foot_contact_failure_count": null,
+      "per_foot_contact_status": "not_measured_feet_overlap_and_far_foot_perspective",
+      "cell_border_clear": true
+    },
+    {
+      "direction": "W",
+      "max_joint_error_px": null,
+      "joint_error_status": "not_measured_independent_heel_toe_landmarks_required",
+      "visible_silhouette_iou": 0.6515,
+      "lowest_visible_leg_y": 177.5,
+      "contact_envelope_pass": false,
+      "per_foot_contact_failure_count": null,
+      "per_foot_contact_status": "not_measured_feet_overlap_and_far_foot_perspective",
+      "cell_border_clear": true
+    },
+    {
+      "direction": "NW",
+      "max_joint_error_px": null,
+      "joint_error_status": "not_measured_independent_heel_toe_landmarks_required",
+      "visible_silhouette_iou": 0.6037,
+      "lowest_visible_leg_y": 178.0,
+      "contact_envelope_pass": false,
+      "per_foot_contact_failure_count": null,
+      "per_foot_contact_status": "not_measured_feet_overlap_and_far_foot_perspective",
+      "cell_border_clear": true
+    }
+  ],
+  "source_sha256": {
+    "leg-gear-for-gpt.zip": "e5c1f2fd5fe6ad82da70f81ff022d4e0e24aa10a64cea8a0f9075856204eaf70",
+    "design-generated-source.png": "4838e51bcbecd4613489f3e645ad4bdfea2a1a0cfc0a619131fce13546948891",
+    "idle-8dir-body-nolegs.png": "de7d22d3dea028bc5aade122dc5c164ba8672c5874506b6eca2ca63a04e2f859",
+    "idle-8dir-guide4x.png": "b063db9b02f4752dec6c0d2c5ef39cb190a0483dcf4e4223a55cd2aac607e5b9",
+    "idle-8dir-occluder.png": "b3e236de4e921c0b9b0276c2091d02b17d80e5bf497dbaa2c69cc86b4968edb2",
+    "leg-guides.json": "a56efc2161e59ba2f3ee4e1a548093546b2a3ee622247309d2ae55d119b8cf09"
+  },
+  "not_tested": [
+    "Independent heel/toe/ankle landmark error",
+    "Per-foot contact",
+    "Walking naturalness and flicker",
+    "Game or SDL rendering",
+    "Fully hidden trouser legs"
+  ],
+  "known_issues": [
+    "Generated leg registration must pass independent joint tests before runtime use.",
+    "Some directions do not meet visible guide IoU or contact envelope.",
+    "Far feet have perspective y offsets in the supplied guide despite all idle contact flags being true.",
+    "N/NE/NW heel-loop and toe-away readability still needs art approval."
+  ]
+}

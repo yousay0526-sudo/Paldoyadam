@@ -1,0 +1,47 @@
+{
+  "direction": "E",
+  "crop_native": [
+    64,
+    128,
+    128,
+    192
+  ],
+  "reference_pixels": [
+    1024,
+    1024
+  ],
+  "construction_reference": "Diagnostic ankle-band placement rectangles over a copy of the immutable guide, not candidate art. Original reference/ files unchanged. Never used for measured artwork or to clip/warp source.",
+  "annotations": {
+    "left": {
+      "target_center_crop_1024": [
+        442.55999999999995,
+        585.1199999999999
+      ],
+      "annotation_box": [
+        395,
+        569,
+        491,
+        601
+      ]
+    },
+    "right": {
+      "target_center_crop_1024": [
+        522.56,
+        677.2800000000002
+      ],
+      "annotation_box": [
+        467,
+        661,
+        579,
+        693
+      ]
+    }
+  },
+  "attempt2_crop_native": [
+    80,
+    148,
+    116,
+    184
+  ],
+  "attempt2_method": "Second fixed 36px square crop selected before generation to emphasize ankle and shoe geometry. Original painted trousers above this crop retained; no per-foot placement or fitting."
+}

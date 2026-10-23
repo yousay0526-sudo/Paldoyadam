@@ -1,0 +1,52 @@
+{
+  "direction": "E",
+  "status": "material_base_candidate_unapproved",
+  "runtime_ready": false,
+  "geometry_source": "idle-e-grid-1/paint-v4; appearance only, exact alpha retained",
+  "geometry_alpha_identical": true,
+  "visible_silhouette_iou": 0.7585,
+  "visible_band_comparisons": [
+    {
+      "observed_native": [
+        90.375,
+        164.5
+      ],
+      "guide_native": [
+        91.66,
+        164.57
+      ],
+      "distance_px": 1.287
+    },
+    {
+      "observed_native": [
+        96.625,
+        170.25
+      ],
+      "guide_native": [
+        96.66,
+        170.33
+      ],
+      "distance_px": 0.087
+    }
+  ],
+  "protected_opaque_pixels_changed": 0,
+  "literal_contact_y175_177": {
+    "far": {
+      "observed_outsole_y": 171.25,
+      "pass": false
+    },
+    "near": {
+      "observed_outsole_y": 176.75,
+      "pass": true
+    }
+  },
+  "contact_contract": "Brief requires both contact=true soles at y176 +/-1, but immutable E heel/toe centerlines differ by 5.76px and brief also places soles approximately 6px below them. Far literal screen-ground test fails. No projection reinterpretation or foot movement applied.",
+  "anatomical_heel_toe_validation": "not certified; prior sock highlight centroids are paint proxies only; inspect isolated feet and alignment overlay",
+  "overall_idle_approved": false,
+  "pending": [
+    "User visual approval of materials and shoe construction",
+    "Resolve contact contract",
+    "Anatomical heel/toe endpoints remain ambiguous in painted contours",
+    "Other seven idle directions not produced from this base"
+  ]
+}

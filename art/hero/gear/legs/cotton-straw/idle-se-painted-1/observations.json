@@ -1,0 +1,106 @@
+{
+  "method": "Final PNG RGB connected components and alpha bounds; no guide inputs",
+  "visible_bands_y150_plus": [
+    {
+      "bbox_4x": [
+        439,
+        600,
+        468,
+        602
+      ],
+      "area_4x": 71,
+      "center_native": [
+        113.375,
+        150.25
+      ]
+    },
+    {
+      "bbox_4x": [
+        323,
+        621,
+        379,
+        655
+      ],
+      "area_4x": 1225,
+      "center_native": [
+        87.75,
+        159.5
+      ]
+    }
+  ],
+  "unoccluded_bands_y150_plus": [
+    {
+      "bbox_4x": [
+        439,
+        600,
+        468,
+        602
+      ],
+      "area_4x": 71,
+      "center_native": [
+        113.375,
+        150.25
+      ]
+    },
+    {
+      "bbox_4x": [
+        323,
+        621,
+        379,
+        655
+      ],
+      "area_4x": 1225,
+      "center_native": [
+        87.75,
+        159.5
+      ]
+    }
+  ],
+  "band_detector_limit": "Legacy observer only searches y>=150 native; a high far band can be omitted. Missing detections are not a pass.",
+  "isolated_parts": {
+    "near": {
+      "alpha_component_area_4x": 15952,
+      "lowest_outsole_y": 184.25,
+      "bounds_native": [
+        69.75,
+        133.5,
+        109.0,
+        184.25
+      ],
+      "blue_band": {
+        "bbox_center_native": [
+          87.75,
+          159.5
+        ],
+        "bbox_native": [
+          80.75,
+          155.25,
+          94.75,
+          163.75
+        ]
+      }
+    },
+    "far": {
+      "alpha_component_area_4x": 11596,
+      "lowest_outsole_y": 168.0,
+      "bounds_native": [
+        99.5,
+        130.25,
+        132.75,
+        168.0
+      ],
+      "blue_band": {
+        "bbox_center_native": [
+          113.0,
+          146.75
+        ],
+        "bbox_native": [
+          106.5,
+          143.0,
+          119.5,
+          150.5
+        ]
+      }
+    }
+  }
+}

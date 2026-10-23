@@ -1,0 +1,10 @@
+{
+  "assembly_and_review_outputs_reproduced": 10,
+  "all_output_sha256_identical": true,
+  "historical_art_reference_review_files_preserved": 165,
+  "historical_files_changed": [],
+  "protected_opaque_pixels_changed": 0,
+  "cell_border_clear": true,
+  "game_runtime_tested": false,
+  "generation_reproduction_claimed": false
+}

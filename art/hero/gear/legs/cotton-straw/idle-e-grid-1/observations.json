@@ -1,0 +1,130 @@
+{
+  "source": "paint-v4 final rendered PNGs only; no authoring coordinates or target points read",
+  "composite_visible_bands": [
+    {
+      "bbox_4x": [
+        353,
+        654,
+        370,
+        662
+      ],
+      "area_4x": 138,
+      "center_native": [
+        90.375,
+        164.5
+      ]
+    },
+    {
+      "bbox_4x": [
+        373,
+        677,
+        400,
+        685
+      ],
+      "area_4x": 198,
+      "center_native": [
+        96.625,
+        170.25
+      ]
+    }
+  ],
+  "isolated_parts": {
+    "left": {
+      "bands": [
+        {
+          "bbox_4x": [
+            353,
+            654,
+            378,
+            662
+          ],
+          "area_4x": 198,
+          "center_native": [
+            91.375,
+            164.5
+          ]
+        }
+      ],
+      "image": "far-unoccluded-4x.png",
+      "lowest_painted_y": 171.25
+    },
+    "right": {
+      "bands": [
+        {
+          "bbox_4x": [
+            373,
+            677,
+            400,
+            685
+          ],
+          "area_4x": 198,
+          "center_native": [
+            96.625,
+            170.25
+          ]
+        }
+      ],
+      "image": "near-unoccluded-4x.png",
+      "lowest_painted_y": 176.75
+    }
+  },
+  "sock_cap_paint_lobes": {
+    "left": [
+      {
+        "bbox_4x": [
+          346,
+          663,
+          359,
+          671
+        ],
+        "area_4x": 77,
+        "center_native": [
+          88.04545454545455,
+          166.71103896103895
+        ]
+      },
+      {
+        "bbox_4x": [
+          408,
+          664,
+          418,
+          671
+        ],
+        "area_4x": 55,
+        "center_native": [
+          103.22727272727273,
+          166.96363636363637
+        ]
+      }
+    ],
+    "right": [
+      {
+        "bbox_4x": [
+          367,
+          687,
+          379,
+          695
+        ],
+        "area_4x": 77,
+        "center_native": [
+          93.25,
+          172.67532467532467
+        ]
+      },
+      {
+        "bbox_4x": [
+          427,
+          689,
+          438,
+          695
+        ],
+        "area_4x": 62,
+        "center_native": [
+          108.02016129032258,
+          173.06451612903226
+        ]
+      }
+    ]
+  },
+  "limits": "White-lobe centroids are source-only aids to reading sock heel/toe areas, not certified anatomical joint centers. Far toe is obscured in the composite; isolated source observations do not prove visible composite landmarks. Source contour/raster uncertainty about +/-0.25px for bands and +/-1px for heel/toe interpretation."
+}

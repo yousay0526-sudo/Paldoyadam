@@ -1,0 +1,13 @@
+{
+  "method": "Manual visual estimates of indigo ankle-band centers from selected generated-source.png, in 2048x768 sheet pixels, read before comparison to JSON. Approximate uncertainty +/-4 source pixels (+/-0.5 native pixel). Heel/toe centerline cannot be reliably read from this painted preview; this is an ankle-only diagnostic and is not a passing full-joint test.",
+  "points": {
+    "N": {"left": [196, 201], "right": [350, 204]},
+    "NE": {"left": [715, 185], "right": [857, 211]},
+    "E": {"left": [1230, 173], "right": [1287, 210]},
+    "SE": {"left": [1854, 145], "right": [1750, 211]},
+    "S": {"left": [334, 584], "right": [185, 584]},
+    "SW": {"right": [714, 527], "left": [845, 577]},
+    "W": {"right": [1279, 550], "left": [1322, 589]},
+    "NW": {"right": [1913, 549], "left": [1794, 600]}
+  }
+}
