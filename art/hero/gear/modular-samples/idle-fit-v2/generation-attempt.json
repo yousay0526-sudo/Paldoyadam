@@ -1,0 +1,8 @@
+{
+  "attempted": "built-in image_gen edit of v1 weapon hilt and guard proportions",
+  "status": "moderation_blocked_no_new_artwork_created",
+  "reported_category": "violence",
+  "request_id": "a12288e8-552b-43bb-a628-b1ed7a4b0595",
+  "resolution": "No generation retry or CLI fallback. Continue only native equipment registration and occlusion corrections using the existing v1 sources. Hilt/guard repaint remains incomplete.",
+  "existing_sources_unchanged": true
+}

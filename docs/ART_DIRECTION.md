@@ -1,5 +1,11 @@
 # 팔도야담 미술 기준 · 주인공 1단계
 
+## 2026-10-23 · 분리 장비 정지 장착·가림 2차 (미승인)
+
+PR #44의 후속 후보는 [idle-fit-v2](../art/hero/gear/modular-samples/idle-fit-v2/README.md)다. 기존 회화적 원화를 유지하고 실제 손 위치와 좁은 손가락 선택을 사용해 기존 코등이 잔여를 줄였다. 자루는 손목 뒤, 앞 대각/정면의 바깥 칼날만 몸 앞에 두며 W의 보이지 않는 오른손은 관찰한 것으로 만들지 않는다. 모자 폭과 착용 높이/머리 전경을 소폭 조정했다. [착용 미리보기](../art/hero/gear/modular-samples/idle-fit-v2/preview-equipped-8dir.png), [손 접합 전후](../art/hero/gear/modular-samples/idle-fit-v2/comparison-hands.png).
+
+자루/코등이 비율 재작화는 이미지 편집 도구가 차단해 미완료이며 새 무기 원화가 생성됐다고 표현하지 않는다. 기존 원화·다리 가이드·게임 에셋은 보존했다. 정적 분할/가림 검사와 시각 승인은 구분하며 착용감·SE 자루 끝·W/NW 가림·복원 패치 검토와 후속 포즈/연결은 남아 있다.
+
 ## 2026-10-23 · 부위별 2D 장비 예시 (시각 승인 대기)
 
 사용자 요청으로 기존 회화적 화풍과 성인 비율을 따르는 패랭이 1종·오른손 환도 1종의 정지 8방향을 독립 원화로 제작했다. 기존 그림을 단순 반전하지 않고 방향별 원화/장착 위치와 앞·뒤 레이어, 몸체·오른손·얼굴/뒷머리 가림을 별도 보존했다. [예시와 연결 계약](../art/hero/gear/modular-samples/idle-v1/README.md), [조합](../art/hero/gear/modular-samples/idle-v1/preview-equipped-8dir.png), [마스크](../art/hero/gear/modular-samples/idle-v1/preview-masks-8dir.png).

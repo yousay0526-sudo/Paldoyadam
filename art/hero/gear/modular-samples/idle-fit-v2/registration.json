@@ -1,0 +1,896 @@
+{
+  "schema_version": 2,
+  "pose": "idle",
+  "cell_px": 192,
+  "art_scale": 4,
+  "atlas_grid": [
+    4,
+    2
+  ],
+  "direction_order": [
+    "N",
+    "NE",
+    "E",
+    "SE",
+    "S",
+    "SW",
+    "W",
+    "NW"
+  ],
+  "foot_root": [
+    96,
+    176
+  ],
+  "observation_file": "observations.json",
+  "warning": "Mounting targets are not independent anatomical alignment certification. W palm is hidden, not observed.",
+  "poses": [
+    {
+      "direction": "N",
+      "grip": [
+        130.5,
+        114.5
+      ],
+      "tip": [
+        169,
+        149
+      ],
+      "source_grip": [
+        178,
+        155
+      ],
+      "source_tip": [
+        434,
+        366
+      ],
+      "window": [
+        50,
+        40,
+        460,
+        420
+      ],
+      "depth": "rear",
+      "head_x": 96,
+      "hat_width": 42,
+      "hat_top": 20,
+      "brim_y": [
+        39,
+        39
+      ],
+      "hand": [
+        [
+          126,
+          112
+        ],
+        [
+          129,
+          112
+        ],
+        [
+          132,
+          114
+        ],
+        [
+          133,
+          115
+        ],
+        [
+          132,
+          117
+        ],
+        [
+          128,
+          116
+        ],
+        [
+          126,
+          114
+        ]
+      ],
+      "head": [
+        [
+          85,
+          46
+        ],
+        [
+          108,
+          46
+        ],
+        [
+          108,
+          55
+        ],
+        [
+          97,
+          59
+        ],
+        [
+          86,
+          55
+        ]
+      ],
+      "palm_observation": [
+        130.5,
+        114.5
+      ],
+      "grip_inferred": false,
+      "source_hat_bbox": [
+        41,
+        126,
+        407,
+        359
+      ],
+      "source_weapon_bbox": [
+        97,
+        74,
+        437,
+        368
+      ],
+      "weapon_transform": {
+        "scale": 0.623318494548611,
+        "rotation_degrees": 2.3676549110434553,
+        "determinant": 0.3885259456463467,
+        "reflected": false
+      }
+    },
+    {
+      "direction": "NE",
+      "grip": [
+        123.5,
+        126
+      ],
+      "tip": [
+        171,
+        155
+      ],
+      "source_grip": [
+        607,
+        156
+      ],
+      "source_tip": [
+        853,
+        366
+      ],
+      "window": [
+        470,
+        40,
+        890,
+        420
+      ],
+      "depth": "rear",
+      "head_x": 96,
+      "hat_width": 42,
+      "hat_top": 20,
+      "brim_y": [
+        38,
+        41
+      ],
+      "hand": [
+        [
+          118,
+          123
+        ],
+        [
+          121,
+          123
+        ],
+        [
+          124,
+          125
+        ],
+        [
+          125,
+          127
+        ],
+        [
+          123,
+          129
+        ],
+        [
+          120,
+          128
+        ],
+        [
+          118,
+          126
+        ]
+      ],
+      "head": [
+        [
+          93,
+          46
+        ],
+        [
+          106,
+          44
+        ],
+        [
+          111,
+          48
+        ],
+        [
+          108,
+          56
+        ],
+        [
+          99,
+          59
+        ],
+        [
+          89,
+          53
+        ]
+      ],
+      "palm_observation": [
+        123.5,
+        126
+      ],
+      "grip_inferred": false,
+      "source_hat_bbox": [
+        492,
+        124,
+        852,
+        360
+      ],
+      "source_weapon_bbox": [
+        518,
+        74,
+        854,
+        370
+      ],
+      "weapon_transform": {
+        "scale": 0.6882545113449189,
+        "rotation_degrees": -9.08084787607371,
+        "determinant": 0.47369427238663314,
+        "reflected": false
+      }
+    },
+    {
+      "direction": "E",
+      "grip": [
+        98,
+        122
+      ],
+      "tip": [
+        158,
+        158
+      ],
+      "source_grip": [
+        1062,
+        157
+      ],
+      "source_tip": [
+        1338,
+        364
+      ],
+      "window": [
+        900,
+        40,
+        1380,
+        420
+      ],
+      "depth": "rear",
+      "head_x": 97,
+      "hat_width": 42,
+      "hat_top": 20,
+      "brim_y": [
+        33,
+        43
+      ],
+      "hand": [
+        [
+          92,
+          119
+        ],
+        [
+          96,
+          120
+        ],
+        [
+          99,
+          121
+        ],
+        [
+          102,
+          120
+        ],
+        [
+          103,
+          122
+        ],
+        [
+          100,
+          125
+        ],
+        [
+          96,
+          124
+        ],
+        [
+          93,
+          122
+        ]
+      ],
+      "head": [
+        [
+          102,
+          44
+        ],
+        [
+          109,
+          43
+        ],
+        [
+          112,
+          47
+        ],
+        [
+          107,
+          55
+        ],
+        [
+          100,
+          55
+        ],
+        [
+          96,
+          50
+        ]
+      ],
+      "palm_observation": [
+        98,
+        122
+      ],
+      "grip_inferred": false,
+      "source_hat_bbox": [
+        936,
+        132,
+        1287,
+        344
+      ],
+      "source_weapon_bbox": [
+        961,
+        76,
+        1343,
+        368
+      ],
+      "weapon_transform": {
+        "scale": 0.8112628723263027,
+        "rotation_degrees": -5.906141113770499,
+        "determinant": 0.6581474480151229,
+        "reflected": false
+      }
+    },
+    {
+      "direction": "SE",
+      "grip": [
+        73.5,
+        118
+      ],
+      "tip": [
+        117,
+        171
+      ],
+      "source_grip": [
+        1504,
+        155
+      ],
+      "source_tip": [
+        1716,
+        399
+      ],
+      "window": [
+        1390,
+        40,
+        1774,
+        430
+      ],
+      "depth": "front",
+      "head_x": 96,
+      "hat_width": 42,
+      "hat_top": 21,
+      "brim_y": [
+        37,
+        41
+      ],
+      "hand": [
+        [
+          71,
+          113
+        ],
+        [
+          75,
+          112
+        ],
+        [
+          77,
+          114
+        ],
+        [
+          76,
+          116
+        ],
+        [
+          74,
+          118
+        ],
+        [
+          74,
+          120
+        ],
+        [
+          71,
+          121
+        ],
+        [
+          69,
+          119
+        ],
+        [
+          72,
+          116
+        ]
+      ],
+      "head": [
+        [
+          93,
+          45
+        ],
+        [
+          105,
+          44
+        ],
+        [
+          109,
+          47
+        ],
+        [
+          106,
+          53
+        ],
+        [
+          98,
+          58
+        ],
+        [
+          90,
+          52
+        ]
+      ],
+      "palm_observation": [
+        73.5,
+        118
+      ],
+      "grip_inferred": false,
+      "source_hat_bbox": [
+        1365,
+        127,
+        1739,
+        362
+      ],
+      "source_weapon_bbox": [
+        1420,
+        71,
+        1718,
+        402
+      ],
+      "weapon_transform": {
+        "scale": 0.8484965534550596,
+        "rotation_degrees": 1.6082249316786954,
+        "determinant": 0.7199464012251148,
+        "reflected": false
+      }
+    },
+    {
+      "direction": "S",
+      "grip": [
+        65,
+        108.5
+      ],
+      "tip": [
+        25,
+        165
+      ],
+      "source_grip": [
+        281,
+        589
+      ],
+      "source_tip": [
+        55,
+        821
+      ],
+      "window": [
+        10,
+        460,
+        440,
+        875
+      ],
+      "depth": "front",
+      "head_x": 96,
+      "hat_width": 42,
+      "hat_top": 21,
+      "brim_y": [
+        40,
+        40
+      ],
+      "hand": [
+        [
+          63,
+          105
+        ],
+        [
+          66,
+          105
+        ],
+        [
+          67,
+          107
+        ],
+        [
+          67,
+          110
+        ],
+        [
+          65,
+          112
+        ],
+        [
+          63,
+          111
+        ],
+        [
+          62,
+          108
+        ]
+      ],
+      "head": [
+        [
+          86,
+          46
+        ],
+        [
+          106,
+          46
+        ],
+        [
+          108,
+          52
+        ],
+        [
+          102,
+          58
+        ],
+        [
+          96,
+          60
+        ],
+        [
+          86,
+          54
+        ]
+      ],
+      "palm_observation": [
+        65,
+        108.5
+      ],
+      "grip_inferred": false,
+      "source_hat_bbox": [
+        40,
+        566,
+        406,
+        801
+      ],
+      "source_weapon_bbox": [
+        54,
+        508,
+        355,
+        823
+      ],
+      "weapon_transform": {
+        "scale": 0.8549524875442233,
+        "rotation_degrees": -8.952300436488091,
+        "determinant": 0.7309437559580553,
+        "reflected": false
+      }
+    },
+    {
+      "direction": "SW",
+      "grip": [
+        70.5,
+        95
+      ],
+      "tip": [
+        27,
+        145
+      ],
+      "source_grip": [
+        727,
+        592
+      ],
+      "source_tip": [
+        490,
+        810
+      ],
+      "window": [
+        450,
+        460,
+        880,
+        875
+      ],
+      "depth": "front",
+      "head_x": 95,
+      "hat_width": 42,
+      "hat_top": 21,
+      "brim_y": [
+        41,
+        37
+      ],
+      "hand": [
+        [
+          68,
+          91
+        ],
+        [
+          71,
+          91
+        ],
+        [
+          73,
+          94
+        ],
+        [
+          73,
+          97
+        ],
+        [
+          71,
+          99
+        ],
+        [
+          68,
+          97
+        ],
+        [
+          67,
+          94
+        ]
+      ],
+      "head": [
+        [
+          85,
+          45
+        ],
+        [
+          97,
+          44
+        ],
+        [
+          102,
+          48
+        ],
+        [
+          99,
+          54
+        ],
+        [
+          90,
+          58
+        ],
+        [
+          82,
+          52
+        ]
+      ],
+      "palm_observation": [
+        70.5,
+        95
+      ],
+      "grip_inferred": false,
+      "source_hat_bbox": [
+        480,
+        564,
+        852,
+        794
+      ],
+      "source_weapon_bbox": [
+        488,
+        512,
+        804,
+        811
+      ],
+      "weapon_transform": {
+        "scale": 0.8232444230796434,
+        "rotation_degrees": -6.367912758401151,
+        "determinant": 0.677731380131735,
+        "reflected": false
+      }
+    },
+    {
+      "direction": "W",
+      "grip": [
+        78.5,
+        94.0
+      ],
+      "tip": [
+        16,
+        130
+      ],
+      "source_grip": [
+        1177,
+        591
+      ],
+      "source_tip": [
+        910,
+        798
+      ],
+      "window": [
+        890,
+        460,
+        1330,
+        875
+      ],
+      "depth": "rear",
+      "head_x": 95,
+      "hat_width": 42,
+      "hat_top": 20,
+      "brim_y": [
+        43,
+        33
+      ],
+      "hand": [],
+      "head": [
+        [
+          84,
+          44
+        ],
+        [
+          93,
+          44
+        ],
+        [
+          100,
+          50
+        ],
+        [
+          96,
+          55
+        ],
+        [
+          87,
+          55
+        ],
+        [
+          81,
+          48
+        ]
+      ],
+      "palm_observation": null,
+      "grip_inferred": true,
+      "source_hat_bbox": [
+        928,
+        568,
+        1281,
+        793
+      ],
+      "source_weapon_bbox": [
+        906,
+        517,
+        1264,
+        798
+      ],
+      "weapon_transform": {
+        "scale": 0.8539657870215198,
+        "rotation_degrees": 7.843795430520278,
+        "determinant": 0.7292575654032838,
+        "reflected": false
+      }
+    },
+    {
+      "direction": "NW",
+      "grip": [
+        123,
+        101
+      ],
+      "tip": [
+        153,
+        138
+      ],
+      "source_grip": [
+        1538,
+        579
+      ],
+      "source_tip": [
+        1733,
+        811
+      ],
+      "window": [
+        1390,
+        460,
+        1774,
+        880
+      ],
+      "depth": "rear",
+      "head_x": 96,
+      "hat_width": 42,
+      "hat_top": 20,
+      "brim_y": [
+        41,
+        38
+      ],
+      "hand": [
+        [
+          120,
+          98
+        ],
+        [
+          123,
+          98
+        ],
+        [
+          126,
+          100
+        ],
+        [
+          126,
+          103
+        ],
+        [
+          123,
+          104
+        ],
+        [
+          120,
+          102
+        ]
+      ],
+      "head": [
+        [
+          88,
+          46
+        ],
+        [
+          102,
+          44
+        ],
+        [
+          109,
+          50
+        ],
+        [
+          108,
+          56
+        ],
+        [
+          97,
+          60
+        ],
+        [
+          87,
+          54
+        ]
+      ],
+      "palm_observation": [
+        123,
+        101
+      ],
+      "grip_inferred": false,
+      "source_hat_bbox": [
+        1369,
+        566,
+        1739,
+        798
+      ],
+      "source_weapon_bbox": [
+        1470,
+        499,
+        1735,
+        813
+      ],
+      "weapon_transform": {
+        "scale": 0.6286950241540945,
+        "rotation_degrees": 1.0121175033371164,
+        "determinant": 0.39525743339611746,
+        "reflected": false
+      }
+    }
+  ]
+}

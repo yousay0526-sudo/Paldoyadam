@@ -1,0 +1,223 @@
+{
+  "status": "static_checks_passed_visual_approval_pending",
+  "checks": [
+    {
+      "direction": "N",
+      "partition": {
+        "headgear": {
+          "exact_alpha_partition": true,
+          "overlap_pixels": 0,
+          "margin_base_px": 20.0
+        },
+        "weapon": {
+          "exact_alpha_partition": true,
+          "overlap_pixels": 0,
+          "margin_base_px": 22.5
+        }
+      },
+      "body_reassembly_visible_rgba_exact": true,
+      "opaque_original_finger_changes": 0,
+      "base_changes_outside_removal": 0,
+      "navy_wrap_under_finger_area_base_px2": 18.125,
+      "palm_visible": true,
+      "guard_region_retained_by_hand_selector_base_px2": {
+        "v1": 6.0,
+        "v2": 0.0
+      },
+      "visual_approval": false
+    },
+    {
+      "direction": "NE",
+      "partition": {
+        "headgear": {
+          "exact_alpha_partition": true,
+          "overlap_pixels": 0,
+          "margin_base_px": 20.0
+        },
+        "weapon": {
+          "exact_alpha_partition": true,
+          "overlap_pixels": 0,
+          "margin_base_px": 20.75
+        }
+      },
+      "body_reassembly_visible_rgba_exact": true,
+      "opaque_original_finger_changes": 0,
+      "base_changes_outside_removal": 0,
+      "navy_wrap_under_finger_area_base_px2": 25.625,
+      "palm_visible": true,
+      "guard_region_retained_by_hand_selector_base_px2": {
+        "v1": 18.0,
+        "v2": 2.0
+      },
+      "visual_approval": false
+    },
+    {
+      "direction": "E",
+      "partition": {
+        "headgear": {
+          "exact_alpha_partition": true,
+          "overlap_pixels": 0,
+          "margin_base_px": 20.0
+        },
+        "weapon": {
+          "exact_alpha_partition": true,
+          "overlap_pixels": 0,
+          "margin_base_px": 32.5
+        }
+      },
+      "body_reassembly_visible_rgba_exact": true,
+      "opaque_original_finger_changes": 0,
+      "base_changes_outside_removal": 0,
+      "navy_wrap_under_finger_area_base_px2": 20.6875,
+      "palm_visible": true,
+      "guard_region_retained_by_hand_selector_base_px2": {
+        "v1": 12.0,
+        "v2": 0.0
+      },
+      "visual_approval": false
+    },
+    {
+      "direction": "SE",
+      "partition": {
+        "headgear": {
+          "exact_alpha_partition": true,
+          "overlap_pixels": 0,
+          "margin_base_px": 21.0
+        },
+        "weapon": {
+          "exact_alpha_partition": true,
+          "overlap_pixels": 0,
+          "margin_base_px": 20.5
+        }
+      },
+      "body_reassembly_visible_rgba_exact": true,
+      "opaque_original_finger_changes": 0,
+      "base_changes_outside_removal": 0,
+      "navy_wrap_under_finger_area_base_px2": 16.0625,
+      "palm_visible": true,
+      "guard_region_retained_by_hand_selector_base_px2": {
+        "v1": 9.0,
+        "v2": 0.0
+      },
+      "visual_approval": false
+    },
+    {
+      "direction": "S",
+      "partition": {
+        "headgear": {
+          "exact_alpha_partition": true,
+          "overlap_pixels": 0,
+          "margin_base_px": 21.0
+        },
+        "weapon": {
+          "exact_alpha_partition": true,
+          "overlap_pixels": 0,
+          "margin_base_px": 24.75
+        }
+      },
+      "body_reassembly_visible_rgba_exact": true,
+      "opaque_original_finger_changes": 0,
+      "base_changes_outside_removal": 0,
+      "navy_wrap_under_finger_area_base_px2": 14.25,
+      "palm_visible": true,
+      "guard_region_retained_by_hand_selector_base_px2": {
+        "v1": 81.0,
+        "v2": 1.5
+      },
+      "visual_approval": false
+    },
+    {
+      "direction": "SW",
+      "partition": {
+        "headgear": {
+          "exact_alpha_partition": true,
+          "overlap_pixels": 0,
+          "margin_base_px": 21.0
+        },
+        "weapon": {
+          "exact_alpha_partition": true,
+          "overlap_pixels": 0,
+          "margin_base_px": 26.5
+        }
+      },
+      "body_reassembly_visible_rgba_exact": true,
+      "opaque_original_finger_changes": 0,
+      "base_changes_outside_removal": 0,
+      "navy_wrap_under_finger_area_base_px2": 17.4375,
+      "palm_visible": true,
+      "guard_region_retained_by_hand_selector_base_px2": {
+        "v1": 76.0625,
+        "v2": 0.0
+      },
+      "visual_approval": false
+    },
+    {
+      "direction": "W",
+      "partition": {
+        "headgear": {
+          "exact_alpha_partition": true,
+          "overlap_pixels": 0,
+          "margin_base_px": 20.0
+        },
+        "weapon": {
+          "exact_alpha_partition": true,
+          "overlap_pixels": 0,
+          "margin_base_px": 15.25
+        }
+      },
+      "body_reassembly_visible_rgba_exact": true,
+      "opaque_original_finger_changes": 0,
+      "base_changes_outside_removal": 0,
+      "navy_wrap_under_finger_area_base_px2": null,
+      "palm_visible": false,
+      "guard_region_retained_by_hand_selector_base_px2": {
+        "v1": 55.5,
+        "v2": 0.0
+      },
+      "visual_approval": false
+    },
+    {
+      "direction": "NW",
+      "partition": {
+        "headgear": {
+          "exact_alpha_partition": true,
+          "overlap_pixels": 0,
+          "margin_base_px": 20.0
+        },
+        "weapon": {
+          "exact_alpha_partition": true,
+          "overlap_pixels": 0,
+          "margin_base_px": 38.75
+        }
+      },
+      "body_reassembly_visible_rgba_exact": true,
+      "opaque_original_finger_changes": 0,
+      "base_changes_outside_removal": 0,
+      "navy_wrap_under_finger_area_base_px2": 18.625,
+      "palm_visible": true,
+      "guard_region_retained_by_hand_selector_base_px2": {
+        "v1": 57.75,
+        "v2": 0.0
+      },
+      "visual_approval": false
+    }
+  ],
+  "artwork_repainted": false,
+  "new_weapon_edit_completed": false,
+  "source_directory": "../idle-v1",
+  "source_sha256": {
+    "assets/warrior-idle-8dir-v1.png": "13497a68b60b10b537a383d6570eaefb1c6211dbca98c81f456b0b8936513d3e",
+    "art/hero/gear/modular-samples/idle-v1/paeraengi-generated-source.png": "37b2c513dfe3e721cddfc3a5f132dcce747305aedc2ceb4af5de118fc4a546b3",
+    "art/hero/gear/modular-samples/idle-v1/hwando-generated-source.png": "3cdc9c9fcb3c90fff46ee91c30f50125ab0b20f8f36acd33dbafcae57dea4c09",
+    "art/hero/gear/modular-samples/idle-v1/weapon-underpaint-generated-source.png": "5f973df190487dcf8b1017b7c6640b119e956e60ef86bec4c3a06dd28eeaf7ba"
+  },
+  "game_execution_tested": false,
+  "game_connected": false,
+  "anatomical_alignment_certified": false,
+  "limitations": [
+    "Requested hilt/guard repaint was blocked by image_gen; no new artwork was generated.",
+    "Original guard proportions remain in the source; this revision fixes mounting, old-guard remnants and occlusion only.",
+    "W palm is hidden and has no independently observed center.",
+    "Weapon-removal underpaint remains a draft reconstruction of concealed clothing."
+  ]
+}

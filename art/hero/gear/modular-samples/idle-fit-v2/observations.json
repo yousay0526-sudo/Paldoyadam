@@ -1,0 +1,74 @@
+{
+  "basis": "Manual observation of actual assets/warrior-idle-8dir-v1.png at pixel-grid magnification; anatomical center is approximate. W palm is hidden and remains null.",
+  "pixel_space": "192px idle cell",
+  "uncertainty_px": 1,
+  "palms": {
+    "N": [
+      130.5,
+      114.5
+    ],
+    "NE": [
+      123.5,
+      126
+    ],
+    "E": [
+      98,
+      122
+    ],
+    "SE": [
+      73.5,
+      118
+    ],
+    "S": [
+      65,
+      108.5
+    ],
+    "SW": [
+      70.5,
+      95
+    ],
+    "W": null,
+    "NW": [
+      123,
+      101
+    ]
+  },
+  "weapon_wrap_annotations": {
+    "N": [
+      178,
+      155
+    ],
+    "NE": [
+      607,
+      156
+    ],
+    "E": [
+      1062,
+      157
+    ],
+    "SE": [
+      1504,
+      155
+    ],
+    "S": [
+      281,
+      589
+    ],
+    "SW": [
+      727,
+      592
+    ],
+    "W": [
+      1177,
+      591
+    ],
+    "NW": [
+      1538,
+      579
+    ]
+  },
+  "limitations": [
+    "These measurements set registration targets; they are not an independent post-fit zero-error certification.",
+    "W has no visible palm observation; its mount uses the visible original hilt/body relation and is tagged inferred."
+  ]
+}
