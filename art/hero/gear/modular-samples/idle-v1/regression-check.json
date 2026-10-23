@@ -1,0 +1,184 @@
+{
+  "baseline_commit": "04cb6c502b27b21777eeeca7dbac91c9feae1618",
+  "existing_files_checked": 194,
+  "existing_files_preserved": 192,
+  "permitted_document_changes": [
+    "CURRENT_STATE.md",
+    "docs/ART_DIRECTION.md"
+  ],
+  "unexpected_changes": [],
+  "prepared_files_repeated": 35,
+  "repeated_sha256_differences": [],
+  "prepared_sha256": {
+    "art/hero/gear/modular-samples/idle-v1/layer-contract.json": "99f751b0eadb136830e6f9856411bc4aa137b52de254bac5f2b1bf659b37ff8a",
+    "art/hero/gear/modular-samples/idle-v1/reference-idle-8dir-2x.png": "a369d4ae9f551b73dacb434b221fc55a936dc5d9dce24e731543d3f3e62810b6",
+    "art/hero/gear/modular-samples/idle-v1/preview-masks-8dir.png": "5017faab48eada5271fa682eaa73e868f40d7996eb0c2253208c85697dfbdf4a",
+    "art/hero/gear/modular-samples/idle-v1/paeraengi-generated-source.png": "37b2c513dfe3e721cddfc3a5f132dcce747305aedc2ceb4af5de118fc4a546b3",
+    "art/hero/gear/modular-samples/idle-v1/underpaint-prompt.txt": "af3616f5f9a874e7ff894308a3ddcbcc08920e1ab7984fdb05148cda9bdc2897",
+    "art/hero/gear/modular-samples/idle-v1/preview-se-breakdown.png": "258add9fc8cd27729b4d4a1e08c9ee5cff945f4429c4060a432f57cd8776ae58",
+    "art/hero/gear/modular-samples/idle-v1/paeraengi-prompt.txt": "c5674c87e738d854f0b8b25fa63f8a4dc79d53a7c675556bfea9d9c56f712e3e",
+    "art/hero/gear/modular-samples/idle-v1/validation.json": "b1f8a080fb12e56474c6a85a165c8de9bc53d7e81331e694c9eeec90b50a8405",
+    "art/hero/gear/modular-samples/idle-v1/README.md": "bbf06a490d0c264fc8606f9ca919c8e32e97ca87f4dff6393459c45108a7419d",
+    "art/hero/gear/modular-samples/idle-v1/hwando-generated-source.png": "3cdc9c9fcb3c90fff46ee91c30f50125ab0b20f8f36acd33dbafcae57dea4c09",
+    "art/hero/gear/modular-samples/idle-v1/registration.json": "64f630907483c366194ea6140374e6197dc3117864dee606306c944537fdf762",
+    "art/hero/gear/modular-samples/idle-v1/preview-equipped-8dir.png": "570034cd659cfffbe1d2e5db50a1eeb332277d870b30de69084b89d19f36b595",
+    "art/hero/gear/modular-samples/idle-v1/weapon-underpaint-generated-source.png": "5f973df190487dcf8b1017b7c6640b119e956e60ef86bec4c3a06dd28eeaf7ba",
+    "art/hero/gear/modular-samples/idle-v1/preview-parts-8dir.png": "0475bfb8e491ecb99bfb0f282c6883a42d27652d4cc2e99707f8918a9849a28b",
+    "art/hero/gear/modular-samples/idle-v1/hwando-prompt.txt": "2b5b415d901b5f322fe9c2c20dd0e75de4326e63a47d9d8c77a1849fdd1930f0",
+    "art/hero/gear/modular-samples/idle-v1/masks/old-weapon-remove-4x.png": "ddbd3f70a2302fc7049088ea6c0bd34b65ab4a28203fed58f88d2f72e29f9e7e",
+    "art/hero/gear/modular-samples/idle-v1/masks/hand-occluder-4x.png": "08e27f3ded21007742c140279975a7278937b69cfb9f8126b72d25a28e7f9d77",
+    "art/hero/gear/modular-samples/idle-v1/masks/headgear-front-selector-4x.png": "a9a6abb656d971ae4dec017e241bc3d49b067a44524cbd7f918bceae7e4333f6",
+    "art/hero/gear/modular-samples/idle-v1/masks/weapon-front-selector-4x.png": "9c6b3003a0de16ae60e3afd04d8846eea3e8aca6ee03b751c7de73573c3be917",
+    "art/hero/gear/modular-samples/idle-v1/masks/head-occluder-4x.png": "737102db5bd5f0981033ebfdfad9736df0933f28afa106984761ad7c6f04a954",
+    "art/hero/gear/modular-samples/idle-v1/masks/head-foreground-selector-4x.png": "10082d28872964a8f6bc71c75b309fa11ce213ced88819255811d8fc4f6e8648",
+    "art/hero/gear/modular-samples/idle-v1/masks/body-occluder-4x.png": "c44f5e3b1453bd4508057f91081b33aa445541133cc485f304d516cc25a73657",
+    "art/hero/gear/modular-samples/idle-v1/masks/right-hand-selector-4x.png": "ebb694c88464509bfc0d92d92bc791205f3fbd128fb9fa29b1d49cd10fcf6d1c",
+    "art/hero/gear/modular-samples/idle-v1/layers/weapon-rear-4x.png": "92a15f0d7db3b072f5bdde3af0b2fe3f81ec9e830a983ba7f02ca64cf96ead3d",
+    "art/hero/gear/modular-samples/idle-v1/layers/weapon-full-4x.png": "15a11a411457005a9a2fda40ad334c43443fcb0341c05a125f6ca6fb50fdc4b0",
+    "art/hero/gear/modular-samples/idle-v1/layers/headgear-front-4x.png": "1f0fa1553355a691fbd5d57a540278d18d6540c690b082a0048b0b61d76f460a",
+    "art/hero/gear/modular-samples/idle-v1/layers/base-without-weapon-4x.png": "77c0b03b222d1cd60511b1af91dabbe254e8fbce32d5cc22db35a25a59c64fcb",
+    "art/hero/gear/modular-samples/idle-v1/layers/body-core-4x.png": "e061b41efd6a19f51e9ffde1231dcece10e2cf5a1e536ec471a548ea415e8ac7",
+    "art/hero/gear/modular-samples/idle-v1/layers/preview-equipped-4x.png": "a21394124de08a9b128d0578815ffe0347aae349f37983e92a4516a745473ec3",
+    "art/hero/gear/modular-samples/idle-v1/layers/weapon-front-4x.png": "0291ee6ed433da3268149b821ef0099d4dd4bcfc06d85badb818b08e12291527",
+    "art/hero/gear/modular-samples/idle-v1/layers/head-foreground-4x.png": "41d4138ccc5e04011849227647d07e5c0a4bc5c474368bb730e7a99b574e486c",
+    "art/hero/gear/modular-samples/idle-v1/layers/base-original-4x.png": "5841cb4b0ad5327cbe8e735021a6c12f348e4942a2621ef709e832c31e586ff2",
+    "art/hero/gear/modular-samples/idle-v1/layers/right-hand-4x.png": "98e172bf7968fddd2709ceecd34fa84a0fdaad46838c9e1bf622ded27c6f9fcb",
+    "art/hero/gear/modular-samples/idle-v1/layers/headgear-rear-4x.png": "c303b4873b8cca757b986cfa8fac210c1da3932d57a8b4c1a8ba350e956d0b88",
+    "art/hero/gear/modular-samples/idle-v1/layers/headgear-full-4x.png": "994ba85d6375bb8d5e7aa801557a4ac5506a412136c786af37890ab49dc6b0ed"
+  },
+  "core_regression": {
+    "cmake_unavailable": true,
+    "tests": [
+      {
+        "test": "game",
+        "build_command": [
+          "cc",
+          "-std=c11",
+          "-O1",
+          "-Wall",
+          "-Wextra",
+          "-Wpedantic",
+          "-Isrc",
+          "src/game.c",
+          "src/world.c",
+          "tests/test_game.c",
+          "-lm",
+          "-o",
+          "/workspace/scratch/8b751fabcf38/core-tests/test_game"
+        ],
+        "build_returncode": 0,
+        "build_stderr": "",
+        "run_returncode": 0,
+        "stdout": "PASS: 714 checks across quests, transactions, consumables, recovery, pause, four techniques, combos and bounds.\n",
+        "stderr": ""
+      },
+      {
+        "test": "world",
+        "build_command": [
+          "cc",
+          "-std=c11",
+          "-O1",
+          "-Wall",
+          "-Wextra",
+          "-Wpedantic",
+          "-Isrc",
+          "src/game.c",
+          "src/world.c",
+          "tests/test_world.c",
+          "-lm",
+          "-o",
+          "/workspace/scratch/8b751fabcf38/core-tests/test_world"
+        ],
+        "build_returncode": 0,
+        "build_stderr": "",
+        "run_returncode": 0,
+        "stdout": "PASS: 157 terrain, gate, route, dash and wall-combat checks.\n",
+        "stderr": ""
+      },
+      {
+        "test": "training",
+        "build_command": [
+          "cc",
+          "-std=c11",
+          "-O1",
+          "-Wall",
+          "-Wextra",
+          "-Wpedantic",
+          "-Isrc",
+          "src/game.c",
+          "src/world.c",
+          "tests/test_training.c",
+          "-lm",
+          "-o",
+          "/workspace/scratch/8b751fabcf38/core-tests/test_training"
+        ],
+        "build_returncode": 0,
+        "build_stderr": "",
+        "run_returncode": 0,
+        "stdout": "PASS: 1578 isolated training checks.\n",
+        "stderr": ""
+      },
+      {
+        "test": "combat",
+        "build_command": [
+          "cc",
+          "-std=c11",
+          "-O1",
+          "-Wall",
+          "-Wextra",
+          "-Wpedantic",
+          "-Isrc",
+          "src/game.c",
+          "src/world.c",
+          "tests/test_combat.c",
+          "-lm",
+          "-o",
+          "/workspace/scratch/8b751fabcf38/core-tests/test_combat"
+        ],
+        "build_returncode": 0,
+        "build_stderr": "",
+        "run_returncode": 0,
+        "stdout": "PASS: 753 directional combat checks.\n",
+        "stderr": ""
+      },
+      {
+        "test": "feedback",
+        "build_command": [
+          "cc",
+          "-std=c11",
+          "-O1",
+          "-Wall",
+          "-Wextra",
+          "-Wpedantic",
+          "-Isrc",
+          "src/game.c",
+          "src/world.c",
+          "tests/test_feedback.c",
+          "-lm",
+          "-o",
+          "/workspace/scratch/8b751fabcf38/core-tests/test_feedback"
+        ],
+        "build_returncode": 0,
+        "build_stderr": "",
+        "run_returncode": 0,
+        "stdout": "PASS: 159 real-time hit feedback checks.\n",
+        "stderr": ""
+      }
+    ]
+  },
+  "limitations": [
+    "CMake is not installed; CTest was not run. Five existing core suites were directly compiled and executed with cc.",
+    "No SDL renderer, browser, mobile device, walking or attack validation; example assets are not connected to the game.",
+    "Original leg PR #43 is untouched and remains visually/alignment unapproved."
+  ],
+  "problems_and_recovery": [
+    {
+      "problem": "Disjoint body reconstruction assertion detected mismatched 4x versus 192px hand-selection edges.",
+      "recovery": "Use exactly the same 192px hand selector for removal protection and nearest-upscaled hand extraction; rerun eight directions and assert visible RGBA reconstruction exact."
+    },
+    {
+      "problem": "cmake configure could not start: cmake: command not found.",
+      "recovery": "Directly compile and execute the five existing core tests; record this as direct-cc validation, not CTest."
+    }
+  ]
+}

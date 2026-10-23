@@ -1,0 +1,186 @@
+{
+  "status": "static_checks_passed_visual_approval_pending",
+  "generated_with": "built-in image_gen",
+  "generation_reproducible": false,
+  "checks": [
+    {
+      "direction": "N",
+      "partition": {
+        "headgear": {
+          "alpha_partition_exact": true,
+          "alpha_overlap_pixels": 0,
+          "margin_base_px": 18.0
+        },
+        "weapon": {
+          "alpha_partition_exact": true,
+          "alpha_overlap_pixels": 0,
+          "margin_base_px": 22.5
+        }
+      },
+      "body_parts_visible_rgba_reconstruction_exact": true,
+      "protected_hand_changed_pixels": 0,
+      "base_changes_outside_removal": 0,
+      "reconstructed_base_pixels": 308,
+      "weapon_depth": "rear",
+      "mask_visual_approval": false
+    },
+    {
+      "direction": "NE",
+      "partition": {
+        "headgear": {
+          "alpha_partition_exact": true,
+          "alpha_overlap_pixels": 0,
+          "margin_base_px": 18.0
+        },
+        "weapon": {
+          "alpha_partition_exact": true,
+          "alpha_overlap_pixels": 0,
+          "margin_base_px": 20.75
+        }
+      },
+      "body_parts_visible_rgba_reconstruction_exact": true,
+      "protected_hand_changed_pixels": 0,
+      "base_changes_outside_removal": 0,
+      "reconstructed_base_pixels": 175,
+      "weapon_depth": "rear",
+      "mask_visual_approval": false
+    },
+    {
+      "direction": "E",
+      "partition": {
+        "headgear": {
+          "alpha_partition_exact": true,
+          "alpha_overlap_pixels": 0,
+          "margin_base_px": 18.0
+        },
+        "weapon": {
+          "alpha_partition_exact": true,
+          "alpha_overlap_pixels": 0,
+          "margin_base_px": 33.0
+        }
+      },
+      "body_parts_visible_rgba_reconstruction_exact": true,
+      "protected_hand_changed_pixels": 0,
+      "base_changes_outside_removal": 0,
+      "reconstructed_base_pixels": 473,
+      "weapon_depth": "rear",
+      "mask_visual_approval": false
+    },
+    {
+      "direction": "SE",
+      "partition": {
+        "headgear": {
+          "alpha_partition_exact": true,
+          "alpha_overlap_pixels": 0,
+          "margin_base_px": 18.0
+        },
+        "weapon": {
+          "alpha_partition_exact": true,
+          "alpha_overlap_pixels": 0,
+          "margin_base_px": 20.5
+        }
+      },
+      "body_parts_visible_rgba_reconstruction_exact": true,
+      "protected_hand_changed_pixels": 0,
+      "base_changes_outside_removal": 0,
+      "reconstructed_base_pixels": 513,
+      "weapon_depth": "front",
+      "mask_visual_approval": false
+    },
+    {
+      "direction": "S",
+      "partition": {
+        "headgear": {
+          "alpha_partition_exact": true,
+          "alpha_overlap_pixels": 0,
+          "margin_base_px": 18.0
+        },
+        "weapon": {
+          "alpha_partition_exact": true,
+          "alpha_overlap_pixels": 0,
+          "margin_base_px": 24.75
+        }
+      },
+      "body_parts_visible_rgba_reconstruction_exact": true,
+      "protected_hand_changed_pixels": 0,
+      "base_changes_outside_removal": 0,
+      "reconstructed_base_pixels": 354,
+      "weapon_depth": "front",
+      "mask_visual_approval": false
+    },
+    {
+      "direction": "SW",
+      "partition": {
+        "headgear": {
+          "alpha_partition_exact": true,
+          "alpha_overlap_pixels": 0,
+          "margin_base_px": 18.0
+        },
+        "weapon": {
+          "alpha_partition_exact": true,
+          "alpha_overlap_pixels": 0,
+          "margin_base_px": 26.75
+        }
+      },
+      "body_parts_visible_rgba_reconstruction_exact": true,
+      "protected_hand_changed_pixels": 0,
+      "base_changes_outside_removal": 0,
+      "reconstructed_base_pixels": 352,
+      "weapon_depth": "front",
+      "mask_visual_approval": false
+    },
+    {
+      "direction": "W",
+      "partition": {
+        "headgear": {
+          "alpha_partition_exact": true,
+          "alpha_overlap_pixels": 0,
+          "margin_base_px": 18.0
+        },
+        "weapon": {
+          "alpha_partition_exact": true,
+          "alpha_overlap_pixels": 0,
+          "margin_base_px": 15.25
+        }
+      },
+      "body_parts_visible_rgba_reconstruction_exact": true,
+      "protected_hand_changed_pixels": 0,
+      "base_changes_outside_removal": 0,
+      "reconstructed_base_pixels": 41,
+      "weapon_depth": "rear",
+      "mask_visual_approval": false
+    },
+    {
+      "direction": "NW",
+      "partition": {
+        "headgear": {
+          "alpha_partition_exact": true,
+          "alpha_overlap_pixels": 0,
+          "margin_base_px": 18.0
+        },
+        "weapon": {
+          "alpha_partition_exact": true,
+          "alpha_overlap_pixels": 0,
+          "margin_base_px": 38.75
+        }
+      },
+      "body_parts_visible_rgba_reconstruction_exact": true,
+      "protected_hand_changed_pixels": 0,
+      "base_changes_outside_removal": 0,
+      "reconstructed_base_pixels": 86,
+      "weapon_depth": "rear",
+      "mask_visual_approval": false
+    }
+  ],
+  "game_connected": false,
+  "game_execution_tested": false,
+  "animation_tested": false,
+  "anatomical_alignment_certified": false,
+  "underpaint_note": "Generated underpaint is used only inside old-weapon-remove, with original hand/cuff protected. Pixels outside that selection are exactly preserved in the review base. It is a draft reconstructed base, not an approved unarmed body.",
+  "source_sha256": {
+    "assets/warrior-idle-8dir-v1.png": "13497a68b60b10b537a383d6570eaefb1c6211dbca98c81f456b0b8936513d3e",
+    "art/hero/gear/modular-samples/idle-v1/paeraengi-generated-source.png": "37b2c513dfe3e721cddfc3a5f132dcce747305aedc2ceb4af5de118fc4a546b3",
+    "art/hero/gear/modular-samples/idle-v1/hwando-generated-source.png": "3cdc9c9fcb3c90fff46ee91c30f50125ab0b20f8f36acd33dbafcae57dea4c09",
+    "art/hero/gear/modular-samples/idle-v1/weapon-underpaint-generated-source.png": "5f973df190487dcf8b1017b7c6640b119e956e60ef86bec4c3a06dd28eeaf7ba"
+  }
+}
