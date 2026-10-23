@@ -1,0 +1,36 @@
+{
+  "method": "All source coordinates are read from unmodified generated drawings, not from construction rectangles or copied guide coordinates. Attempt1 indigo RGB component boxes include dangling bows; their centers are NOT used as ankle-band centers. The wrap bodies were visually read separately, excluding bows/tails, uncertainty +/-0.75 native px. Attempt2 has no bows; source-only indigo-component bbox centers were visually checked, uncertainty +/-0.5 native px. Heel/toe coordinates are approximate visible white-sock heel/toe centerline readings, uncertainty +/-1.0 native px, not certified anatomical joint centers.",
+  "selected_attempt": 1,
+  "promotion_status": "rejected_not_promoted; previous E revision1 remains unchanged",
+  "landmarks": [
+    {"attempt":1,"side":"left","landmark":"ankle","source_xy":[487,695],"uncertainty_native_px":0.75,"note":"Visible wrap body center, excludes the hanging knot on its left"},
+    {"attempt":1,"side":"right","landmark":"ankle","source_xy":[690,808],"uncertainty_native_px":0.75,"note":"Visible wrap body center, excludes the long knot/tail on its left"},
+    {"attempt":1,"side":"left","landmark":"heel","source_xy":[417,782],"uncertainty_native_px":1.0,"note":"White rear sock region within heel cup, approximate"},
+    {"attempt":1,"side":"left","landmark":"toe","source_xy":[821,801],"uncertainty_native_px":1.0,"note":"Far white toe cap visible to the right of the near ankle; approximate"},
+    {"attempt":1,"side":"right","landmark":"heel","source_xy":[577,933],"uncertainty_native_px":1.0,"note":"White rear sock center within heel cup, approximate"},
+    {"attempt":1,"side":"right","landmark":"toe","source_xy":[938,942],"uncertainty_native_px":1.0,"note":"White front sock cap center, approximate"},
+    {"attempt":2,"side":"left","landmark":"ankle","source_xy":[288,480.5],"uncertainty_native_px":0.5,"note":"RGB band component bbox center"},
+    {"attempt":2,"side":"right","landmark":"ankle","source_xy":[516.5,660.5],"uncertainty_native_px":0.5,"note":"RGB band component bbox center"}
+  ],
+  "visual_review": {
+    "attempt1": {
+      "far_foot_visible":true,
+      "near_two_transverse_straps_separated":true,
+      "far_two_transverse_straps_visible_fragments_separated":true,
+      "far_straps_full_paths_verified":false,
+      "heel_loops_more_readable":true,
+      "unwanted_dangling_ankle_knots":true,
+      "shoe_size_and_contact_pass":false,
+      "note":"More distinct heel loops, but both feet are too long and too low; near calf/hem is fuller. Dangling knots violate the narrow wrap intent. Not a replacement for the previous candidate."
+    },
+    "attempt2": {
+      "far_foot_visible":true,
+      "dangling_knots_removed":true,
+      "near_two_transverse_straps_separated":true,
+      "shoe_size_and_contact_pass":false,
+      "crop_seam_needs_review":true,
+      "note":"Bands remain high; far heel and near shoe spread too far left. New lower painting joins retained trousers at native y148; color/width transition is visible and is not masked or warped away."
+    },
+    "far_contact_projection":"Still unresolved: contact=true does not specify the mapping from internal joint centerline to projected far outsole. Do not move the far shoe down to y176 to force agreement."
+  }
+}
