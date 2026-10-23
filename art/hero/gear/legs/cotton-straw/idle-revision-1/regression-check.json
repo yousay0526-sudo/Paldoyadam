@@ -1,0 +1,11 @@
+{
+  "reproducible_files": 9,
+  "sha256_match": true,
+  "protected_paths_unchanged": [
+    "src",
+    "assets",
+    "art/hero/gear/legs/cotton-straw/reference"
+  ],
+  "original_draft_and_source_unchanged": true,
+  "game_or_sdl_tested": false
+}

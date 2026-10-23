@@ -1,0 +1,27 @@
+{
+  "crop_native": [
+    64,
+    140,
+    128,
+    188
+  ],
+  "cell": [
+    512,
+    384
+  ],
+  "sheet": [
+    2048,
+    768
+  ],
+  "directions": [
+    "N",
+    "NE",
+    "E",
+    "SE",
+    "S",
+    "SW",
+    "W",
+    "NW"
+  ],
+  "method": "Same fixed crop and uniform 2x enlargement for every 4x reference cell; original files unchanged."
+}
