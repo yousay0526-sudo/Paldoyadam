@@ -174,7 +174,19 @@
         "v1": 55.5,
         "v2": 0.0
       },
-      "visual_approval": false
+      "visual_approval": false,
+      "old_blade_removal_probe": {
+        "roi_base_px": [
+          28,
+          97,
+          73,
+          136
+        ],
+        "alpha_threshold": 16,
+        "original_blade_pixels": 305,
+        "remaining_in_unarmed_body": 0,
+        "remaining_any_alpha_in_external_roi": 0
+      }
     },
     {
       "direction": "NW",

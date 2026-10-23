@@ -75,7 +75,22 @@ def forward_blade_selector(pose):
 
 
 def original_removal(name, hand):
-    selection=lib.old_weapon_selection(lib.POSES[name])
+    removal_pose=lib.POSES[name]
+    if name=="W":
+        # Original W blade runs from (74.5,100.5) to (31.5,130.5).
+        # The v1 equipment mount used (76,94)->(16,130); that line passes
+        # above the old blade and must not be reused as its removal guide.
+        removal_pose={**removal_pose,"grip":[74.5,100.5],"tip":[31.5,130.5]}
+    selection=lib.old_weapon_selection(removal_pose)
+    if name=="W":
+        # The lower edge curves below the center-line trapezoid; include its
+        # two-pixel lower margin, rather than leaving a silver edge behind.
+        selection=ImageChops.lighter(selection,ImageChops.offset(selection,0,2*SCALE))
+        # This rectangle is outside the original torso and contains only the
+        # old external blade/background. Its weak antialias must also go.
+        external=empty_mask()
+        ImageDraw.Draw(external).rectangle((28*SCALE,97*SCALE,73*SCALE-1,136*SCALE-1),fill=255)
+        selection=ImageChops.lighter(selection,external)
     x0,y0,x1,y1=OLD_GUARDS[name]
     guard=lib.polygon([[x0,y0],[x1,y0],[x1,y1],[x0,y1]])
     selection=ImageChops.lighter(selection,guard)
@@ -100,6 +115,22 @@ def microscope(before,after,filename,part):
         d.text((x+15,y+240),"이전",font=lib.font(18),fill=(65,73,73))
         d.text((x+207,y+240),"보정",font=lib.font(18),fill=(65,73,73))
     canvas.save(OUT/filename)
+
+
+def w_blade_comparison(after,body):
+    folder=OUT/"w-blade-fix"
+    if not (folder/"before-w.png").exists():
+        return
+    before=Image.open(folder/"before-w.png").convert("RGBA")
+    after.save(folder/"after-w.png")
+    canvas=Image.new("RGB",(1500,500),(239,237,227));d=ImageDraw.Draw(canvas)
+    d.text((24,18),"W 방향 · 기존 칼날 잔여 제거",font=lib.font(31),fill=(28,42,46))
+    d.text((24,61),"칼을 뺀 몸체에 남아 있던 원래 칼날을 제거하고, 새 칼 한 자루만 조합",font=lib.font(21),fill=(65,73,73))
+    for i,(title,im) in enumerate([("수정 전 · 두 칼날 겹침",before),("기존 칼 제거 후 몸체",body),("수정 후 · 새 칼 한 자루",after)]):
+        d.text((i*500+18,119),title,font=lib.font(24),fill=(37,61,66))
+        roi=im.crop((12*SCALE,88*SCALE,88*SCALE,142*SCALE)).resize((470,334),Image.Resampling.NEAREST)
+        canvas.paste(roi,(i*500+15,158),roi)
+    canvas.save(folder/"comparison.png")
 
 
 def main():
@@ -132,6 +163,20 @@ def main():
         hand_small=hand_selector.resize((192,192),Image.Resampling.NEAREST)
         remove=ImageChops.subtract(remove,hand_small)
         clean=Image.composite(underpaint.crop(cell),orig,remove)
+        old_blade_probe=None
+        if name=="W":
+            # There is no concealed clothing in this external blade region;
+            # use actual transparency, not generated background antialias.
+            clean.paste((0,0,0,0),(28,97,73,136))
+            # Original-alpha probe outside the torso, independently read from
+            # the source PNG, not from the new weapon or removal coordinates.
+            # This failed on the parent commit: 289 of 305 probe pixels remained.
+            probe=np.asarray(orig)[97:136,28:73,3]>16
+            remaining=int((probe&(np.asarray(clean)[97:136,28:73,3]>16)).sum())
+            any_alpha=int((np.asarray(clean)[97:136,28:73,3]>0).sum())
+            old_blade_probe=dict(roi_base_px=[28,97,73,136],alpha_threshold=16,original_blade_pixels=int(probe.sum()),remaining_in_unarmed_body=remaining,remaining_any_alpha_in_external_roi=any_alpha)
+            assert remaining==0,("W original blade remains in body",remaining)
+            assert any_alpha==0,("W old blade antialias remains",any_alpha)
         body=clean.resize((CELL,CELL),Image.Resampling.NEAREST)
         head_selector=body_selection(p["head"])
         core=lib.clip(body,ImageChops.invert(ImageChops.lighter(hand_selector,head_selector)))
@@ -185,6 +230,8 @@ def main():
         old_guard_kept=float(((np.array(old_hand)>0)&(np.array(guard)>0)).sum())/(SCALE*SCALE)
         new_guard_kept=float(((np.array(hand_selector)>0)&(np.array(guard)>0)).sum())/(SCALE*SCALE)
         metrics.append(dict(direction=name,partition=partitions,body_reassembly_visible_rgba_exact=True,opaque_original_finger_changes=hand_changes,base_changes_outside_removal=outside,navy_wrap_under_finger_area_base_px2=grip_overlap if name!="W" else None,palm_visible=name!="W",guard_region_retained_by_hand_selector_base_px2=dict(v1=old_guard_kept,v2=new_guard_kept),visual_approval=False))
+        if old_blade_probe is not None:
+            metrics[-1]["old_blade_removal_probe"]=old_blade_probe
         registrations.append(dict(direction=name,**p,source_hat_bbox=bbox_hat,source_weapon_bbox=bbox_weapon,weapon_transform=transform))
         tinted=body.copy()
         for a,color in [(body.getchannel("A"),(63,131,191)),(head.getchannel("A"),(193,81,173)),(hand.getchannel("A"),(245,170,54))]:
@@ -199,6 +246,7 @@ def main():
     lib.review_grid(mask_reviews,"방향별 가림 보정","파랑: 몸체 / 자주: 얼굴·뒷머리 / 주황: 보이는 오른손 | W 손은 몸 뒤에 가림","preview-masks-8dir.png")
     microscope(old_tiles,layers["preview-equipped"],"comparison-hands.png","hand")
     microscope(old_tiles,layers["preview-equipped"],"comparison-heads.png","head")
+    w_blade_comparison(layers["preview-equipped"][6],layers["base-without-weapon"][6])
     lib.json_write(OUT/"registration.json",dict(schema_version=2,pose="idle",cell_px=192,art_scale=4,atlas_grid=[4,2],direction_order=NAMES,foot_root=[96,176],observation_file="observations.json",warning="Mounting targets are not independent anatomical alignment certification. W palm is hidden, not observed.",poses=registrations))
     lib.json_write(OUT/"layer-contract.json",dict(schema_version=2,status="review_only",cell_px=768,atlas_px=[3072,1536],directions=NAMES,draw_order=["headgear-rear","weapon-rear","body-core","weapon-front","right-hand","headgear-front","head-foreground"],weapon_depth="The palm-inward grip/pommel region is rear. In SE/S/SW, only points at least 2.5 base pixels outward from the registered palm along the blade axis can be front. Other directions keep the entire weapon rear.",body_parts="Disjoint RGBA core, original visible fingers, and original head foreground. Do not additionally render the complete body.",weapon_hand="anatomical_right",horizontal_reflection=False,occlusion_baked_into_full_items=False,scope="Idle fit only; no walking, attack or runtime integration."))
     lib.json_write(OUT/"validation.json",dict(status="static_checks_passed_visual_approval_pending",checks=metrics,artwork_repainted=False,new_weapon_edit_completed=False,source_directory="../idle-v1",source_sha256={str(p.relative_to(ROOT)):lib.sha(p) for p in [ROOT/"assets/warrior-idle-8dir-v1.png",SOURCE/"paeraengi-generated-source.png",SOURCE/"hwando-generated-source.png",SOURCE/"weapon-underpaint-generated-source.png"]},game_execution_tested=False,game_connected=False,anatomical_alignment_certified=False,limitations=["Requested hilt/guard repaint was blocked by image_gen; no new artwork was generated.","Original guard proportions remain in the source; this revision fixes mounting, old-guard remnants and occlusion only.","W palm is hidden and has no independently observed center.","Weapon-removal underpaint remains a draft reconstruction of concealed clothing."]))
