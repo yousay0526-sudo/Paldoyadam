@@ -1,0 +1,138 @@
+{
+  "direction": "SE",
+  "baseline_commit": "eea8d39ed335bb3b9d9709452c0a8ab8b5459ee4",
+  "method": "New absolute-coordinate paths; E palette and brush functions only reused. No foot image transformation or guide silhouette clipping.",
+  "visible_silhouette_iou": 0.7317,
+  "isolated_band_comparisons": [
+    {
+      "part": "far",
+      "observed_native": [
+        100.875,
+        164.875
+      ],
+      "guide_native": [
+        101.09,
+        164.85
+      ],
+      "distance_px": 0.216
+    },
+    {
+      "part": "near",
+      "observed_native": [
+        91.875,
+        170.25
+      ],
+      "guide_native": [
+        91.9,
+        170.05
+      ],
+      "distance_px": 0.202
+    }
+  ],
+  "visible_band_observations": [
+    {
+      "bbox_4x": [
+        391,
+        655,
+        411,
+        664
+      ],
+      "area_4x": 150,
+      "center_native": [
+        100.25,
+        164.875
+      ]
+    },
+    {
+      "bbox_4x": [
+        354,
+        677,
+        381,
+        685
+      ],
+      "area_4x": 211,
+      "center_native": [
+        91.875,
+        170.25
+      ]
+    }
+  ],
+  "protected_opaque_pixels_changed": 0,
+  "cell_border_clear": true,
+  "literal_contact_y175_177": {
+    "far": {
+      "observed_outsole_y": 174.75,
+      "pass": false
+    },
+    "near": {
+      "observed_outsole_y": 180.0,
+      "pass": false
+    }
+  },
+  "anatomical_joint_max_error": null,
+  "overall_idle_approved": false,
+  "runtime_ready": false,
+  "pending": [
+    "User visual review; permission to continue did not approve unseen E art",
+    "Anatomical heel/toe centers remain unverified; sword occludes far foot",
+    "Literal common screen-ground rule conflicts with centerline-plus-sole-depth guidance; do not reinterpret contact or move feet to force a pass"
+  ],
+  "visible_band_comparisons": [
+    {
+      "side": "left",
+      "observed_native": [
+        100.25,
+        164.875
+      ],
+      "guide_native": [
+        101.09,
+        164.85
+      ],
+      "distance_px": 0.84
+    },
+    {
+      "side": "right",
+      "observed_native": [
+        91.875,
+        170.25
+      ],
+      "guide_native": [
+        91.9,
+        170.05
+      ],
+      "distance_px": 0.202
+    }
+  ],
+  "isolated_shoe_sizes": {
+    "far": {
+      "bbox_native": [
+        94.75,
+        163.5,
+        113.5,
+        174.75
+      ],
+      "bbox_size_native": [
+        19.0,
+        11.5
+      ]
+    },
+    "near": {
+      "bbox_native": [
+        85.25,
+        168.75,
+        104.75,
+        180.0
+      ],
+      "bbox_size_native": [
+        19.75,
+        11.5
+      ]
+    }
+  },
+  "shoe_size_note": "Raster bounding boxes include straw, heel loop and sock; not comparable to the guide heel-to-toe centerline length as if both measured the same thing.",
+  "gates": {
+    "visible_iou_0_75_pass": false,
+    "visible_band_centers_1_5px_pass": true,
+    "overall_idle_approved": false
+  }
+}

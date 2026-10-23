@@ -1,0 +1,89 @@
+{
+  "method": "Output PNG RGB and alpha observations before target coordinates are loaded. Foot bounds include sandals, not anatomical centerline endpoints.",
+  "visible_bands": [
+    {
+      "bbox_4x": [
+        391,
+        655,
+        411,
+        664
+      ],
+      "area_4x": 150,
+      "center_native": [
+        100.25,
+        164.875
+      ]
+    },
+    {
+      "bbox_4x": [
+        354,
+        677,
+        381,
+        685
+      ],
+      "area_4x": 211,
+      "center_native": [
+        91.875,
+        170.25
+      ]
+    }
+  ],
+  "isolated": {
+    "far": {
+      "bands": [
+        {
+          "bbox_4x": [
+            391,
+            655,
+            416,
+            664
+          ],
+          "area_4x": 199,
+          "center_native": [
+            100.875,
+            164.875
+          ]
+        }
+      ],
+      "shoe_bbox_native": [
+        94.75,
+        163.5,
+        113.5,
+        174.75
+      ],
+      "shoe_bbox_size_native": [
+        19.0,
+        11.5
+      ],
+      "lowest_outsole_y": 174.75
+    },
+    "near": {
+      "bands": [
+        {
+          "bbox_4x": [
+            354,
+            677,
+            381,
+            685
+          ],
+          "area_4x": 211,
+          "center_native": [
+            91.875,
+            170.25
+          ]
+        }
+      ],
+      "shoe_bbox_native": [
+        85.25,
+        168.75,
+        104.75,
+        180.0
+      ],
+      "shoe_bbox_size_native": [
+        19.75,
+        11.5
+      ],
+      "lowest_outsole_y": 180.0
+    }
+  }
+}
