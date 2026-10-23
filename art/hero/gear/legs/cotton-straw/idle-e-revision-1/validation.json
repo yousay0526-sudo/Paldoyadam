@@ -1,0 +1,327 @@
+{
+  "status": "unapproved_e_only_candidate",
+  "runtime_ready": false,
+  "selected_attempt": 3,
+  "baseline_commit": "d8a87c289870a666d38ae24923abce7d5e6b221f",
+  "before": {
+    "visible_silhouette_iou": 0.7308,
+    "lowest_visible_leg_y": 178.5,
+    "global_envelope_175_177_pass": false,
+    "visible_bounds_native": [
+      81.75,
+      145.0,
+      114.0,
+      178.5
+    ],
+    "outside_previous_review_roi_pixels_4x": 0,
+    "cell_border_clear": true
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "source_size": [
+        1254,
+        1254
+      ],
+      "source_sha256": "99f3891237d4ecfe991cdc5627c6f21379597b16ba0849bdbea23eae1cc7ca45",
+      "protected_opaque_pixels_changed": 0,
+      "visible_silhouette_iou": 0.6817,
+      "lowest_visible_leg_y": 177.0,
+      "global_envelope_175_177_pass": true,
+      "visible_bounds_native": [
+        82.75,
+        140.0,
+        113.0,
+        177.0
+      ],
+      "outside_previous_review_roi_pixels_4x": 0,
+      "cell_border_clear": true
+    },
+    {
+      "attempt": 2,
+      "source_size": [
+        1254,
+        1254
+      ],
+      "source_sha256": "eab5df1fc186a431ad0472fd114a3d4684ea2c7e76039a0b69fe8eb5712ef8e8",
+      "protected_opaque_pixels_changed": 0,
+      "visible_silhouette_iou": 0.6332,
+      "lowest_visible_leg_y": 177.0,
+      "global_envelope_175_177_pass": true,
+      "visible_bounds_native": [
+        83.75,
+        146.0,
+        110.0,
+        177.0
+      ],
+      "outside_previous_review_roi_pixels_4x": 0,
+      "cell_border_clear": true
+    },
+    {
+      "attempt": 3,
+      "source_size": [
+        1254,
+        1254
+      ],
+      "source_sha256": "266ba00fe0fd8ce5cf1e3209da7c083b2f2bb7258b539d8ca39a6b34d027d834",
+      "protected_opaque_pixels_changed": 0,
+      "visible_silhouette_iou": 0.7416,
+      "lowest_visible_leg_y": 177.5,
+      "global_envelope_175_177_pass": false,
+      "visible_bounds_native": [
+        82.5,
+        146.0,
+        113.25,
+        177.5
+      ],
+      "outside_previous_review_roi_pixels_4x": 0,
+      "cell_border_clear": true
+    }
+  ],
+  "source_color_band_detections": [
+    {
+      "attempt": 1,
+      "components": [
+        {
+          "area": 7314,
+          "source_bounds": [
+            596,
+            717,
+            740,
+            793
+          ],
+          "source_bbox_center": [
+            668.0,
+            755.0
+          ]
+        },
+        {
+          "area": 5010,
+          "source_bounds": [
+            443,
+            606,
+            554,
+            671
+          ],
+          "source_bbox_center": [
+            498.5,
+            638.5
+          ]
+        }
+      ]
+    },
+    {
+      "attempt": 2,
+      "components": [
+        {
+          "area": 6933,
+          "source_bounds": [
+            604,
+            721,
+            738,
+            795
+          ],
+          "source_bbox_center": [
+            671.0,
+            758.0
+          ]
+        },
+        {
+          "area": 5359,
+          "source_bounds": [
+            463,
+            589,
+            567,
+            661
+          ],
+          "source_bbox_center": [
+            515.0,
+            625.0
+          ]
+        }
+      ]
+    },
+    {
+      "attempt": 3,
+      "components": [
+        {
+          "area": 9580,
+          "source_bounds": [
+            592,
+            737,
+            755,
+            813
+          ],
+          "source_bbox_center": [
+            673.5,
+            775.0
+          ]
+        },
+        {
+          "area": 6461,
+          "source_bounds": [
+            432,
+            611,
+            538,
+            694
+          ],
+          "source_bbox_center": [
+            485.0,
+            652.5
+          ]
+        }
+      ]
+    }
+  ],
+  "reference_sha256": {
+    "idle-8dir-body-nolegs.png": "de7d22d3dea028bc5aade122dc5c164ba8672c5874506b6eca2ca63a04e2f859",
+    "idle-8dir-guide4x.png": "b063db9b02f4752dec6c0d2c5ef39cb190a0483dcf4e4223a55cd2aac607e5b9",
+    "idle-8dir-occluder.png": "b3e236de4e921c0b9b0276c2091d02b17d80e5bf497dbaa2c69cc86b4968edb2",
+    "leg-guides.json": "a56efc2161e59ba2f3ee4e1a548093546b2a3ee622247309d2ae55d119b8cf09"
+  },
+  "method": "Fixed E crop (64,128,128,192); border-connected pale background removal; uniform square source to 256x256; paste at fixed (256,512) in 768px E cell; original occluder/body composited. No individual foot translation, warp, mirror, guide clipping or coordinate edits. IoU uses previous common ROI for guide and full candidate alpha (outside-ROI drawing remains penalized).",
+  "full_joint_validation_complete": false,
+  "per_foot_contact_pass": null,
+  "not_measured": [
+    "Far-foot toe occluded; internal anatomical heel/toe need review",
+    "Far-foot contact screen-height projection definition",
+    "Game/SDL/mobile rendering"
+  ],
+  "generation_path_issue": "Windows referenced_image_paths rejected before generation; same inspected references supplied through recent conversation images. Three successful E-only generations.",
+  "independent_observations": {
+    "method": "Attempt 3 source-only observations. Ankle-band centers are centers of source RGB indigo-component bounding boxes, detected with no guide coordinates, visually checked on the source; estimated uncertainty +/-0.5 native px. Heel/toe are manual estimates of the visible sock heel/toe centerline, not outer outsole extrema, uncertainty +/-1.0 native px; anatomical centers cannot be certified from this painting. Far toe is hidden and remains null. Coordinates are not snapped, copied from the guide, or corrected after comparison. All points below are in unmodified generated-source pixels.",
+    "landmarks": [
+      {
+        "side": "left",
+        "landmark": "ankle",
+        "source_xy": [
+          485.0,
+          652.5
+        ],
+        "uncertainty_native_px": 0.5,
+        "visibility": "visible band; inner edge partly occluded by near trouser",
+        "observed_native": [
+          88.75279106858054,
+          161.30143540669857
+        ],
+        "target_native": [
+          91.66,
+          164.57
+        ],
+        "error_native_px": 4.374
+      },
+      {
+        "side": "right",
+        "landmark": "ankle",
+        "source_xy": [
+          673.5,
+          775.0
+        ],
+        "uncertainty_native_px": 0.5,
+        "visibility": "visible band",
+        "observed_native": [
+          98.3732057416268,
+          167.55342902711322
+        ],
+        "target_native": [
+          96.66,
+          170.33
+        ],
+        "error_native_px": 3.263
+      },
+      {
+        "side": "left",
+        "landmark": "heel",
+        "source_xy": [
+          400,
+          752
+        ],
+        "uncertainty_native_px": 1.0,
+        "visibility": "visible rear white sock lobe; anatomical center is approximate",
+        "observed_native": [
+          84.41467304625199,
+          166.37958532695376
+        ],
+        "target_native": [
+          87.66,
+          166.94
+        ],
+        "error_native_px": 3.293
+      },
+      {
+        "side": "left",
+        "landmark": "toe",
+        "source_xy": null,
+        "uncertainty_native_px": null,
+        "visibility": "occluded by the near leg; no inferred or guide-copied coordinate"
+      },
+      {
+        "side": "right",
+        "landmark": "heel",
+        "source_xy": [
+          574,
+          882
+        ],
+        "uncertainty_native_px": 1.0,
+        "visibility": "rear white sock lobe center just above outsole; approximate",
+        "observed_native": [
+          93.29505582137162,
+          173.01435406698565
+        ],
+        "target_native": [
+          92.66,
+          172.7
+        ],
+        "error_native_px": 0.709
+      },
+      {
+        "side": "right",
+        "landmark": "toe",
+        "source_xy": [
+          930,
+          901
+        ],
+        "uncertainty_native_px": 1.0,
+        "visibility": "front white sock cap center just above outsole; approximate",
+        "observed_native": [
+          111.46411483253588,
+          173.98405103668262
+        ],
+        "target_native": [
+          108.66,
+          172.7
+        ],
+        "error_native_px": 3.084
+      }
+    ],
+    "max_measurable_landmark_error_native_px": 4.374,
+    "full_joint_max_error_native_px": null
+  },
+  "shoe_review": {
+    "near_transverse_straps_visually_separated": true,
+    "near_heel_loop_counted_as_transverse_strap": false,
+    "far_two_transverse_straps_fully_verifiable": false,
+    "far_strap_note": "One full visible band/loop and another short fragment are present, but the near leg occludes the rest; two independent complete transverse straps cannot be certified.",
+    "far_foot_visible": true,
+    "far_foot_orientation_readability": "Rear visible white lobe can read as a toe; heel construction still needs art review."
+  },
+  "per_foot_contact": {
+    "near": "Measure the actual outsole envelope; this does not prove game/world contact.",
+    "far": "Unresolved: JSON contact=true with a higher projected foot. No agreed conversion from joint centerline to sole/ground contact. Do not move the far foot to y176 to force agreement.",
+    "failure_count": null
+  },
+  "near_foot_centerline_span": {
+    "observed_horizontal_native_px": 18.169,
+    "guide_horizontal_native_px": 16.0,
+    "note": "Heel/toe centerline estimates, not external shoe width; two manual endpoints each uncertain by +/-1 native px."
+  },
+  "ankle_max_error_native_px": 4.374,
+  "gates": {
+    "visible_silhouette_iou_0_75_pass": false,
+    "ankle_centers_1_5px_pass": false,
+    "global_envelope_175_177_pass": false,
+    "full_joint_validation_pass": false,
+    "per_foot_contact_pass": null,
+    "overall_idle_approved": false
+  }
+}
