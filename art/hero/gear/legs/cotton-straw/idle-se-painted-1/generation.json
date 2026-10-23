@@ -1,0 +1,16 @@
+{
+  "completed_image_edits": 2,
+  "reference_mode": "Three previously displayed conversation images: clothed SE, body without legs, original booted SE",
+  "reference_path_attempts_failed_before_generation": 2,
+  "recovery": "Unsupported Windows local path format; used the same displayed images as conversation references",
+  "sources": {
+    "generated-source.png": {
+      "sha256": "eedafc89556bd87c42bded5bcd46dbb9a817da088d093362961180a864987aca",
+      "bytes": 701781
+    },
+    "generated-legs-source.png": {
+      "sha256": "6b486ab8bb0b76b8ab6ef4b764070d85ea0b1595977f28220a4f0805abead417",
+      "bytes": 254710
+    }
+  }
+}
