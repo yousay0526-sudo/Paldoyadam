@@ -1,3 +1,4 @@
+#include "test_legacy_world.h"
 #include "game.h"
 #include <math.h>
 #include <stdio.h>
@@ -11,7 +12,7 @@ static bool near(float a, float b) { return fabsf(a - b) < .0001f; }
 static void tick(Game *g, float dt) { game_tick(g, dt, (Vec2){0}); }
 static void fixture(Game *g) {
     Game saved;
-    game_reset(g); game_start(g); CHECK(game_enter_training(g, &saved));
+    legacy_reset(g); game_start(g); CHECK(game_enter_training(g, &saved));
     g->hero.pos = BOSS_HOME; g->hero.dir = (Vec2){1, 0};
     g->boss.pos = (Vec2){BOSS_HOME.x + 40, BOSS_HOME.y};
 }
@@ -73,7 +74,7 @@ static void accepted_damage_only(void) {
     CHECK(g.hitstop_time == 0);
 }
 static void victims_and_enemy_timing(void) {
-    Game g; game_reset(&g); game_start(&g);
+    Game g; legacy_reset(&g); game_start(&g);
     g.quest = Q_RECOVER; g.traces[0] = g.traces[1] = true; g.hero.pos = BOSS_HOME;
     for (int i = 0; i < BOAR_COUNT; i++) {
         g.boars[i].pos = (Vec2){BOSS_HOME.x + 30 + i * 45, BOSS_HOME.y}; /* bodies apart */

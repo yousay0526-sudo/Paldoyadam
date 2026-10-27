@@ -6,6 +6,7 @@
 
 #define P(x, y) {(x) * WORLD_W, (y) * WORLD_H}
 const Vec2 HOME = P(.30f, .51f), BOSS_HOME = P(.81f, .46f);
+const Vec2 CAVE_HOME = {768 * 1.5f, 440 * 1.5f};
 const Npc NPCS[NPC_COUNT] = {{P(.29f, .43f), "마을 이장", "이야기"},
                              {P(.21f, .285f), "대장장이", "대장간"},
                              {P(.355f, .29f), "약방 주인", "약방"},
@@ -13,16 +14,16 @@ const Npc NPCS[NPC_COUNT] = {{P(.29f, .43f), "마을 이장", "이야기"},
                              {{667 * 1.5f, 547 * 1.5f}, "윤겸", "한양의 전령"}};
 const Trace TRACES[TRACE_COUNT] = {
     {P(.51f, .55f), "찢어진 옷자락",
-     "뒤집힌 수레에 백정의 옷자락이 걸려 있다.\n곁에는 비어 있는 약재 바구니가 놓여 있다."},
-    {{1070 * 1.5f, 612 * 1.5f},
+     "솔바람재 숲길에 백정의 옷자락이 걸려 있다.\n곁에는 비어 있는 약재 바구니가 놓여 있다."},
+    {{1150 * 1.5f, 530 * 1.5f},
      "깊게 패인 칼자국",
-     "나무에 커다란 식칼 자국이 남아 있다.\n짐승 발자국과 흩어진 약재가 남동쪽 빈터로 이어진다."}};
+     "나무에 커다란 식칼 자국이 남아 있다.\n짐승 발자국과 흩어진 약재가 산길로 이어진다."}};
 const QuestInfo QUESTS[QUEST_COUNT] = {{"사라진 사람들", "마을 이장에게 실종 사건에 관해 듣기"},
-                                       {"숲길의 흔적", "동쪽 수레와 숲길의 흔적 두 곳 조사"},
+                                       {"숲길의 흔적", "솔바람재에서 숲길의 흔적 두 곳 조사"},
                                        {"빼앗긴 약재", "변이한 멧돼지 3마리 제압 · 약재 꾸러미 회수"},
                                        {"돌려받은 약재", "마을 약방 주인에게 약재 꾸러미 전달"},
                                        {"백정의 행방", "마을 이장에게 조사 결과 보고"},
-                                       {"숲속의 울음", "동쪽 빈터에서 변이한 백정 찾기"},
+                                       {"숲속의 울음", "탐식굴에서 변이한 백정 찾기"},
                                        {"돌아오지 못한 사람", "붉은 식칼 공격 범위를 피해 백정 제압"},
                                        {"마을의 불빛", "이장에게 소탕 소식을 전하고 깨달음 선택"},
                                        {"한양에서 온 서신", "전령 윤겸과 대화"}};
@@ -78,7 +79,8 @@ static void move_toward(Enemy *e, Vec2 target, float step, float radius, float d
         e->facing = (Vec2){(e->pos.x - before.x) / travelled, (e->pos.y - before.y) / travelled};
 }
 static bool near_npc(const Game *g, int n) {
-    return n >= 0 && n < NPC_COUNT && distance(g->hero.pos, NPCS[n].pos) < 70 &&
+    world_select(g->map);
+    return (g->map == MAP_VILLAGE || g->map == MAP_TRAINING) && n >= 0 && n < NPC_COUNT && distance(g->hero.pos, NPCS[n].pos) < 70 &&
            world_segment(g->hero.pos, NPCS[n].pos, 0);
 }
 static Enemy make_enemy(Vec2 p, int hp) {
@@ -90,26 +92,31 @@ static Enemy make_enemy(Vec2 p, int hp) {
     return e;
 }
 static void effect(Game *g, Effect e) {
+    world_select(g->map);
     if (g->effect_count < EFFECT_MAX)
         g->effects[g->effect_count++] = e;
 }
 static void dead(Game *g) {
+    world_select(g->map);
     if (g->hero.hp <= 0 && g->phase != PH_DEAD) {
         g->phase = PH_DEAD;
         g->notices |= NOTICE_DEATH;
     }
 }
 void game_toast(Game *g, const char *s) {
+    world_select(g->map);
     snprintf(g->toast, sizeof g->toast, "%s", s);
     g->toast_time = TOAST_SECONDS;
 }
 void game_reset(Game *g) {
     memset(g, 0, sizeof *g);
+    g->map = MAP_VILLAGE;
+    world_select(g->map);
     g->phase = PH_TITLE;
     g->quest = Q_MEET;
     g->hero = (Hero){.pos = HOME, .dir = {1, 0}, .hp = 100, .max_hp = 100, .face = 1};
-    g->boss = make_enemy(BOSS_HOME, 240);
-    const Vec2 positions[3] = {P(.62f, .69f), P(.66f, .74f), P(.70f, .66f)};
+    g->boss = make_enemy(CAVE_HOME, 240);
+    const Vec2 positions[3] = {{500*1.5f,380*1.5f},{1050*1.5f,400*1.5f},{790*1.5f,315*1.5f}};
     for (int i = 0; i < BOAR_COUNT; i++)
         g->boars[i] = make_enemy(positions[i], 38);
     g->coins = 55;
@@ -124,19 +131,25 @@ void game_reset(Game *g) {
     g->swipe_bindings[SWIPE_LEFT] = TECH_THRUST;
 }
 void game_start(Game *g) {
+    world_select(g->map);
     g->phase = PH_PLAY;
     game_toast(g, "여정 시작 · 마을 이장과 대화");
 }
 bool game_boars_active(const Game *g) {
-    return !g->training.active && g->traces[0] && g->traces[1];
+    world_select(g->map);
+    return !g->training.active && (g->map == MAP_PASS || g->map == MAP_TRAINING) && g->traces[0] && g->traces[1];
 }
 bool game_enter_training(Game *game, Game *saved) {
+    world_select(game->map);
     if (game == saved || game->training.active || game->phase != PH_PLAY || game->hero.hp <= 0)
         return false;
     *saved = *game;
     game_reset(game);
     game->phase = PH_PLAY;
     game->training.active = true;
+    game->map = MAP_TRAINING;
+    game->boss = make_enemy(BOSS_HOME, 240);
+    world_select(game->map);
     game->hero.pos = (Vec2){BOSS_HOME.x, BOSS_HOME.y + 45};
     game->hero.dir = (Vec2){0, -1};
     game->sword = saved->sword;
@@ -146,9 +159,11 @@ bool game_enter_training(Game *game, Game *saved) {
     return true;
 }
 bool game_leave_training(Game *game, const Game *saved) {
+    world_select(game->map);
     if (game == saved || !game->training.active || saved->training.active || saved->phase != PH_PLAY)
         return false;
     *game = *saved;
+    world_select(game->map);
     game->queued_move = game->last_move = game->last_hit_move = game->input_move = MOVE_NONE;
     game->buffer_time = game->combo_time = game->input_time = game->request_time = 0;
     game->combo_count = game->input_count = 0;
@@ -161,18 +176,19 @@ bool game_leave_training(Game *game, const Game *saved) {
     return true;
 }
 Nearby game_nearby(const Game *g) {
+    world_select(g->map);
     Nearby result = {NEAR_NONE, -1};
     float best = 66;
     if (g->training.active || g->phase != PH_PLAY || g->quest == Q_COMBAT)
         return result;
-    for (int i = 0; i < (g->quest == Q_MESSENGER ? NPC_COUNT : NPC_COUNT - 1); i++) {
+    for (int i = 0; (g->map == MAP_VILLAGE || g->map == MAP_TRAINING) && i < (g->quest == Q_MESSENGER ? NPC_COUNT : NPC_COUNT - 1); i++) {
         float d = distance(g->hero.pos, NPCS[i].pos);
         if (d < best && world_segment(g->hero.pos, NPCS[i].pos, 0)) {
             best = d;
             result = (Nearby){NEAR_NPC, i};
         }
     }
-    if (g->quest == Q_TRACES)
+    if ((g->map == MAP_PASS || g->map == MAP_TRAINING) && g->quest == Q_TRACES)
         for (int i = 0; i < TRACE_COUNT; i++) {
             float d = distance(g->hero.pos, TRACES[i].pos);
             if (!g->traces[i] && d < best && world_segment(g->hero.pos, TRACES[i].pos, 0)) {
@@ -180,16 +196,20 @@ Nearby game_nearby(const Game *g) {
                 result = (Nearby){NEAR_TRACE, i};
             }
         }
+    int exit = game_exit_nearby(g);
+    if (result.kind == NEAR_NONE && exit >= 0) result = (Nearby){NEAR_EXIT, exit};
     return result;
 }
 /* The optional keyboard pickup never competes with NPC interaction. */
 static bool can_pickup(const Game *g, int i) {
-    return !g->training.active && i >= 0 && i < BOAR_COUNT && g->phase == PH_PLAY && g->quest == Q_RECOVER &&
+    world_select(g->map);
+    return !g->training.active && (g->map == MAP_PASS || g->map == MAP_TRAINING) && i >= 0 && i < BOAR_COUNT && g->phase == PH_PLAY && g->quest == Q_RECOVER &&
            g->drops[i].exists && !g->drops[i].collected &&
            distance(g->hero.pos, g->drops[i].pos) < PICKUP_RADIUS &&
            world_segment(g->hero.pos, g->drops[i].pos, 0);
 }
 int game_pickup_count(const Game *g) {
+    world_select(g->map);
     int count = 0;
     for (int i = 0; i < BOAR_COUNT; i++)
         if (can_pickup(g, i))
@@ -197,6 +217,7 @@ int game_pickup_count(const Game *g) {
     return count;
 }
 int game_pickup_nearby(Game *g) {
+    world_select(g->map);
     int count = 0;
     for (int i = 0; i < BOAR_COUNT; i++)
         if (game_collect(g, i))
@@ -209,6 +230,14 @@ int game_pickup_nearby(Game *g) {
     return count;
 }
 Vec2 game_objective(const Game *g) {
+    world_select(g->map);
+    MapId target_map = g->quest == Q_TRACES || g->quest == Q_RECOVER ? MAP_PASS
+        : g->quest == Q_HUNT || g->quest == Q_COMBAT ? MAP_CAVE : MAP_VILLAGE;
+    if (!g->training.active && g->map != MAP_TRAINING && target_map != g->map)
+        for (int i=0;i<4;i++)
+            if (MAP_EXITS[i].from == g->map &&
+                (g->map != MAP_VILLAGE || MAP_EXITS[i].to == target_map))
+                return MAP_EXITS[i].pos;
     Vec2 p = NPCS[ELDER].pos;
     float best = 1e9f;
     if (g->quest == Q_DELIVER)
@@ -237,6 +266,7 @@ Vec2 game_objective(const Game *g) {
     return p;
 }
 void game_quest_text(const Game *g, char *out, size_t size) {
+    world_select(g->map);
     if (g->quest == Q_TRACES)
         snprintf(out, size, "%s (%d/2)", QUESTS[g->quest].detail, g->traces[0] + g->traces[1]);
     else if (g->quest == Q_RECOVER)
@@ -245,9 +275,10 @@ void game_quest_text(const Game *g, char *out, size_t size) {
         snprintf(out, size, "%s", QUESTS[g->quest].detail);
 }
 void game_objective_brief(const Game *g, char *out, size_t size) {
+    world_select(g->map);
     static const char *brief[QUEST_COUNT] = {
-        "마을 이장과 대화", "동쪽 숲길의 흔적 조사", "멧돼지 제압 · 회수",
-        "약방에 약재 전달", "이장에게 조사 결과 보고", "동쪽 도축터로 이동",
+        "마을 이장과 대화", "솔바람재의 흔적 조사", "멧돼지 제압 · 회수",
+        "약방에 약재 전달", "이장에게 조사 결과 보고", "탐식굴로 이동",
         "공격을 피하며 백정 제압", "이장에게 소식 전하기", "전령 윤겸과 대화"};
     if (g->quest == Q_TRACES)
         snprintf(out, size, "%s  %d/2", brief[g->quest], g->traces[0] + g->traces[1]);
@@ -257,6 +288,7 @@ void game_objective_brief(const Game *g, char *out, size_t size) {
         snprintf(out, size, "%s", brief[g->quest]);
 }
 bool game_accept(Game *g) {
+    world_select(g->map);
     if (g->training.active || g->phase != PH_PLAY || g->quest != Q_MEET || !near_npc(g, ELDER))
         return false;
     g->quest = Q_TRACES;
@@ -264,7 +296,8 @@ bool game_accept(Game *g) {
     return true;
 }
 bool game_inspect(Game *g, int i) {
-    if (g->training.active || i < 0 || i >= TRACE_COUNT || g->phase != PH_PLAY || g->quest != Q_TRACES || g->traces[i] ||
+    world_select(g->map);
+    if (g->training.active || (g->map != MAP_PASS && g->map != MAP_TRAINING) || i < 0 || i >= TRACE_COUNT || g->phase != PH_PLAY || g->quest != Q_TRACES || g->traces[i] ||
         distance(g->hero.pos, TRACES[i].pos) >= 70 || !world_segment(g->hero.pos, TRACES[i].pos, 0))
         return false;
     g->traces[i] = true;
@@ -273,6 +306,7 @@ bool game_inspect(Game *g, int i) {
     return true;
 }
 bool game_collect(Game *g, int i) {
+    world_select(g->map);
     if (!can_pickup(g, i))
         return false;
     g->drops[i].collected = true;
@@ -289,6 +323,7 @@ bool game_collect(Game *g, int i) {
     return true;
 }
 bool game_deliver(Game *g) {
+    world_select(g->map);
     if (g->training.active || g->phase != PH_PLAY || g->quest != Q_DELIVER || g->herbs < 3 || g->supplies_delivered ||
         !near_npc(g, HERBALIST))
         return false;
@@ -302,13 +337,15 @@ bool game_deliver(Game *g) {
     return true;
 }
 bool game_report(Game *g) {
+    world_select(g->map);
     if (g->training.active || g->phase != PH_PLAY || g->quest != Q_REPORT || !g->supplies_delivered || !near_npc(g, ELDER))
         return false;
     g->quest = Q_HUNT;
-    game_toast(g, "목표 갱신 · 동쪽 도축터");
+    game_toast(g, "목표 갱신 · 탐식굴");
     return true;
 }
 bool game_open_shop(Game *g, int n) {
+    world_select(g->map);
     if (g->training.active || g->phase != PH_PLAY || g->quest == Q_COMBAT || n < SMITH || n > INNKEEPER || !near_npc(g, n))
         return false;
     g->shop = n;
@@ -316,6 +353,7 @@ bool game_open_shop(Game *g, int n) {
     return true;
 }
 bool game_equip(Game *g, Item item, bool equipped) {
+    world_select(g->map);
     if (g->phase != PH_BAG) return false;
     if (item == ITEM_SWORD && (g->owned_sword || g->sword)) {
         g->owned_sword = true; g->sword = equipped; return true;
@@ -326,6 +364,7 @@ bool game_equip(Game *g, Item item, bool equipped) {
     return false;
 }
 void game_close_panel(Game *g) {
+    world_select(g->map);
     if (g->phase == PH_SHOP || g->phase == PH_BAG || g->phase == PH_JOURNAL || g->phase == PH_PAUSED || g->phase == PH_TECHNIQUES) {
         g->shop = -1;
         g->phase = PH_PLAY;
@@ -347,6 +386,7 @@ const char *game_purchase_error(const Game *g, Item item) {
     return NULL;
 }
 bool game_buy(Game *g, Item item) {
+    world_select(g->map);
     if (game_purchase_error(g, item))
         return false;
     g->coins -= ITEMS[item].price;
@@ -377,6 +417,7 @@ bool game_buy(Game *g, Item item) {
     return true;
 }
 bool game_can_use(const Game *g, Item item) {
+    world_select(g->map);
     if (g->training.active || (g->phase != PH_PLAY && g->phase != PH_BAG) || (g->phase == PH_PLAY && g->item_cooldown > 0))
         return false;
     if (item == ITEM_TONIC)
@@ -384,6 +425,7 @@ bool game_can_use(const Game *g, Item item) {
     return item == ITEM_BANDAGE && g->bandages > 0 && g->hero.bleed > 0;
 }
 bool game_use(Game *g, Item item) {
+    world_select(g->map);
     if (!game_can_use(g, item))
         return false;
     g->item_cooldown = 1;
@@ -399,15 +441,17 @@ bool game_use(Game *g, Item item) {
     return true;
 }
 static bool active_enemy(const Game *g, const Enemy *e) {
+    world_select(g->map);
     if (g->training.active) return e == &g->boss;
     if (g->quest == Q_COMBAT)
-        return e == &g->boss;
+        return (g->map == MAP_CAVE || g->map == MAP_TRAINING) && e == &g->boss;
     for (int i = 0; i < BOAR_COUNT; i++)
         if (e == &g->boars[i])
             return game_boars_active(g);
     return false;
 }
 bool game_damage(Game *g, Enemy *e, int amount, EffectKind kind) {
+    world_select(g->map);
     if (g->phase != PH_PLAY || e->hp <= 0 || amount <= 0 || !active_enemy(g, e))
         return false;
     e->hp = (int)fmaxf(0, (float)e->hp - (float)amount);
@@ -465,10 +509,12 @@ bool game_damage(Game *g, Enemy *e, int amount, EffectKind kind) {
 }
 static void hurt_from(Game *g, int amount, bool bleed, Vec2 from, float push);
 void game_hurt(Game *g, int amount, bool bleed) {
+    world_select(g->map);
     hurt_from(g, amount, bleed, g->hero.pos, 0);
 }
 /* Taking a hit also shoves the hero away from the attacker. */
 static void hurt_from(Game *g, int amount, bool bleed, Vec2 from, float push) {
+    world_select(g->map);
     if (g->training.active || g->phase != PH_PLAY || g->hero.hp <= 0 || g->hero.invul > 0 || amount <= 0)
         return;
     amount = (int)fmaxf(1, (float)amount - (g->armor ? 3.0f : 0));
@@ -494,6 +540,7 @@ static void hurt_from(Game *g, int amount, bool bleed, Vec2 from, float push) {
     dead(g);
 }
 void game_clear_hit_feedback(Game *g) {
+    world_select(g->map);
     g->hitstop_time = g->hero.hurt_time = g->boss.hit_time = g->training.hit_time = 0;
     for (int i = 0; i < BOAR_COUNT; i++) g->boars[i].hit_time = 0;
 }
@@ -502,7 +549,7 @@ static Enemy *nearest_enemy(Game *g) {
         return world_segment(g->hero.pos, g->boss.pos, 0) ? &g->boss : NULL;
     Enemy *e = NULL;
     float best = 1e9f;
-    if (g->quest == Q_COMBAT && g->boss.hp > 0 && world_segment(g->hero.pos, g->boss.pos, 0))
+    if ((g->map == MAP_CAVE || g->map == MAP_TRAINING) && g->quest == Q_COMBAT && g->boss.hp > 0 && world_segment(g->hero.pos, g->boss.pos, 0))
         return &g->boss;
     if (game_boars_active(g))
         for (int i = 0; i < BOAR_COUNT; i++) {
@@ -516,10 +563,12 @@ static Enemy *nearest_enemy(Game *g) {
 }
 static bool request_move(Game *g, int move);
 float game_technique_cooldown(const Game *g, Technique technique) {
+    world_select(g->map);
     if (technique < 0 || technique >= TECH_COUNT) return 999;
     return technique == TECH_CLEAVE ? g->cooldown : g->technique_cooldowns[technique];
 }
 bool game_bind_swipe(Game *g, Swipe direction, Technique technique) {
+    world_select(g->map);
     if (g->phase != PH_TECHNIQUES || direction < 0 || direction >= SWIPE_COUNT ||
         technique < 0 || technique >= TECH_COUNT) return false;
     Technique previous = g->swipe_bindings[direction];
@@ -529,14 +578,18 @@ bool game_bind_swipe(Game *g, Swipe direction, Technique technique) {
     g->swipe_bindings[direction] = technique;
     return true;
 }
-bool game_attack(Game *g) { return request_move(g, MOVE_ATTACK); }
+bool game_attack(Game *g) {
+    world_select(g->map); return request_move(g, MOVE_ATTACK); }
 bool game_technique(Game *g, Technique technique) {
+    world_select(g->map);
     if (technique < 0 || technique >= TECH_COUNT) { game_invalid_direction(g); return false; }
     return request_move(g, technique);
 }
-bool game_skill(Game *g) { return game_technique(g, TECH_CLEAVE); }
+bool game_skill(Game *g) {
+    world_select(g->map); return game_technique(g, TECH_CLEAVE); }
 bool game_begin_boss(Game *g) {
-    if (g->training.active) return false;
+    world_select(g->map);
+    if (g->training.active || (g->map != MAP_CAVE && g->map != MAP_TRAINING)) return false;
     if (g->quest != Q_HUNT)
         return false;
     g->quest = Q_COMBAT;
@@ -549,6 +602,7 @@ bool game_begin_boss(Game *g) {
 /* Shared by recovery and retry: a fresh, full-health hero at `pos` with
  * no combat state, cooldowns, effects or pending notices left over. */
 static void reset_fight(Game *g, Vec2 pos) {
+    world_select(g->map);
     game_clear_hit_feedback(g);
     g->hero.pos = pos;
     g->hero.walking = false;
@@ -569,9 +623,12 @@ static void reset_fight(Game *g, Vec2 pos) {
     g->notices = 0;
 }
 void game_recover(Game *g) {
+    world_select(g->map);
+    g->map = MAP_VILLAGE;
+    world_select(g->map);
     reset_fight(g, HOME);
     if (g->quest == Q_COMBAT) {
-        g->boss = make_enemy(BOSS_HOME, 240);
+        g->boss = make_enemy(CAVE_HOME, 240);
         g->quest = Q_HUNT;
     }
     for (int i = 0; i < BOAR_COUNT; i++)
@@ -582,13 +639,17 @@ void game_recover(Game *g) {
     game_toast(g, "마을에서 회복 · 여정 진행 유지");
 }
 void game_retry(Game *g) {
-    reset_fight(g, add(BOSS_HOME, (Vec2){-145, 0}));
-    g->boss = make_enemy(BOSS_HOME, 240);
+    world_select(g->map);
+    g->map = MAP_CAVE;
+    world_select(g->map);
+    reset_fight(g, add(CAVE_HOME, (Vec2){-145, 0}));
+    g->boss = make_enemy(CAVE_HOME, 240);
     g->attack_cooldown = .4f;
     g->quest = Q_HUNT;
     game_begin_boss(g);
 }
 bool game_choose(Game *g, Augment a) {
+    world_select(g->map);
     if (g->phase != PH_AUGMENT || a < AUG_STEEL || a > AUG_FLOW)
         return false;
     g->augment = a;
@@ -601,10 +662,11 @@ typedef struct { Vec2 *pos; float radius, mass; } Body;
 /* Soft circle separation: each tick close part of every overlap, through
  * terrain collision, heavier bodies giving way less. */
 static void separate_bodies(Game *g, float dt) {
+    world_select(g->map);
     Body bodies[BOAR_COUNT + 2];
     int count = 0;
     bodies[count++] = (Body){&g->hero.pos, HERO_RADIUS, BODY_MASS_HERO};
-    if (g->quest == Q_COMBAT && g->boss.hp > 0)
+    if ((g->map == MAP_CAVE || g->map == MAP_TRAINING) && g->quest == Q_COMBAT && g->boss.hp > 0)
         bodies[count++] = (Body){&g->boss.pos, BOSS_RADIUS, BODY_MASS_BOSS};
     else if (game_boars_active(g))
         for (int i = 0; i < BOAR_COUNT; i++)
@@ -626,6 +688,7 @@ static void separate_bodies(Game *g, float dt) {
         }
 }
 static int boars_winding_up(const Game *g) {
+    world_select(g->map);
     int n = 0;
     for (int i = 0; i < BOAR_COUNT; i++)
         n += g->boars[i].hp > 0 && g->boars[i].state == AI_WINDUP;
@@ -643,6 +706,7 @@ static const EnemyTuning BOAR_TUNING = {.speed = 64, .notice = 180, .give_up = 2
 static const EnemyTuning BOSS_TUNING = {.speed = 45, .close_to = 57, .strike_from = 138, .recover = 1.25f,
                                         .rest = .9f, .damage = 18};
 static void tick_boar(Game *g, Enemy *e, float dt) {
+    world_select(g->map);
     const EnemyTuning *t = &BOAR_TUNING;
     e->walking = false;
     float d = distance(e->pos, g->hero.pos);
@@ -697,6 +761,7 @@ static void tick_boar(Game *g, Enemy *e, float dt) {
     }
 }
 static void tick_boss(Game *g, float dt) {
+    world_select(g->map);
     Enemy *e = &g->boss;
     e->walking = false;
     const EnemyTuning *t = &BOSS_TUNING;
@@ -741,7 +806,8 @@ static void tick_boss(Game *g, float dt) {
 }
 /* Follow only an unobstructed segment. Menus pause this with the rest of the world. */
 static void tick_loot(Game *g, float dt) {
-    if (g->phase != PH_PLAY || g->quest != Q_RECOVER || dt <= 0)
+    world_select(g->map);
+    if ((g->map != MAP_PASS && g->map != MAP_TRAINING) || g->phase != PH_PLAY || g->quest != Q_RECOVER || dt <= 0)
         return;
     for (int i = 0; i < BOAR_COUNT; i++) {
         Drop *drop = &g->drops[i];
@@ -770,16 +836,19 @@ static void tick_loot(Game *g, float dt) {
     }
 }
 static void chain_move(Game *g, int move) {
+    world_select(g->map);
     g->input_count = g->input_time > 0 && g->last_move != move
         ? (int)fminf(3, g->input_count + 1) : 1;
     g->last_move = move;
     g->input_time = COMBO_SECONDS;
 }
 static int next_combo(const Game *g, int move) {
+    world_select(g->map);
     return g->combo_time > 0 && g->last_hit_move != move
         ? (int)fminf(3, g->combo_count + 1) : 1;
 }
 static int combo_damage(const Game *g, int move, int damage) {
+    world_select(g->map);
     return (damage * (100 + 10 * (next_combo(g, move) - 1)) + 50) / 100;
 }
 /* Basic attack reach: the blade, and the wind blade that extends it. */
@@ -787,9 +856,11 @@ static int combo_damage(const Game *g, int move, int damage) {
 #define BLADE_RANGE_STEEL 76.0f
 #define WIND_RANGE 120.0f
 static float blade_range(const Game *g) {
+    world_select(g->map);
     return g->augment == AUG_STEEL ? BLADE_RANGE_STEEL : BLADE_RANGE;
 }
 float game_attack_range(const Game *g, int move) {
+    world_select(g->map);
     if (move == MOVE_ATTACK)
         return g->augment == AUG_WIND ? WIND_RANGE : blade_range(g);
     return move >= 0 && move < TECH_COUNT ? TECHNIQUES[move].range : 0;
@@ -842,14 +913,17 @@ bool game_attack_path_contains(Vec2 start, Vec2 end, float angle, float range, i
     return game_attack_contains(origin, angle, range, move, target);
 }
 static void combat_feedback(Game *g, int move, int result) {
+    world_select(g->map);
     g->input_move = move;
     g->combat_request = result;
     g->request_time = .8f;
 }
 void game_invalid_direction(Game *g) {
+    world_select(g->map);
     combat_feedback(g, MOVE_NONE, TRAIN_INVALID);
 }
 static void begin_attack(Game *g, Enemy *enemy) {
+    world_select(g->map);
     Hero *h = &g->hero;
     h->attacking = true; h->attack_hit = false; h->attack_elapsed = 0;
     h->attack_target = enemy ? (enemy == &g->boss ? -1 : (int)(enemy - g->boars)) : -2;
@@ -862,6 +936,7 @@ static void begin_attack(Game *g, Enemy *enemy) {
     chain_move(g, MOVE_ATTACK);
 }
 static void begin_technique(Game *g, Technique technique) {
+    world_select(g->map);
     Hero *h = &g->hero;
     Enemy *e = nearest_enemy(g);
     h->skill_angle = e && distance(e->pos, h->pos) < 180
@@ -881,6 +956,7 @@ static void begin_technique(Game *g, Technique technique) {
     chain_move(g, technique);
 }
 static bool request_move(Game *g, int move) {
+    world_select(g->map);
     if (move != MOVE_ATTACK && (move < 0 || move >= TECH_COUNT)) {
         game_invalid_direction(g);
         return false;
@@ -914,6 +990,7 @@ static bool request_move(Game *g, int move) {
     return true;
 }
 static void finish_impact(Game *game, int move, bool hit) {
+    world_select(game->map);
     game->input_time = COMBO_SECONDS;
     game->last_impact = hit ? IMPACT_HIT : IMPACT_MISS;
     game->combo_count = hit ? next_combo(game, move) : 0;
@@ -940,6 +1017,7 @@ static Enemy *unlocked_attack_target(Game *g) {
     return best;
 }
 static void tick_attack(Game *g, float dt) {
+    world_select(g->map);
     Hero *h = &g->hero;
     if (!h->attacking) return;
     h->attack_elapsed += dt;
@@ -966,8 +1044,9 @@ static void tick_attack(Game *g, float dt) {
     }
 }
 static bool technique_area(Game *g, float range, int damage) {
+    world_select(g->map);
     bool hit = false;
-    if (g->training.active || g->quest == Q_COMBAT) {
+    if (g->training.active || ((g->map == MAP_CAVE || g->map == MAP_TRAINING) && g->quest == Q_COMBAT)) {
         if (game_attack_path_contains(g->hero.impact_start, g->hero.impact_origin,
                 g->hero.skill_angle, range, g->hero.technique, g->boss.pos))
             hit |= game_damage(g, &g->boss, damage, FX_HIT);
@@ -980,6 +1059,7 @@ static bool technique_area(Game *g, float range, int damage) {
     return hit;
 }
 static void tick_technique(Game *g, float dt) {
+    world_select(g->map);
     Hero *h = &g->hero;
     if (!h->skilling) return;
     h->skill_elapsed += dt;
@@ -1010,6 +1090,7 @@ static void tick_technique(Game *g, float dt) {
     }
 }
 int game_hero_skill_frame(const Game *g) {
+    world_select(g->map);
     if (g->phase != PH_PLAY || !g->hero.skilling) return -1;
     const int cleave[] = {0,1,1,2,3,4,5,5};
     const int sweep[] = {0,0,1,2,3,3,4,5};
@@ -1019,18 +1100,21 @@ int game_hero_skill_frame(const Game *g) {
         : g->hero.technique == TECH_THRUST ? thrust[tick] : cleave[tick];
 }
 int game_hero_attack_frame(const Game *g) {
+    world_select(g->map);
     if (g->phase != PH_PLAY || !g->hero.attacking)
         return -1;
     int frame = (int)(g->hero.attack_elapsed / HERO_ATTACK_SECONDS * HERO_ATTACK_FRAMES);
     return frame < HERO_ATTACK_FRAMES ? frame : HERO_ATTACK_FRAMES - 1;
 }
 int game_hero_frame(const Game *g) {
+    world_select(g->map);
     if (g->phase != PH_PLAY || !g->hero.walking || g->hero.attacking || g->hero.skilling)
         return -1;
     return (int)(g->hero.walk_cycle * HERO_WALK_FRAMES) % HERO_WALK_FRAMES;
 }
 /* Falls play out behind story dialogue too; menus and hitstop hold them. */
 static void tick_falls(Game *g, float dt) {
+    world_select(g->map);
     g->boss.dying = fmaxf(0, g->boss.dying - dt);
     for (int i = 0; i < BOAR_COUNT; i++)
         g->boars[i].dying = fmaxf(0, g->boars[i].dying - dt);
@@ -1046,6 +1130,7 @@ static void knock_back(Vec2 *pos, Vec2 *knock, float radius, float dt) {
     knock->y *= keep;
 }
 float game_arrival_strength(const Game *g, Vec2 direction, float distance, float dt) {
+    world_select(g->map);
     dt = fmaxf(.001f, dt);
     float decay = expf(-dt / HERO_ACCEL_SECONDS), lag = HERO_ACCEL_SECONDS * (1 - decay);
     float speed = g->hero.vel.x * direction.x + g->hero.vel.y * direction.y;
@@ -1056,6 +1141,7 @@ float game_arrival_strength(const Game *g, Vec2 direction, float distance, float
 }
 
 void game_tick(Game *g, float dt, Vec2 input) {
+    world_select(g->map);
     if (!isfinite(dt) || !isfinite(input.x) || !isfinite(input.y))
         return;
     dt = clampf(dt, 0, .05f);
@@ -1123,8 +1209,9 @@ void game_tick(Game *g, float dt, Vec2 input) {
         effect(g, (Effect){.kind = FX_DUST, .pos = g->hero.pos, .life = .35f, .amount = 1,
                            .angle = atan2f(g->hero.dir.y, g->hero.dir.x)});
     knock_back(&g->hero.pos, &g->hero.knock, HERO_RADIUS, dt);
-    knock_back(&g->boss.pos, &g->boss.knock, BOSS_RADIUS, dt);
-    for (int i = 0; i < BOAR_COUNT; i++)
+    if (g->map == MAP_CAVE || g->map == MAP_TRAINING)
+        knock_back(&g->boss.pos, &g->boss.knock, BOSS_RADIUS, dt);
+    for (int i = 0; (g->map == MAP_PASS || g->map == MAP_TRAINING) && i < BOAR_COUNT; i++)
         knock_back(&g->boars[i].pos, &g->boars[i].knock, BOAR_RADIUS, dt);
     g->cooldown = fmaxf(0, g->cooldown - dt);
     for (int i = 0; i < TECH_COUNT; i++)
@@ -1153,7 +1240,7 @@ void game_tick(Game *g, float dt, Vec2 input) {
             g->effects[kept++] = g->effects[i];
     }
     g->effect_count = kept;
-    if (!g->training.active && g->quest == Q_HUNT && distance(g->hero.pos, g->boss.pos) < 165 &&
+    if (!g->training.active && (g->map == MAP_CAVE || g->map == MAP_TRAINING) && g->quest == Q_HUNT && distance(g->hero.pos, g->boss.pos) < 165 &&
         world_segment(g->hero.pos, g->boss.pos, 0)) {
         g->phase = PH_DIALOGUE;
         g->notices |= NOTICE_BOSS;
@@ -1178,7 +1265,7 @@ void game_tick(Game *g, float dt, Vec2 input) {
         request_move(g, next);
     }
     if (g->training.active) return;
-    if (g->quest == Q_COMBAT)
+    if ((g->map == MAP_CAVE || g->map == MAP_TRAINING) && g->quest == Q_COMBAT)
         tick_boss(g, dt);
     else if (game_boars_active(g))
         for (int i = 0; i < BOAR_COUNT && g->phase == PH_PLAY; i++)
@@ -1186,4 +1273,54 @@ void game_tick(Game *g, float dt, Vec2 input) {
                 tick_boar(g, &g->boars[i], dt);
     separate_bodies(g, dt);
     tick_loot(g, dt);
+}
+
+const MapExit MAP_EXITS[4] = {
+    {MAP_VILLAGE,MAP_PASS,{940*1.5f,92*1.5f},{768*1.5f,840*1.5f}},
+    {MAP_VILLAGE,MAP_CAVE,{1450*1.5f,635*1.5f},{768*1.5f,850*1.5f}},
+    {MAP_PASS,MAP_VILLAGE,{768*1.5f,940*1.5f},{940*1.5f,180*1.5f}},
+    {MAP_CAVE,MAP_VILLAGE,{768*1.5f,930*1.5f},{1350*1.5f,635*1.5f}}
+};
+const char *game_map_name(MapId map) {
+    static const char *names[MAP_COUNT]={"마을","솔바람재","탐식굴","비밀 수련장"};
+    return map >= 0 && map < MAP_COUNT ? names[map] : names[0];
+}
+const char *game_map_asset(MapId map) {
+    static const char *paths[MAP_COUNT]={"maps/village.png","maps/solbaramjae.png","maps/tamsikgul.png","village.png"};
+    return map >= 0 && map < MAP_COUNT ? paths[map] : paths[0];
+}
+int game_exit_nearby(const Game *g) {
+    world_select(g->map);
+    if (g->training.active || g->phase != PH_PLAY || g->quest == Q_COMBAT || g->hero.hp <= 0) return -1;
+    for(int i=0;i<4;i++)
+        if(MAP_EXITS[i].from == g->map && distance(g->hero.pos,MAP_EXITS[i].pos)<90 &&
+           world_segment(g->hero.pos,MAP_EXITS[i].pos,HERO_RADIUS)) return i;
+    return -1;
+}
+bool game_travel(Game *g, int index) {
+    world_select(g->map);
+    if(index<0 || index>=4 || game_exit_nearby(g)!=index) return false;
+    MapId from=g->map;
+    world_select(MAP_EXITS[index].to);
+    if(!world_clear(MAP_EXITS[index].arrival,HERO_RADIUS)) { world_select(from);return false; }
+    g->map=MAP_EXITS[index].to;
+    g->hero.pos=MAP_EXITS[index].arrival;
+    g->hero.attacking=g->hero.skilling=g->hero.walking=false;
+    g->hero.vel=g->hero.knock=(Vec2){0,0};
+    g->hero.attack_elapsed=g->hero.skill_elapsed=g->hero.walk_cycle=0;
+    g->hero.attack_target=-1;
+    g->queued_move=g->last_move=g->last_hit_move=g->input_move=MOVE_NONE;
+    g->combo_count=g->input_count=0;
+    g->combo_time=g->input_time=g->buffer_time=g->request_time=0;
+    g->last_impact=IMPACT_NONE;g->combat_request=TRAIN_READY;
+    g->effect_count=0;g->notices=0;
+    game_clear_hit_feedback(g);
+    for(int i=-1;i<BOAR_COUNT;i++) {
+        Enemy *e=i<0?&g->boss:&g->boars[i];
+        e->route=(Route){0};e->repath=0;e->walking=false;e->knock=(Vec2){0,0};
+        if(e->hp>0) { e->pos=e->home;e->state=AI_IDLE;e->timer=.5f; }
+    }
+    for(int i=0;i<BOAR_COUNT;i++) { g->drops[i].attracting=false;g->drops[i].magnet_time=0; }
+    game_toast(g,game_map_name(g->map));
+    return true;
 }

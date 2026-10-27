@@ -1,5 +1,8 @@
 ## 2026-10-21 · 승인된 몬스터 8방향 게임 연결
 
+2026-10-27: 마을·두 사냥터 연결의 Windows 전체 CTest 12/12 및 실제 SDL 화면 검증은 [맵 연결 기록](MAP_INTEGRATION.md)과 [로그](map-validation.txt)에 기록했다. 브라우저/실기기/ASan 검증과 구분한다.
+
+
 - 기준 main `649b02f087e7a016378756ec1ac72861c997d30b`, 기존 독립 브랜치/PR #32에서 원화 승인 후 진행. 최신 몸 분리·고정 시간/위치 보간·벽 미끄러짐 변경을 보존했다. 실행 PNG 6개를 설치했고 백정의 짧은 평타 후보는 미설치다. 현재 백정의 단일 큰 공격 패턴을 바꾸지 않았다.
 - Windows / CMake 4.4.4 / Ninja 1.13.2 / Zig 0.14.1(Clang 19.1.7) / SDL 2.32.10. 전체 configure/build 및 최종 CTest **10/10 통과**: 게임 714, 지형 157, 수련 1,578, 방향 전투 753, 피드백 159, SDL 입력 911, UI 1,842, 영웅 7,065,056, 몬스터 렌더링 13,290,216개 조건 및 native_render. `cmake --build build-monsters/cmake --parallel 2`, `ctest --test-dir build-monsters/cmake --output-on-failure -V`. 로컬 구성은 무시되는 build-monsters의 Zig 도구체인/아카이버 규칙과 SDL import library를 사용한다. Windows 진입점용 `-DSDL_MAIN_HANDLED`와 기존 검사 파일의 빈 선언 사이 재정의 경고가 있었고 제품 소스 경고는 없었다.
 - 새 `monster_animation`은 실제 SDL 1/2/3배 출력과 원본 방향/셀·발 `(96,176)`·배율·반전 없음의 픽셀 일치를 검사한다. 준비 마지막 틱은 타격 포즈가 아니며, 돼지 경직 0.6초 회복도 타격을 재생하지 않는다. 공격 시작 방향, 쓰러짐 범위/알파/정지, 피격 뒤 텍스처 색·알파·블렌드 복원을 확인했다. 게임 검사에는 양 몬스터 8방향 실제 이동 속도·정지 방향·메뉴/히트스톱 동결과 돼지 귀환 방향을 추가했다.

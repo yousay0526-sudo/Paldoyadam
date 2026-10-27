@@ -3,6 +3,7 @@
 #define main paldo_app_main
 #include "../src/main.c"
 #undef main
+#include "test_legacy_world.h"
 
 static int checks;
 #define CHECK(c) do { checks++; if (!(c)) { \
@@ -65,7 +66,7 @@ static void text_stays_inside(App *a, SDL_Surface *surface) {
 }
 static void panel_controls_fit(App *a) {
     const Vec2 sizes[]={{432,270},{480,306},{568,320},{844,390},{1100,650}};
-    game_reset(&a->game); game_start(&a->game);
+    legacy_reset(&a->game); game_start(&a->game);
     a->game.owned_sword=a->game.sword=a->game.owned_armor=a->game.armor=true;
     a->game.herbs=2;
     for(int view=0;view<5;view++) {
@@ -126,7 +127,7 @@ static void panel_controls_fit(App *a) {
 static void training_controls_fit(App *app) {
     const Vec2 sizes[] = {{432,270},{480,306},{568,320},{844,390},{1100,650}};
     Game saved;
-    game_reset(&app->game); game_start(&app->game);
+    legacy_reset(&app->game); game_start(&app->game);
     CHECK(game_enter_training(&app->game, &saved));
     CHECK(gfx_measure(&app->gfx, "갈라베기 · 재사용 중", 12) <= 134);
     CHECK(gfx_measure(&app->gfx, "피해 38 · 입력 3/3", 12) <= 134);

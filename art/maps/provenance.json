@@ -1,0 +1,29 @@
+[
+  {
+    "path": "assets/maps/village.png",
+    "library_file_id": "libfile_9039be1dd07481918510dd96290475da",
+    "width": 1536,
+    "height": 1024,
+    "bytes": 3992305,
+    "sha256": "8a5988fca8c8eebff354c0addef14f4ecc41edc50b4ca575409a74655574bbcb",
+    "source": "approved ImageGen output, unchanged"
+  },
+  {
+    "path": "assets/maps/solbaramjae.png",
+    "library_file_id": "libfile_af5ddbcb45308191ba674893156c31c1",
+    "width": 1536,
+    "height": 1024,
+    "bytes": 3942569,
+    "sha256": "997c02a299d9b6bf26afce52d0b1ac3b7d5a7359fe21234e9610d157fc758e95",
+    "source": "approved ImageGen output, unchanged"
+  },
+  {
+    "path": "assets/maps/tamsikgul.png",
+    "library_file_id": "libfile_e963ff1c49148191a35dc6bdffaed6e5",
+    "width": 1536,
+    "height": 1024,
+    "bytes": 3327561,
+    "sha256": "8143bb8b480928c4e3b71f982b5bef8b44991c0735fc12d32cf2ece504e3605d",
+    "source": "approved ImageGen output, unchanged"
+  }
+]

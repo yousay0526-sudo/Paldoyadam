@@ -127,6 +127,15 @@ bool gfx_load(Gfx *g, SDL_Renderer *renderer, const char *root) {
         else if (i >= 4 && i < 8)
             SDL_SetTextureScaleMode(pictures[i]->texture, SDL_ScaleModeLinear);
     }
+    for (int i=0;i<3;i++) {
+        asset_path(path,sizeof path,root,game_map_asset((MapId)i));
+        g->locations[i]=load_picture(g,path);
+        if(!g->locations[i].texture || g->locations[i].w!=1536 || g->locations[i].h!=1024) {
+            SDL_Log("Invalid map asset %s",path);gfx_free(g);return false;
+        }
+        SDL_SetTextureScaleMode(g->locations[i].texture,SDL_ScaleModeNearest);
+    }
+    g->active_map=&g->map;
     if (g->hero_walk.w % HERO_WALK_COLUMNS ||
         g->hero_walk.h % (HERO_WALK_FRAMES / HERO_WALK_COLUMNS) ||
         g->hero_walk.w / HERO_WALK_COLUMNS !=
@@ -214,6 +223,10 @@ void gfx_free(Gfx *g) {
         if (pictures[i]->texture)
             SDL_DestroyTexture(pictures[i]->texture);
         pictures[i]->texture = NULL;
+    }
+    for(int i=0;i<3;i++) {
+        if(g->locations[i].texture) SDL_DestroyTexture(g->locations[i].texture);
+        g->locations[i].texture=NULL;
     }
     for (int j = 0; j < 2; j++) {
         Typeface *face = &g->fonts[j];
@@ -892,7 +905,7 @@ static void cover_region(Gfx *f, Vec2 feet, Vec2 camera, SDL_FRect bounds) {
                     continue;
                 SDL_RenderSetClipRect(f->renderer, &clip);
                 /* Match the base layer sampling on software renderers and HiDPI. */
-                SDL_RenderCopyF(f->renderer, f->map.texture, NULL, &map);
+                SDL_RenderCopyF(f->renderer, f->active_map->texture, NULL, &map);
             }
         }
     }
@@ -935,22 +948,24 @@ static void telegraph(Gfx *f, Vec2 p, float range, float angle, float half, floa
 }
 void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool has_target,
                Vec2 target) {
+    world_select(g->map);
+    f->active_map=g->map>=0 && g->map<MAP_TRAINING ? &f->locations[g->map] : &f->map;
     gfx_rect(f, (SDL_FRect){0, 0, w, h}, (SDL_Color){16, 32, 30, 255});
     SDL_FRect map = {-camera.x, -camera.y, WORLD_W, WORLD_H};
-    SDL_RenderCopyF(f->renderer, f->map.texture, NULL, &map);
+    SDL_RenderCopyF(f->renderer, f->active_map->texture, NULL, &map);
     if (g->phase == PH_TITLE || g->phase == PH_PROLOGUE) {
         gfx_hero(f, g, screen_pos(HOME, camera));
         return;
     }
     for (int i = 0; i < TRACE_COUNT; i++)
-        if (g->quest == Q_TRACES && !g->traces[i]) {
+        if ((g->map==MAP_PASS || g->map==MAP_TRAINING) && g->quest == Q_TRACES && !g->traces[i]) {
             Vec2 p = screen_pos(TRACES[i].pos, camera);
             marker(f, (Vec2){p.x, p.y - 16});
             label(f, TRACES[i].name, (Vec2){p.x, p.y - 48}, GOLD);
             gfx_circle(f, p, 12, GOLD);
         }
     for (int i = 0; i < BOAR_COUNT; i++)
-        if (g->drops[i].exists && !g->drops[i].collected) {
+        if ((g->map==MAP_PASS || g->map==MAP_TRAINING) && g->drops[i].exists && !g->drops[i].collected) {
             Vec2 p = screen_pos(g->drops[i].pos, camera);
             float bounce = g->drops[i].age < .32f ? sinf(g->drops[i].age / .32f * PI) * 18 : 0;
             shadow(f, p, 8, 1);
@@ -969,12 +984,17 @@ void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool has_ta
             } else
                 label(f, "약재", (Vec2){p.x, item.y - 24}, GOLD);
         }
+    for(int i=0;i<4;i++) if(MAP_EXITS[i].from==g->map && !g->training.active) {
+        Vec2 p=screen_pos(MAP_EXITS[i].pos,camera);
+        gfx_circle(f,p,22,(SDL_Color){218,190,120,160});
+        label(f,game_map_name(MAP_EXITS[i].to),(Vec2){p.x,p.y-30},GOLD);
+    }
     typedef struct {
         int kind, index;
         float y;
     } Actor;
     Actor actors[10];
-    int count = 0, npcs = g->training.active ? 0 : g->quest == Q_MESSENGER ? 5 : 4;
+    int count = 0, npcs = g->training.active || (g->map!=MAP_VILLAGE && g->map!=MAP_TRAINING) ? 0 : g->quest == Q_MESSENGER ? 5 : 4;
     for (int i = 0; i < npcs; i++)
         actors[count++] = (Actor){0, i, NPCS[i].pos.y};
     if (game_boars_active(g))
@@ -986,7 +1006,7 @@ void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool has_ta
                               g->boars[i].timer / BOAR_WINDUP_SECONDS, (SDL_Color){200, 90, 45, 72},
                               (SDL_Color){255, 170, 120, 255});
             }
-    if (g->training.active || g->quest == Q_HUNT || g->quest == Q_COMBAT || g->boss.dying > 0) {
+    if (g->training.active || (g->map==MAP_CAVE && (g->boss.hp>0 || g->boss.dying>0)) || (g->map==MAP_TRAINING && (g->quest==Q_HUNT || g->quest==Q_COMBAT || g->boss.dying>0))) {
         actors[count++] = (Actor){2, 0, g->boss.pos.y};
         if (g->boss.state == AI_WINDUP)
             telegraph(f, screen_pos(g->boss.pos, camera), BOSS_STRIKE_RANGE, g->boss.angle,
@@ -1073,11 +1093,11 @@ void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool has_ta
             shadow(f, p, 10 * ACTOR_SCALE, 1);
             gfx_hero(f, g, p);
             /* A faint silhouette keeps the player readable behind tall scenery. */
-            SDL_SetTextureAlphaMod(f->map.texture, 205);
+            SDL_SetTextureAlphaMod(f->active_map->texture, 205);
             cover_actor(f, g->hero.pos, camera,
                         (g->hero.skilling ? 180 : g->hero.attacking ? 96 : 56) * ACTOR_SCALE,
                         (g->hero.skilling ? 110 : g->hero.attacking ? 64 : 48) * ACTOR_SCALE);
-            SDL_SetTextureAlphaMod(f->map.texture, 255);
+            SDL_SetTextureAlphaMod(f->active_map->texture, 255);
         }
     }
     if (has_target)

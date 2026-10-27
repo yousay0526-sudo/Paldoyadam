@@ -4,7 +4,7 @@
 
 #define V(x, y) {(x) * 1.5f, (y) * 1.5f}
 /* Separate footprints preserve the gates, courtyards and lanes in the art. */
-const WorldShape WORLD_SOLIDS[] = {
+const WorldShape TRAINING_SOLIDS[] = {
     {"northwest forest", 26, {V(0, 0),     V(924, 0),   V(900, 34),  V(905, 73), V(854, 92),  V(800, 78),
                               V(760, 118), V(717, 124), V(694, 102), V(605, 95), V(572, 113), V(506, 159),
                               V(469, 195), V(432, 141), V(404, 108), V(336, 59), V(269, 50),  V(225, 52),
@@ -107,11 +107,11 @@ const WorldShape WORLD_SOLIDS[] = {
     {"slaughter stump",
      6,
      {V(1297, 284), V(1325, 280), V(1338, 296), V(1328, 317), V(1306, 319), V(1290, 301)}}};
-const int WORLD_SOLID_COUNT = sizeof WORLD_SOLIDS / sizeof *WORLD_SOLIDS;
+const int TRAINING_SOLID_COUNT = sizeof TRAINING_SOLIDS / sizeof *TRAINING_SOLIDS;
 /* Only redraw these painting fragments over an actor whose feet are behind
  * the object. The actor's screen rectangle clips every fragment, so no other
  * actor, marker or UI is accidentally covered. */
-const WorldCover WORLD_COVERS[] = {
+const WorldCover TRAINING_COVERS[] = {
     {{"smith roof",
       8,
       {V(111, 130), V(155, 93), V(215, 65), V(299, 105), V(315, 132), V(269, 170), V(197, 188), V(137, 163)}},
@@ -147,13 +147,33 @@ const WorldCover WORLD_COVERS[] = {
       {V(762, 789), V(772, 823), V(798, 801), V(787, 839), V(823, 840), V(797, 859), V(784, 902), V(768, 906),
        V(777, 854), V(751, 845), V(741, 819), V(762, 836)}},
      1365}};
-const int WORLD_COVER_COUNT = sizeof WORLD_COVERS / sizeof *WORLD_COVERS;
+const int TRAINING_COVER_COUNT = sizeof TRAINING_COVERS / sizeof *TRAINING_COVERS;
+
+const WorldShape *WORLD_SOLIDS = TRAINING_SOLIDS;
+int WORLD_SOLID_COUNT = sizeof TRAINING_SOLIDS / sizeof *TRAINING_SOLIDS;
+const WorldCover *WORLD_COVERS = TRAINING_COVERS;
+int WORLD_COVER_COUNT = sizeof TRAINING_COVERS / sizeof *TRAINING_COVERS;
+static MapId selected = MAP_TRAINING;
+MapId world_selected(void) { return selected; }
 
 typedef struct {
     float left, top, right, bottom;
 } Bounds;
-static Bounds bounds[sizeof WORLD_SOLIDS / sizeof *WORLD_SOLIDS];
+static Bounds bounds[64];
 static bool initialized;
+void world_select(MapId map) {
+    if (map < 0 || map >= MAP_COUNT) map = MAP_VILLAGE;
+    if (map == selected) return;
+    selected = map;
+    if (map == MAP_TRAINING) {
+        WORLD_SOLIDS = TRAINING_SOLIDS;
+        WORLD_SOLID_COUNT = TRAINING_SOLID_COUNT;
+        WORLD_COVERS = TRAINING_COVERS;
+        WORLD_COVER_COUNT = TRAINING_COVER_COUNT;
+    } else
+        world_map_data(map, &WORLD_SOLIDS, &WORLD_SOLID_COUNT, &WORLD_COVERS, &WORLD_COVER_COUNT);
+    initialized = false;
+}
 static void init_bounds(void) {
     if (initialized)
         return;
@@ -307,20 +327,22 @@ static const int DX[8] = {1, 0, -1, 0, 1, -1, -1, 1}, DY[8] = {0, 1, 0, -1, 1, 1
 typedef struct {
     bool ready;
     float radius;
+    MapId map;
     unsigned char edges[NODES], clear[NODES];
 } NavGrid;
-static NavGrid grids[3];
+static NavGrid grids[MAP_COUNT * 3];
 static unsigned next_grid;
 static Vec2 center(int index) {
     return (Vec2){(index % COLS + .5f) * CELL, (index / COLS + .5f) * CELL};
 }
 static NavGrid *grid(float radius) {
-    for (int i = 0; i < 3; i++)
-        if (grids[i].ready && grids[i].radius == radius)
+    for (int i = 0; i < MAP_COUNT * 3; i++)
+        if (grids[i].ready && grids[i].map == selected && grids[i].radius == radius)
             return &grids[i];
-    NavGrid *g = &grids[next_grid++ % 3];
+    NavGrid *g = &grids[next_grid++ % (MAP_COUNT * 3)];
     memset(g, 0, sizeof *g);
     g->radius = radius;
+    g->map = selected;
     for (int i = 0; i < NODES; i++)
         g->clear[i] = world_clear(center(i), radius);
     for (int i = 0; i < NODES; i++)

@@ -1,0 +1,29 @@
+Test project <workspace>/build-maps-host
+      Start 11: hero_animation
+      Start  7: map_backgrounds
+ 1/12 Test  #7: map_backgrounds ..................   Passed    2.51 sec
+      Start 12: monster_animation
+ 2/12 Test #11: hero_animation ...................   Passed    5.22 sec
+      Start 10: responsive_ui
+ 3/12 Test #12: monster_animation ................   Passed    3.28 sec
+      Start  8: native_render
+ 4/12 Test #10: responsive_ui ....................   Passed    1.26 sec
+      Start  5: directional_combat
+ 5/12 Test  #5: directional_combat ...............   Passed    0.57 sec
+      Start  2: gameplay
+ 6/12 Test  #8: native_render ....................   Passed    1.33 sec
+      Start  3: world_navigation
+ 7/12 Test  #2: gameplay .........................   Passed    0.75 sec
+      Start  1: map_travel
+ 8/12 Test  #3: world_navigation .................   Passed    0.71 sec
+      Start  6: hit_feedback
+ 9/12 Test  #1: map_travel .......................   Passed    0.72 sec
+      Start  9: player_controls
+10/12 Test  #6: hit_feedback .....................   Passed    0.70 sec
+      Start  4: isolated_training
+11/12 Test  #9: player_controls ..................   Passed    0.70 sec
+12/12 Test  #4: isolated_training ................   Passed    0.49 sec
+
+100% tests passed out of 12
+
+Total Test time (real) =   9.38 sec
