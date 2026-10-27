@@ -105,7 +105,17 @@ typedef enum { SWIPE_UP, SWIPE_RIGHT, SWIPE_DOWN, SWIPE_LEFT, SWIPE_COUNT } Swip
 typedef enum { ELDER, SMITH, HERBALIST, INNKEEPER, MESSENGER } NpcId;
 typedef enum { ITEM_SWORD, ITEM_ARMOR, ITEM_TONIC, ITEM_BANDAGE, ITEM_MEAL, ITEM_COUNT } Item;
 typedef enum { AI_IDLE, AI_CHASE, AI_WINDUP, AI_SWING, AI_RECOVER, AI_RETURN, AI_DEAD } AiState;
-typedef enum { NEAR_NONE, NEAR_NPC, NEAR_TRACE, NEAR_DROP } NearKind;
+typedef enum { MAP_VILLAGE, MAP_PASS, MAP_CAVE, MAP_TRAINING, MAP_COUNT } MapId;
+typedef enum { NEAR_NONE, NEAR_NPC, NEAR_TRACE, NEAR_DROP, NEAR_EXIT } NearKind;
+typedef struct {
+    MapId from, to;
+    Vec2 pos, arrival;
+} MapExit;
+extern const MapExit MAP_EXITS[4];
+extern const Vec2 CAVE_HOME;
+const char *game_map_name(MapId map);
+const char *game_map_asset(MapId map);
+
 /* FX_DUST: amount 1 footstep, 2 dash, 3 fall; angle is the travel heading. */
 typedef enum { FX_NUMBER, FX_HIT, FX_WIND, FX_SKILL, FX_BOSS_SWING, FX_DUST } EffectKind;
 typedef enum { NOTICE_NONE = 0, NOTICE_BOSS = 1, NOTICE_DEATH = 2, NOTICE_VICTORY = 4 } Notice;
@@ -187,6 +197,7 @@ typedef struct {
 typedef struct {
     Phase phase;
     Quest quest;
+    MapId map;
     Hero hero;
     Enemy boss, boars[BOAR_COUNT];
     Drop drops[BOAR_COUNT];
@@ -230,6 +241,8 @@ extern const TechniqueInfo TECHNIQUES[TECH_COUNT];
 float distance(Vec2 a, Vec2 b);
 float clampf(float value, float min, float max);
 void game_reset(Game *g);
+int game_exit_nearby(const Game *g);
+bool game_travel(Game *g, int exit_index);
 void game_start(Game *g);
 bool game_enter_training(Game *game, Game *saved);
 bool game_leave_training(Game *game, const Game *saved);

@@ -20,7 +20,7 @@ def main():
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
     command = [emcc, '-std=c11', '-O2', '-Wall', '-Wextra', '-Wl,--threads=1',
-               'src/main.c', 'src/draw.c', 'src/game.c', 'src/world.c',
+               'src/main.c', 'src/draw.c', 'src/game.c', 'src/world.c', 'src/maps.c',
                '-Isrc', '-isystem', 'third_party/stb', '-sUSE_SDL=2',
                '-sALLOW_MEMORY_GROWTH=1', '-sINITIAL_MEMORY=67108864',
                '-sSTACK_SIZE=2097152', '-sENVIRONMENT=web', '-sFORCE_FILESYSTEM=1',

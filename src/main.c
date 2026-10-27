@@ -141,14 +141,14 @@ static const char *STORY_TEXT[] = {
     "사람이 사라지고, 가축이 사라졌다.\n왕명을 받은 젊은 장군이 경상도 남부의 작은 마을에 도착했다."};
 static const Line MEET_LINES[] = {
     {"마을 이장", "밤마다 사람과 가축이 사라집니다.\n어제는 백정마저 집에 돌아오지 않았습니다."},
-    {"마을 이장", "동쪽 숲길의 약재 수레가 습격당했습니다.\n그 곁에서 백정의 옷자락을 봤다는 이가 있습니다."},
+    {"마을 이장", "솔바람재의 약재 수레가 습격당했습니다.\n그 곁에서 백정의 옷자락을 봤다는 이가 있습니다."},
     {"장군", "남겨진 흔적을 살피겠소.\n약재도 되찾아 오리다."}};
 static const Line DELIVER_LINES[] = {
     {"약방 주인", "이 약재를 전부 되찾아 주셨군요!\n상처 입은 마을 사람들을 돌볼 수 있겠어요."},
     {"약방 주인", "숲에 가셨다면 이장님께도 알려 주세요.\n탕약과 지혈산을 챙겨 드릴게요."}};
 static const Line REPORT_LINES[] = {
-    {"장군", "수레에서 백정의 옷자락을 찾았소.\n식칼 자국 곁에는 짐승 발자국이 이어져 있었지."},
-    {"마을 이장", "백정이… 짐승으로 변한 겁니까?\n동쪽 숲의 옛 도축터를 살펴 주십시오."},
+    {"장군", "솔바람재에서 백정의 옷자락을 찾았소.\n식칼 자국 곁에는 짐승 발자국이 이어져 있었지."},
+    {"마을 이장", "백정이… 짐승으로 변한 겁니까?\n동쪽 길로 가서 탐식굴을 살펴 주십시오."},
     {"마을 이장", "대장간에서 채비를 하시고, 약방에도 들르십시오.\n부디 무사히 돌아오셔야 합니다."}};
 static const Line RETURN_LINES[] = {
     {"마을 이장", "숲에서 들리던 소리가 멎었습니다.\n약재와 마을을 되찾아 주셔서 고맙습니다."},
@@ -236,10 +236,19 @@ static void interact(App *a) {
     Nearby n = game_nearby(g);
     if (n.kind == NEAR_NONE)
         return;
+    if (n.kind == NEAR_EXIT) {
+        if(game_travel(g,n.index)) {
+            stop_input(a);a->movement_blocked=true;a->button_count=0;
+            a->view_ready=false;a->trauma=0;a->sim_accumulator=0;
+            a->sim_previous.hero=g->hero.pos;a->sim_previous.boss=g->boss.pos;
+            for(int i=0;i<BOAR_COUNT;i++) a->sim_previous.boars[i]=g->boars[i].pos;
+        }
+        return;
+    }
     if (n.kind == NEAR_TRACE) {
         if (game_inspect(g, n.index)) {
             Line lines[2] = {{TRACES[n.index].name, TRACES[n.index].text},
-                             {"장군", "짐승들이 약재를 물고 달아났군.\n남동쪽 빈터를 살펴보자."}};
+                             {"장군", "짐승들이 약재를 물고 달아났군.\n솔바람재의 산길을 살펴보자."}};
             say(a, lines, g->quest == Q_RECOVER ? 2 : 1, DONE_NONE);
         }
         return;
@@ -265,12 +274,12 @@ static void interact(App *a) {
         say(a, RETURN_LINES, 3, DONE_AUGMENT);
     else {
         const char *s =
-            g->quest == Q_TRACES ? "수레는 마을 동쪽에 있습니다.\n옷자락과 식칼 자국을 찾아 주십시오."
+            g->quest == Q_TRACES ? "북쪽 솔바람재에서\n옷자락과 식칼 자국을 찾아 주십시오."
             : g->quest == Q_RECOVER
                 ? "약재를 되찾으시면 약방으로 가져다주십시오.\n다친 이들이 기다리고 있습니다."
             : g->quest == Q_DELIVER   ? "약방 주인이 꾸러미를 기다리고 있습니다."
             : g->quest == Q_MESSENGER ? "한양에서 전령이 왔습니다.\n마을 어귀에서 장군을 기다리고 있지요."
-                                      : "동쪽 도축터에서 울음소리가 들립니다.\n몸을 잘 챙기십시오.";
+                                      : "탐식굴에서 울음소리가 들립니다.\n몸을 잘 챙기십시오.";
         Line line = {"마을 이장", s};
         say(a, &line, 1, DONE_NONE);
     }
@@ -552,7 +561,7 @@ static void draw_hud(App *a) {
     float w = a->width, h = a->height;
     char text[512];
     hud_card(f, (SDL_FRect){12, 8, 190, 44}, 214);
-    gfx_text(f, g->training.active ? "비밀 수련장 · 격리된 빈터" : "제1장 · 경상도 남부", 24, 13, 11, 0, GOLD);
+    gfx_text(f, g->training.active ? "비밀 수련장 · 격리된 빈터" : game_map_name(g->map), 24, 13, 11, 0, GOLD);
     health_bar(f, (SDL_FRect){53, 38, 85, 4}, g->hero.hp, a->hero_ghost, g->hero.max_hp, 2.5f,
                (SDL_Color){25, 18, 19, 255});
     gfx_text(f, "체력", 24, 32, 10, 0, MUTED);
@@ -640,7 +649,9 @@ static void draw_hud(App *a) {
         }
         Nearby near = game_nearby(g);
         if (near.kind != NEAR_NONE) {
-            if (near.kind == NEAR_TRACE)
+            if (near.kind == NEAR_EXIT)
+                snprintf(text,sizeof text,"%s 이동 · Space",game_map_name(MAP_EXITS[near.index].to));
+            else if (near.kind == NEAR_TRACE)
                 snprintf(text, sizeof text, "흔적 조사 · Space");
             else if (near.index == HERBALIST && g->quest == Q_DELIVER)
                 snprintf(text, sizeof text, "약재 전달 · Space");
@@ -1134,6 +1145,7 @@ static Vec2 view_camera(const App *a, float w, float h, float scale) {
     return camera;
 }
 static void draw(App *a) {
+    world_select(a->game.map);
     resize(a);
     a->button_count = 0;
     float scale_x, scale_y;
@@ -1309,6 +1321,7 @@ static void pointer_up(App *a, Sint64 id, Vec2 p) {
         a->target = world_from_screen(p, a->camera, world_zoom(a->height));
         a->target.x = clampf(a->target.x, 28, WORLD_W - 28);
         a->target.y = clampf(a->target.y, 28, WORLD_H - 28);
+        world_select(a->game.map);
         a->target_set = world_route(a->game.hero.pos, a->target, HERO_RADIUS, &a->route);
         if (a->target_set) a->target = a->route.points[a->route.count - 1];
         else game_toast(&a->game, "막힌 지형 · 다른 길을 선택해 주세요");
@@ -1516,8 +1529,14 @@ static void smoke_scene(App *a, const char *scene) {
     } else if (!strcmp(scene, "journal")) {
         a->game.phase = PH_JOURNAL;
         a->game.quest = Q_RECOVER;
+    } else if (!strcmp(scene, "solbaramjae")) {
+        a->game.map=MAP_PASS;a->game.hero.pos=(Vec2){768*1.5f,530*1.5f};
+        a->game.quest=Q_RECOVER;a->game.traces[0]=a->game.traces[1]=true;
+    } else if (!strcmp(scene, "tamsikgul")) {
+        a->game.map=MAP_CAVE;a->game.hero.pos=(Vec2){768*1.5f,730*1.5f};a->game.quest=Q_HUNT;
     } else if (!strcmp(scene, "boss")) {
-        a->game.hero.pos = (Vec2){BOSS_HOME.x - 90, BOSS_HOME.y};
+        a->game.map=MAP_CAVE;
+        a->game.hero.pos = (Vec2){CAVE_HOME.x - 90, CAVE_HOME.y};
         a->game.quest = Q_HUNT;
         game_begin_boss(&a->game);
         a->game.boss.state = AI_WINDUP;
@@ -1525,10 +1544,12 @@ static void smoke_scene(App *a, const char *scene) {
         a->game.boss.timer = .4f;
         a->game.toast_time = 0;
     } else if (!strcmp(scene, "recover")) {
+        a->game.map=MAP_PASS;
         a->game.traces[0] = a->game.traces[1] = true;
         a->game.quest = Q_RECOVER;
         a->game.hero.pos = (Vec2){a->game.boars[0].pos.x - 100, a->game.boars[0].pos.y};
     } else if (!strncmp(scene, "attack", 6)) {
+        a->game.map=MAP_PASS;
         a->game.traces[0] = a->game.traces[1] = true;
         a->game.quest = Q_RECOVER;
         a->game.hero.pos = (Vec2){a->game.boars[0].pos.x - 45, a->game.boars[0].pos.y};
@@ -1538,6 +1559,7 @@ static void smoke_scene(App *a, const char *scene) {
         a->game.hero.attack_elapsed = (pose + .1f) * HERO_ATTACK_SECONDS / HERO_ATTACK_FRAMES;
         a->game.attack_cooldown = 1;
     } else if (!strcmp(scene, "loot")) {
+        a->game.map=MAP_PASS;
         a->game.traces[0] = a->game.traces[1] = true;
         a->game.quest = Q_RECOVER;
         a->game.hero.pos = a->game.boars[0].pos;

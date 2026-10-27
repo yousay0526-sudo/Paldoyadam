@@ -1,3 +1,4 @@
+#include "test_legacy_world.h"
 /* Exercise the same atlas renderer used by the native and WebAssembly game. */
 #define SDL_MAIN_HANDLED
 #include "draw.h"
@@ -51,7 +52,7 @@ static void directional_trails(Gfx *gfx, SDL_Surface *surface, Uint32 *pixels) {
     Uint32 background = SDL_MapRGBA(surface->format, 11, 15, 19, 255);
     for (int move = MOVE_ATTACK; move < TECH_COUNT; move++) {
         for (int direction = 0; direction < 8; direction++) {
-            Game game; game_reset(&game); game_start(&game);
+            Game game; legacy_reset(&game); game_start(&game);
             Hero *h = &game.hero;
             h->attacking = move == MOVE_ATTACK; h->skilling = !h->attacking;
             h->technique = move >= 0 ? (Technique)move : TECH_CLEAVE;
@@ -94,7 +95,7 @@ static void directional_trails(Gfx *gfx, SDL_Surface *surface, Uint32 *pixels) {
         }
     }
     /* No world-space trail while a menu pauses the attack. */
-    Game paused; game_reset(&paused); paused.hero.attacking = true; paused.phase = PH_BAG;
+    Game paused; legacy_reset(&paused); paused.hero.attacking = true; paused.phase = PH_BAG;
     SDL_SetRenderDrawColor(gfx->renderer, 11, 15, 19, 255); SDL_RenderClear(gfx->renderer);
     gfx_attack_trace(gfx, &paused, (Vec2){144,166});
     CHECK(SDL_RenderReadPixels(gfx->renderer, NULL, surface->format->format, pixels, surface->pitch) == 0);
@@ -105,7 +106,7 @@ static void directional_trails(Gfx *gfx, SDL_Surface *surface, Uint32 *pixels) {
  * cell, foot root and both facing directions. Basic-attack reuse must fail. */
 static void technique_atlases(Gfx *gfx, SDL_Surface *surface, Uint32 *pixels, Uint32 *expected) {
     const size_t bytes = (size_t)surface->pitch * surface->h;
-    Game game; game_reset(&game); game_start(&game);
+    Game game; legacy_reset(&game); game_start(&game);
     game.hero.skilling = true;
     for (int scale = 1; scale <= 3; scale++) {
         SDL_RenderSetScale(gfx->renderer, (float)scale, (float)scale);
@@ -170,7 +171,7 @@ static void feedback_pixels(Gfx *gfx, SDL_Surface *surface, Uint32 *pixels, Uint
     SDL_RenderSetScale(gfx->renderer, 1, 1);
     size_t bytes = (size_t)surface->pitch * surface->h;
     Uint32 background = SDL_MapRGBA(surface->format, 11, 15, 19, 255);
-    Game game; game_reset(&game); game_start(&game);
+    Game game; legacy_reset(&game); game_start(&game);
     capture(gfx, &game, surface, baseline);
     game.hero.hurt_time = HIT_FLASH_SECONDS; game.hero.invul = .75f;
     capture(gfx, &game, surface, pixels);
@@ -213,7 +214,7 @@ static void feedback_pixels(Gfx *gfx, SDL_Surface *surface, Uint32 *pixels, Uint
  * hero: tinted just inside BOAR_STRIKE_RANGE and untouched just outside. */
 static void boar_warning_reach(Gfx *gfx, SDL_Surface *surface, Uint32 *pixels, Uint32 *baseline) {
     SDL_RenderSetScale(gfx->renderer, 1, 1);
-    Game game; game_reset(&game); game_start(&game);
+    Game game; legacy_reset(&game); game_start(&game);
     game.traces[0] = game.traces[1] = true; game.quest = Q_RECOVER;
     game.hero.pos = (Vec2){200, 200};
     Vec2 center = {surface->w / 2.0f, surface->h / 2.0f};
@@ -274,7 +275,7 @@ static void eight_direction_motion(Gfx *gfx, SDL_Surface *surface, Uint32 *pixel
             float a = d * .785398163f + edge * .38f;
             CHECK(gfx_hero_direction((Vec2){sinf(a)*.12f,-cosf(a)*.12f}) == (HeroDirection)d);
         }
-        Game game; game_reset(&game); game_start(&game);
+        Game game; legacy_reset(&game); game_start(&game);
         Vec2 start = game.hero.pos;
         game_tick(&game, .05f, inputs[d]);
         CHECK(game.hero.walking && gfx_hero_direction(game.hero.dir) == (HeroDirection)d);
@@ -399,7 +400,7 @@ int main(int argc, char **argv) {
     for (int scale = 1; scale <= 3; scale++) {
         SDL_RenderSetScale(renderer, (float)scale, (float)scale);
         Game game;
-        game_reset(&game); game_start(&game);
+        legacy_reset(&game); game_start(&game);
         capture(gfx, &game, surface, idle);
         game.phase = PH_PLAY; game.hero.walking = false;
         game.hero.attacking = true; game.hero.attack_face = 1;

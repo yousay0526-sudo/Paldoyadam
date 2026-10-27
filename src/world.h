@@ -17,10 +17,16 @@ typedef struct {
     WorldShape shape;
     float depth;
 } WorldCover;
-extern const WorldShape WORLD_SOLIDS[];
-extern const int WORLD_SOLID_COUNT;
-extern const WorldCover WORLD_COVERS[];
-extern const int WORLD_COVER_COUNT;
+extern const WorldShape *WORLD_SOLIDS;
+extern int WORLD_SOLID_COUNT;
+extern const WorldCover *WORLD_COVERS;
+extern int WORLD_COVER_COUNT;
+/* One active world, matching the single-threaded game. Every game entry that
+ * uses terrain selects its Game.map; navigation cache keys include the map. */
+void world_select(MapId map);
+MapId world_selected(void);
+void world_map_data(MapId map, const WorldShape **solids, int *count,
+                    const WorldCover **covers, int *cover_count);
 bool world_clear(Vec2 point, float radius);
 bool world_segment(Vec2 from, Vec2 to, float radius);
 Vec2 world_move(Vec2 from, Vec2 delta, float radius);

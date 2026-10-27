@@ -1,3 +1,4 @@
+#include "test_legacy_world.h"
 #include "test_simulation.h"
 #include "world.h"
 #include <math.h>
@@ -38,7 +39,7 @@ static void geometry(void) {
     CHECK(slide.x > start.x + 60 && world_clear(slide, HERO_RADIUS));
 
     Game g;
-    game_reset(&g);
+    legacy_reset(&g);
     game_start(&g);
     g.augment = AUG_FLOW;
     g.hero.pos = P(250, 319);
@@ -52,7 +53,7 @@ static void geometry(void) {
     CHECK(distance(start, g.hero.pos) < 45);
     const Technique movement_techniques[]={TECH_THRUST,TECH_RETREAT};
     for(int t=0;t<2;t++) {
-        game_reset(&g); game_start(&g); g.hero.pos=P(250,319);
+        legacy_reset(&g); game_start(&g); g.hero.pos=P(250,319);
         g.hero.dir=(Vec2){0,t==0?-1:1}; start=g.hero.pos;
         CHECK(game_technique(&g,movement_techniques[t]));
         for(int i=0;i<5;i++) simulation_tick(&g,.05f,(Vec2){0});
@@ -81,7 +82,7 @@ static void walk_route(Vec2 from, Vec2 to, float dt) {
     CHECK(world_route(from, to, HERO_RADIUS, &route));
     CHECK(distance(route.points[route.count - 1], to) < .2f);
     Game g;
-    game_reset(&g);
+    legacy_reset(&g);
     game_start(&g);
     g.hero.pos = from;
     int ticks = 0;
@@ -105,7 +106,7 @@ static void walk_route(Vec2 from, Vec2 to, float dt) {
 }
 static void quests_reachable(void) {
     Game g;
-    game_reset(&g);
+    legacy_reset(&g);
     for (int i = 0; i < NPC_COUNT; i++) {
         CHECK(world_clear(NPCS[i].pos, HERO_RADIUS));
         walk_route(HOME, NPCS[i].pos, 1.0f / 60);
@@ -147,7 +148,7 @@ static void prepared_routes(void) {
 }
 static void combat_respects_walls(void) {
     Game g;
-    game_reset(&g);
+    legacy_reset(&g);
     game_start(&g);
     g.traces[0] = g.traces[1] = true;
     g.quest = Q_RECOVER;

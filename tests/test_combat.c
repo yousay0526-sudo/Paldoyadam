@@ -1,3 +1,4 @@
+#include "test_legacy_world.h"
 #include "test_simulation.h"
 #include "game.h"
 #include "world.h"
@@ -13,7 +14,7 @@ static void advance(Game *g, int ticks) {
 }
 static void fixture(Game *g) {
     Game saved;
-    game_reset(g); game_start(g);
+    legacy_reset(g); game_start(g);
     CHECK(game_enter_training(g, &saved));
     g->hero.pos = BOSS_HOME;
     g->hero.dir = (Vec2){1, 0};
@@ -171,7 +172,7 @@ static void reservations(void) {
     CHECK(g.combat_request == TRAIN_COOLDOWN && g.queued_move == MOVE_NONE);
 }
 static void multiple_targets(void) {
-    Game g; game_reset(&g); game_start(&g);
+    Game g; legacy_reset(&g); game_start(&g);
     g.traces[0] = g.traces[1] = true; g.quest = Q_RECOVER; g.hero.pos = BOSS_HOME;
     for (int i = 0; i < BOAR_COUNT; i++) {
         g.boars[i].pos = polar(BOSS_HOME, i == 2 ? 3.14159265f : i * .7f, i == 0 ? 28 : 50); /* bodies apart */

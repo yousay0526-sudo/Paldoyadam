@@ -1,3 +1,4 @@
+#include "test_legacy_world.h"
 #include "test_simulation.h"
 #include "game.h"
 #include "world.h"
@@ -43,7 +44,7 @@ static void ready(Game *g) {
 }
 static void quest_chain(void) {
     Game g;
-    game_reset(&g);
+    legacy_reset(&g);
     game_start(&g);
     g.hero.pos = BOSS_HOME;
     simulation_tick(&g, .05f, (Vec2){0});
@@ -96,7 +97,7 @@ static void quest_chain(void) {
 }
 static void shops(void) {
     Game g;
-    game_reset(&g);
+    legacy_reset(&g);
     game_start(&g);
     at_npc(&g, SMITH);
     CHECK(game_open_shop(&g, SMITH));
@@ -124,7 +125,7 @@ static void shops(void) {
 }
 static void supplies(void) {
     Game g;
-    game_reset(&g);
+    legacy_reset(&g);
     game_start(&g);
     CHECK(!game_use(&g, ITEM_TONIC));
     CHECK(g.tonics == 2);
@@ -159,7 +160,7 @@ static void supplies(void) {
 }
 static void death_and_pause(void) {
     Game g;
-    game_reset(&g);
+    legacy_reset(&g);
     game_start(&g);
     clues(&g);
     g.hero.pos = g.boars[0].pos;
@@ -172,6 +173,10 @@ static void death_and_pause(void) {
     CHECK(g.quest == Q_RECOVER && g.herbs == 1 && g.traces[0] && g.traces[1] && g.armor);
     CHECK(g.boars[0].hp == 0);
     CHECK(!game_collect(&g, 0));
+    CHECK(g.map == MAP_VILLAGE);
+    /* Continue the historical combat fixture on its original terrain.
+     * test_maps verifies real return travel after recovery. */
+    g.map=MAP_TRAINING;world_select(g.map);
     for (int i = 1; i < BOAR_COUNT; i++) {
         g.hero.pos = g.boars[i].pos;
         game_damage(&g, &g.boars[i], 100, FX_HIT);
@@ -196,7 +201,7 @@ static void death_and_pause(void) {
 }
 static void augments_and_bounds(void) {
     Game g;
-    game_reset(&g);
+    legacy_reset(&g);
     game_start(&g);
     clues(&g);
     g.hero.pos = (Vec2){g.boars[0].pos.x - 30, g.boars[0].pos.y}; /* just outside body contact */
@@ -229,7 +234,7 @@ static void augments_and_bounds(void) {
     CHECK(g.cooldown == 4 && g.boss.hp == 240);
     for(int i=0;i<5;i++) simulation_tick(&g,.05f,(Vec2){0});
     CHECK(g.boss.hp == 208);
-    game_reset(&g);
+    legacy_reset(&g);
     game_start(&g);
     g.hero.pos = (Vec2){28, 28};
     simulation_tick(&g, .05f, (Vec2){-1, -1});
@@ -246,7 +251,7 @@ static void augments_and_bounds(void) {
 }
 static void dedicated_pickup(void) {
     Game g;
-    game_reset(&g);
+    legacy_reset(&g);
     game_start(&g);
     g.quest = Q_RECOVER;
     g.hero.pos = NPCS[ELDER].pos;
@@ -273,7 +278,7 @@ static void dedicated_pickup(void) {
     CHECK(g.toast_time == TOAST_SECONDS);
 
     /* A thin garden gate pillar separates two points inside pickup range. */
-    game_reset(&g);
+    legacy_reset(&g);
     game_start(&g);
     g.quest = Q_RECOVER;
     g.hero.pos = (Vec2){490 * 1.5f, 259 * 1.5f};
@@ -285,7 +290,7 @@ static void dedicated_pickup(void) {
 }
 static void automatic_magnet(void) {
     Game g;
-    game_reset(&g);
+    legacy_reset(&g);
     game_start(&g);
     g.quest = Q_RECOVER;
     g.hero.pos = HOME;
@@ -322,7 +327,7 @@ static void automatic_magnet(void) {
     for (int i = 0; i < 12; i++) simulation_tick(&g, .05f, (Vec2){0, 0});
     CHECK(g.herbs == 3); /* Exactly once even with overlapping pickups. */
 
-    game_reset(&g);
+    legacy_reset(&g);
     game_start(&g);
     g.quest = Q_RECOVER;
     g.hero.pos = (Vec2){490 * 1.5f, 259 * 1.5f};
@@ -335,7 +340,7 @@ static void automatic_magnet(void) {
     simulation_tick(&g, .05f, (Vec2){0, 0});
     CHECK(g.herbs == 0); /* Inactive quest items cannot advance the story early. */
     /* Even a drop directly under the hero must first be visible on the ground. */
-    game_reset(&g); game_start(&g); g.quest = Q_RECOVER;
+    legacy_reset(&g); game_start(&g); g.quest = Q_RECOVER;
     g.drops[0] = (Drop){.pos = g.hero.pos, .exists = true};
     for (int i = 0; i < 13; i++) simulation_tick(&g, .05f, (Vec2){0, 0});
     CHECK(g.herbs == 0 && !g.drops[0].collected);
@@ -350,7 +355,7 @@ static void automatic_magnet(void) {
 }
 static void attack_motion(void) {
     Game g;
-    game_reset(&g); game_start(&g); clues(&g);
+    legacy_reset(&g); game_start(&g); clues(&g);
     g.hero.pos = (Vec2){g.boars[0].pos.x + 40, g.boars[0].pos.y};
     g.boars[0].state = AI_RECOVER; g.boars[0].timer = 9;
     g.attack_cooldown = 0;
@@ -379,7 +384,7 @@ static void attack_motion(void) {
     CHECK(!g.hero.attacking && game_hero_attack_frame(&g) == -1);
 
     /* Moving out of range during windup evades the committed target. */
-    game_reset(&g); game_start(&g); clues(&g);
+    legacy_reset(&g); game_start(&g); clues(&g);
     g.hero.pos = (Vec2){g.boars[0].pos.x - 40, g.boars[0].pos.y};
     g.attack_cooldown = 0;
     CHECK(game_attack(&g));
@@ -393,7 +398,7 @@ static void attack_motion(void) {
 }
 static void walking_motion(void) {
     Game g, slow;
-    game_reset(&g);
+    legacy_reset(&g);
     CHECK(game_hero_frame(&g) == -1);
     game_start(&g);
     simulation_tick(&g, .05f, (Vec2){0, 0});
@@ -411,19 +416,19 @@ static void walking_motion(void) {
     CHECK(game_hero_frame(&g) == -1 && g.hero.walk_cycle == 0);
 
     /* Same travel at different render rates and joystick strengths. */
-    game_reset(&g); game_start(&g); slow = g;
+    legacy_reset(&g); game_start(&g); slow = g;
     g.hero.pos = slow.hero.pos = (Vec2){345, 510};
     for (int i = 0; i < 10; i++) simulation_tick(&g, .05f, (Vec2){1, 0});
     for (int i = 0; i < 50; i++) simulation_tick(&slow, .01f, (Vec2){1, 0});
     CHECK(distance(g.hero.pos, slow.hero.pos) < .01f);
     CHECK(fabsf(g.hero.walk_cycle-slow.hero.walk_cycle) < .0001f);
-    game_reset(&g); game_start(&g); slow = g;
+    legacy_reset(&g); game_start(&g); slow = g;
     simulation_tick(&g, .05f, (Vec2){1, 0});
     simulation_tick(&slow, .05f, (Vec2){.25f, 0});
     CHECK(fabsf(g.hero.walk_cycle-4*slow.hero.walk_cycle) < .0001f);
 
     /* All eight poses occur while moving through an unobstructed street. */
-    game_reset(&g); game_start(&g); g.hero.pos = (Vec2){345, 510};
+    legacy_reset(&g); game_start(&g); g.hero.pos = (Vec2){345, 510};
     unsigned seen = 0;
     for (int i = 0; i < 100; i++) {
         simulation_tick(&g, 1.0f/120, (Vec2){i < 50 ? 1 : -1, 0});
@@ -434,7 +439,7 @@ static void walking_motion(void) {
     CHECK(seen == (1u << HERO_WALK_FRAMES)-1);
 
     /* Collision must stop the feet even with input still held. */
-    game_reset(&g); game_start(&g); g.hero.pos = (Vec2){270, 525};
+    legacy_reset(&g); game_start(&g); g.hero.pos = (Vec2){270, 525};
     for (int i = 0; i < 150; i++) simulation_tick(&g, .05f, (Vec2){0, -1});
     CHECK(world_clear(g.hero.pos, HERO_RADIUS));
     CHECK(game_hero_frame(&g) == -1 && g.hero.walk_cycle == 0);
@@ -445,7 +450,7 @@ static void walking_motion(void) {
     const Phase panels[] = {PH_TITLE, PH_PROLOGUE, PH_DIALOGUE, PH_SHOP, PH_BAG,
                             PH_JOURNAL, PH_AUGMENT, PH_COMPLETE, PH_DEAD, PH_PAUSED, PH_TECHNIQUES};
     for (size_t i = 0; i < sizeof panels/sizeof *panels; i++) {
-        game_reset(&g); game_start(&g);
+        legacy_reset(&g); game_start(&g);
         simulation_tick(&g, .05f, (Vec2){1, 0});
         g.phase = panels[i];
         CHECK(game_hero_frame(&g) == -1);
@@ -465,7 +470,7 @@ static void advance(Game *g, int ticks) {
     for(int i=0;i<ticks;i++) simulation_tick(g,.05f,(Vec2){0});
 }
 static void combat_fixture(Game *g) {
-    game_reset(g); game_start(g); g->quest=Q_COMBAT;
+    legacy_reset(g); game_start(g); g->quest=Q_COMBAT;
     g->hero.pos=HOME; g->hero.invul=99;
     g->boss.pos=(Vec2){HOME.x+40,HOME.y}; g->boss.hp=240;
     g->boss.home=g->boss.pos; g->boss.state=AI_RECOVER; g->boss.timer=99;
@@ -489,7 +494,7 @@ static void equipment_and_manual_combat(void) {
     g.phase=PH_BAG; CHECK(game_equip(&g,ITEM_SWORD,true));
     game_close_panel(&g); advance(&g,30);
     CHECK(game_attack(&g)); advance(&g,3); CHECK(g.boss.hp==217);
-    game_reset(&g); game_start(&g); CHECK(game_attack(&g));
+    legacy_reset(&g); game_start(&g); CHECK(game_attack(&g));
     CHECK(g.hero.attacking); advance(&g,10); CHECK(!g.hero.attacking);
 }
 static void techniques_and_combos(void) {
@@ -615,7 +620,7 @@ static void boar_strike_reach(void) {
     const float distances[] = {63.9f, 64.0f, 70.0f, 72.9f, 73.0f, 73.5f};
     for (size_t i = 0; i < sizeof distances / sizeof *distances; i++) {
         Game g;
-        game_reset(&g);
+        legacy_reset(&g);
         game_start(&g);
         clues(&g);
         Enemy *boar = &g.boars[0];
@@ -646,7 +651,7 @@ static void enemy_authored_headings(void) {
     }
     CHECK(found);
     for(int boss=0;boss<2;boss++) for(int d=0;d<8;d++) {
-        Game g;game_reset(&g);game_start(&g);g.quest=boss?Q_COMBAT:Q_RECOVER;
+        Game g;legacy_reset(&g);game_start(&g);g.quest=boss?Q_COMBAT:Q_RECOVER;
         g.traces[0]=g.traces[1]=true;
         for(int i=0;i<BOAR_COUNT;i++)g.boars[i].hp=0;
         Enemy *e=boss?&g.boss:&g.boars[0];
@@ -673,7 +678,7 @@ static void enemy_authored_headings(void) {
     }
 }
 static void enemy_motion_and_falls(void) {
-    Game g; game_reset(&g); game_start(&g);
+    Game g; legacy_reset(&g); game_start(&g);
     g.traces[0] = g.traces[1] = true; g.quest = Q_RECOVER;
     Enemy *e = &g.boars[0];
     g.hero.pos = (Vec2){e->pos.x - 120, e->pos.y};
@@ -705,7 +710,7 @@ static int dust_count(const Game *g, int amount) {
 }
 /* Ground dust: one puff per landed foot, one per technique step, one per fall. */
 static void dust_events(void) {
-    Game g; game_reset(&g); game_start(&g);
+    Game g; legacy_reset(&g); game_start(&g);
     int puffs = 0;
     for (int i = 0; i < 40; i++) {
         game_tick(&g, .02f, (Vec2){1, 0});
@@ -714,7 +719,7 @@ static void dust_events(void) {
     }
     float walked = 40 * .02f * 155;
     CHECK(puffs >= (int)(walked / (HERO_WALK_DISTANCE / 2)) - 1 && puffs <= (int)(walked / (HERO_WALK_DISTANCE / 2)) + 1);
-    game_reset(&g); game_start(&g);
+    legacy_reset(&g); game_start(&g);
     for (int i = 0; i < 20; i++) game_tick(&g, .05f, (Vec2){0, 0});
     CHECK(dust_count(&g, 1) == 0);
     CHECK(game_technique(&g, TECH_THRUST));
@@ -729,7 +734,7 @@ static void dust_events(void) {
  * a technique breaks a boar windup, the butcher keeps its swing and barely
  * moves, and a boar strike shoves the hero back through terrain rules. */
 static void effects_keep_order(void) {
-    Game g; game_reset(&g); game_start(&g);
+    Game g; legacy_reset(&g); game_start(&g);
     g.effect_count = 0;
     EffectKind kinds[4] = {FX_HIT, FX_WIND, FX_SKILL, FX_DUST};
     float lives[4] = {.5f, .1f, .5f, .5f};
@@ -742,7 +747,7 @@ static void effects_keep_order(void) {
           g.effects[2].kind == FX_DUST);
 }
 static void bodies_and_attack_tokens(void) {
-    Game g; game_reset(&g); game_start(&g);
+    Game g; legacy_reset(&g); game_start(&g);
     g.traces[0] = g.traces[1] = true; g.quest = Q_RECOVER;
     g.hero.pos = BOSS_HOME;
     Enemy *a = &g.boars[0], *b = &g.boars[1];
@@ -762,7 +767,7 @@ static void bodies_and_attack_tokens(void) {
     CHECK(distance(a->pos, g.hero.pos) > HERO_RADIUS + BOAR_RADIUS - .5f);
     CHECK(fabsf(hero_gave - 2 * boar_gave) < .05f);
     /* Three boars in reach: only two wind up; the third waits its turn. */
-    game_reset(&g); game_start(&g);
+    legacy_reset(&g); game_start(&g);
     g.traces[0] = g.traces[1] = true; g.quest = Q_RECOVER;
     g.hero.pos = BOSS_HOME;
     for (int i = 0; i < BOAR_COUNT; i++) {
@@ -778,7 +783,7 @@ static void bodies_and_attack_tokens(void) {
     CHECK(g.boars[0].state == AI_RECOVER && g.boars[2].state == AI_WINDUP);
 }
 static void knockback_and_stagger(void) {
-    Game g; game_reset(&g); game_start(&g);
+    Game g; legacy_reset(&g); game_start(&g);
     g.traces[0] = g.traces[1] = true; g.quest = Q_RECOVER;
     Enemy *e = &g.boars[0];
     g.hero.pos = (Vec2){e->pos.x - 40, e->pos.y};
@@ -795,7 +800,7 @@ static void knockback_and_stagger(void) {
     CHECK(pushed > 10 && pushed < (70 + 140) / KNOCK_DECAY + .5f);
     CHECK(e->knock.x < 1 && e->state == AI_RECOVER);
     /* The butcher: a quarter of the push, and its windup is never broken. */
-    game_reset(&g); game_start(&g); g.quest = Q_COMBAT;
+    legacy_reset(&g); game_start(&g); g.quest = Q_COMBAT;
     g.hero.pos = (Vec2){g.boss.pos.x - 60, g.boss.pos.y};
     g.boss.state = AI_WINDUP; g.boss.timer = .9f;
     g.hero.skilling = true; g.hero.technique = TECH_CLEAVE;
@@ -806,7 +811,7 @@ static void knockback_and_stagger(void) {
     for (int i = 0; i < 4; i++) game_tick(&g, .025f, (Vec2){0, 0});
     CHECK(g.boss.pos.x > start.x && g.boss.pos.x - start.x < 220 * KNOCK_BOSS_SCALE / KNOCK_DECAY + .01f);
     /* A boar strike pushes the hero away from the boar. */
-    game_reset(&g); game_start(&g);
+    legacy_reset(&g); game_start(&g);
     g.traces[0] = g.traces[1] = true; g.quest = Q_RECOVER;
     e = &g.boars[0];
     g.hero.pos = (Vec2){e->pos.x - 50, e->pos.y};
@@ -815,7 +820,7 @@ static void knockback_and_stagger(void) {
     for (int i = 0; i < 30; i++) game_tick(&g, .025f, (Vec2){0, 0});
     CHECK(g.hero.hp < 100 && g.hero.pos.x < hero.x - 5 && g.hero.pos.x > hero.x - KNOCK_HERO_BOAR / KNOCK_DECAY - .5f);
     /* Against a wall the push simply stops; it never tunnels. */
-    game_reset(&g); game_start(&g);
+    legacy_reset(&g); game_start(&g);
     g.hero.pos = (Vec2){40, HOME.y};
     g.hero.knock = (Vec2){-500, 0};
     for (int i = 0; i < 20; i++) game_tick(&g, .025f, (Vec2){0, 0});

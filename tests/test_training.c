@@ -1,3 +1,4 @@
+#include "test_legacy_world.h"
 #include "test_simulation.h"
 #include "game.h"
 #include "world.h"
@@ -16,7 +17,7 @@ static void advance(Game *game, int frames) {
 static void isolation_and_restore(void) {
     for (int quest = 0; quest < QUEST_COUNT; quest++) {
         Game game, saved;
-        game_reset(&game);
+        legacy_reset(&game);
         CHECK(!game_enter_training(&game, &saved));
         game_start(&game);
         game.quest = (Quest)quest;
@@ -97,7 +98,7 @@ static void combos_and_misses(void) {
             for (int third = 0; third < SWIPE_COUNT; third++) {
                 if (third == first || third == second) continue;
                 Game game, saved;
-                game_reset(&game); game_start(&game);
+                legacy_reset(&game); game_start(&game);
                 CHECK(game_enter_training(&game, &saved));
                 Technique opening = game.swipe_bindings[first], next = game.swipe_bindings[second];
                 Technique finish = game.swipe_bindings[third];
@@ -124,7 +125,7 @@ static void combos_and_misses(void) {
         }
     }
     Game game, saved;
-    game_reset(&game); game_start(&game);
+    legacy_reset(&game); game_start(&game);
     CHECK(game_enter_training(&game, &saved));
     CHECK(game_attack(&game));
     advance(&game, 15);
@@ -144,7 +145,7 @@ static void combos_and_misses(void) {
     CHECK(game.training.misses == 2);
     CHECK(game_leave_training(&game, &saved));
     for (int augment = AUG_NONE; augment <= AUG_FLOW; augment++) {
-        game_reset(&game); game_start(&game);
+        legacy_reset(&game); game_start(&game);
         game.augment = (Augment)augment; game.sword = true;
         CHECK(game_enter_training(&game, &saved));
         CHECK(game.augment == (Augment)augment && game.sword);
@@ -153,7 +154,7 @@ static void combos_and_misses(void) {
         CHECK(game.training.last_damage == (augment == AUG_STEEL ? 18 : augment == AUG_WIND ? 20 : 14));
         CHECK(game_leave_training(&game, &saved));
     }
-    game_reset(&game); game_start(&game);
+    legacy_reset(&game); game_start(&game);
     CHECK(game_enter_training(&game, &saved));
     game.hero.pos = (Vec2){250 * 1.5f, 314 * 1.5f};
     game.boss.pos = (Vec2){250 * 1.5f, 257 * 1.5f};

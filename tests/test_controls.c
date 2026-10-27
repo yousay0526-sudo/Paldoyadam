@@ -3,6 +3,7 @@
 #define main paldo_app_main
 #include "../src/main.c"
 #undef main
+#include "test_legacy_world.h"
 
 static int checks;
 #define CHECK(c) do { checks++; if (!(c)) { \
@@ -17,7 +18,7 @@ static void key(App *a, SDL_Keycode code, bool repeat) {
     handle_events(a);
 }
 static void conversation(App *a) {
-    game_reset(&a->game);
+    legacy_reset(&a->game);
     key(a, SDLK_SPACE, false);
     CHECK(a->game.phase == PH_PROLOGUE && a->story_index == 0);
     key(a, SDLK_SPACE, true);
@@ -46,7 +47,7 @@ static void conversation(App *a) {
     CHECK(a->game.phase == PH_PLAY);
 }
 static void pickup(App *a) {
-    game_reset(&a->game);
+    legacy_reset(&a->game);
     game_start(&a->game);
     a->game.quest = Q_RECOVER;
     a->game.hero.pos = NPCS[ELDER].pos;
@@ -76,7 +77,7 @@ static void zoomed_destination(App *a) {
     CHECK(world_zoom(390) == 1 && world_zoom(200) == 1);
     CHECK(fabsf(world_zoom(720) - 1.6f) < .001f && fabsf(world_zoom(1080) - 2.4f) < .001f);
     CHECK(world_zoom(4000) == ZOOM_MAX);
-    game_reset(&a->game); game_start(&a->game);
+    legacy_reset(&a->game); game_start(&a->game);
     a->button_count = 0;
     float zoom = world_zoom(a->height);
     a->camera = world_camera(a->width / zoom, a->height / zoom, HOME);
@@ -109,7 +110,7 @@ static void key_up(App *a, SDL_Keycode code) {
     SDL_PushEvent(&e); handle_events(a);
 }
 static Vec2 attack_fixture(App *a) {
-    game_reset(&a->game); game_start(&a->game); stop_input(a);
+    legacy_reset(&a->game); game_start(&a->game); stop_input(a);
     a->width=844; a->height=390; a->button_count=1;
     a->buttons[0]=(Button){{728,274,88,88},ACT_ATTACK,0,true};
     return (Vec2){772,318};
@@ -198,7 +199,7 @@ static void held_attack_keeps_queued_technique(App *a) {
 }
 /* The rotate notice hides the game: shortcuts must not change it unseen. */
 static void portrait_blocks_shortcuts(App *a) {
-    game_reset(&a->game); stop_input(a);
+    legacy_reset(&a->game); stop_input(a);
     a->width=390; a->height=844;
     key(a,SDLK_SPACE,false); CHECK(a->game.phase==PH_TITLE);
     a->game.phase=PH_PROLOGUE; a->story_index=0;
@@ -419,7 +420,7 @@ static void swipe_cancellation(App *a) {
     }
 }
 static void training_entry_and_inputs(App *app) {
-    game_reset(&app->game); stop_input(app);
+    legacy_reset(&app->game); stop_input(app);
     key(app, SDLK_F8, false);
     CHECK(!app->game.training.active);
     game_start(&app->game);
@@ -538,7 +539,7 @@ static void hitstop_swipe_inputs(App *app) {
 static void eight_direction_movement(App *a) {
     const Vec2 dirs[]={{0,-1},{1,-1},{1,0},{1,1},{0,1},{-1,1},{-1,0},{-1,-1}};
     for(int mode=0;mode<2;mode++) for(int d=0;d<HERO_DIRECTIONS;d++) {
-        game_reset(&a->game);game_start(&a->game);stop_input(a);
+        legacy_reset(&a->game);game_start(&a->game);stop_input(a);
         a->width=844;a->height=390;a->density=1;a->button_count=0;
         float zoom=world_zoom(a->height);
         a->camera=world_camera(a->width/zoom,a->height/zoom,HOME);
@@ -568,7 +569,7 @@ static void eight_direction_movement(App *a) {
 /* The view eases after the hero, snaps on teleports, shakes only on real
  * hits, stays on the map and lands on whole device pixels. */
 static void fixed_step_simulation(App *a) {
-    game_reset(&a->game); game_start(&a->game); stop_input(a);
+    legacy_reset(&a->game); game_start(&a->game); stop_input(a);
     a->sim_accumulator = 0;
     /* Whole 1/60 s steps only; the remainder carries to the next frame. */
     CHECK(advance_simulation(a, .1f) == 6 && a->sim_accumulator < .001f);
@@ -581,7 +582,7 @@ static void fixed_step_simulation(App *a) {
     int taken[3] = {0};
     float rates[3] = {30, 60, 144};
     for (int r = 0; r < 3; r++) {
-        game_reset(&a->game); game_start(&a->game); stop_input(a);
+        legacy_reset(&a->game); game_start(&a->game); stop_input(a);
         a->width = 844; a->height = 390; a->density = 1; a->button_count = 0;
         a->camera = world_camera(a->width / world_zoom(a->height), a->height / world_zoom(a->height), HOME);
         a->sim_accumulator = 0;
@@ -612,7 +613,7 @@ static void fixed_step_simulation(App *a) {
     CHECK(distance(a->game.hero.pos, real.hero) == 0);
 }
 static void camera_follow_and_shake(App *a) {
-    game_reset(&a->game); game_start(&a->game);
+    legacy_reset(&a->game); game_start(&a->game);
     a->view_ready = false; a->trauma = 0; a->shake_clock = 0;
     float zoom = world_zoom(a->height);
     float w = a->width / zoom, h = a->height / zoom, scale = 1.5f * zoom;
@@ -663,6 +664,28 @@ static void camera_follow_and_shake(App *a) {
     }
     a->trauma = 0; a->view_ready = false;
 }
+
+static void map_exit_inputs(App *a) {
+    game_reset(&a->game);game_start(&a->game);
+    a->width=844;a->height=390;a->density=1;a->button_count=0;
+    a->game.hero.pos=MAP_EXITS[0].pos;
+    a->target_set=true;a->route.count=1;a->route.points[0]=HOME;
+    a->attack_pointer_down=true;a->attack_pointer_id=99;
+    a->attack_key_down=true;a->game.queued_move=TECH_SWEEP;a->game.buffer_time=.2f;
+    a->view_ready=true;a->trauma=.7f;
+    key(a,SDLK_SPACE,false);
+    CHECK(a->game.map==MAP_PASS && !a->target_set && !a->attack_pointer_down && !a->attack_key_down);
+    CHECK(!a->view_ready && a->trauma==0 && a->game.queued_move==MOVE_NONE);
+    CHECK(distance(a->sim_previous.hero,a->game.hero.pos)==0);
+    key(a,SDLK_SPACE,true);CHECK(a->game.map==MAP_PASS);
+    a->game.hero.pos=MAP_EXITS[2].pos;a->movement_blocked=false;
+    interact(a);CHECK(a->game.map==MAP_VILLAGE);
+    a->game.hero.pos=MAP_EXITS[1].pos;
+    dispatch(a,ACT_INTERACT,0);CHECK(a->game.map==MAP_CAVE);
+    a->game.hero.pos=MAP_EXITS[3].pos;dispatch(a,ACT_INTERACT,0);CHECK(a->game.map==MAP_VILLAGE);
+    a->game.hero.pos=MAP_EXITS[0].pos;a->game.phase=PH_BAG;interact(a);CHECK(a->game.map==MAP_VILLAGE);
+}
+
 int main(void) {
     SDL_SetMainReady();
     SDL_SetHint(SDL_HINT_VIDEODRIVER,"dummy");
@@ -690,6 +713,7 @@ int main(void) {
     eight_direction_movement(a);
     camera_follow_and_shake(a);
     fixed_step_simulation(a);
+    map_exit_inputs(a);
     SDL_DestroyRenderer(a->renderer);
     SDL_DestroyWindow(a->window);
     free(a);
