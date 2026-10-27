@@ -1,6 +1,6 @@
 # CURRENT_STATE.md — 팔도야담 개발 상태
 
-최종 갱신: 2026-10-27
+최종 갱신: 2026-10-28
 
 ## 기준
 - GitHub 저장소: `yousay0526-sudo/Paldoyadam`
@@ -8,7 +8,14 @@
 - 정본: `src/*.c`, `src/*.h`; 주요 문서: `README.md`, `docs/CONTROLS.md`, `docs/VALIDATION.md`, `docs/WEB.md`
 
 
-## 2026-10-27 · 승인 배경 3종 적용 및 마을·사냥터 왕복 · PR 검토 대기
+## 2026-10-28 · PR #46 병합·자동 배포 승인
+- 사용자가 PR #46의 main 병합과 자동 Pages 배포를 명시적으로 승인했다.
+- 승인된 구현 커밋: `9412b7d975e35833fd3362d16a54f63086c9d089`. Windows CTest 12/12와 원격 네이티브·웹/단일 HTML 빌드 성공을 확인했다.
+- 이번 승인 처리에서는 게임 코드·에셋·버전·배포 워크플로를 변경하지 않는다. 후속 일반 적 재등장/퀘스트 보상 분리는 별도 작업으로 남긴다.
+- 병합·배포의 실제 SHA와 실행 결과는 [PR #46](https://github.com/yousay0526-sudo/Paldoyadam/pull/46) 및 [main 배포 기록](https://github.com/yousay0526-sudo/Paldoyadam/actions/workflows/web.yml?query=branch%3Amain)을 정본으로 확인한다. 성공 판정은 Pages 게시 단계 완료와 실제 서비스 응답을 함께 확인한다.
+- 실제 iPhone/Android 조작·장시간 성능과 세밀한 가림 체감은 기존 미검증 항목으로 유지한다.
+
+## 2026-10-27 · 승인 배경 3종 적용 및 마을·사냥터 왕복 · 구현·검증 완료
 - 사용자 원화 승인 및 적용/다음 단계 요청에 따라 PR #46의 원화 기록을 실제 게임 연결로 확장했다. 기준 main `04cb6c5`; 격리된 로컬 브랜치 `feat/village-hunting-maps-20261027`, PR 브랜치 `art/village-hunting-backgrounds-20261027`. 다른 작업 트리와 기존 에셋을 보존했다.
 - `assets/maps/`에 승인된 마을·솔바람재·탐식굴 PNG를 바이트 그대로 설치했다. 각 1536×1024 RGB. 출처/해시와 수동 지형 경계는 `art/maps/`에 기록했다.
 - `src/game.*`, `world.*`, `maps.c`, `draw.*`, `main.c`: 맵 ID·맵별 배경/충돌/가림·NPC/적/드롭 소속·양방향 출구·맵별 길찾기 캐시를 연결했다. 마을 북문↔솔바람재, 마을 동쪽 길↔탐식굴. 기존 버튼/Space로 전환하며 전투·대화·메뉴·수련 중 전환을 제한한다.
