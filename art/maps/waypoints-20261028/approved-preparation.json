@@ -1,0 +1,38 @@
+{
+  "source": "approved-material-atlas.png",
+  "source_size": [
+    1774,
+    887
+  ],
+  "boards": {
+    "size": [
+      1152,
+      100
+    ],
+    "cell_size": [
+      384,
+      100
+    ],
+    "names": [
+      "솔바람재",
+      "탐식굴",
+      "마을"
+    ]
+  },
+  "stone": {
+    "size": [
+      256,
+      178
+    ],
+    "name": "마을",
+    "arrow": false,
+    "painted_fill": false
+  },
+  "source_bounds": [
+    "0:97,159,739,198",
+    "1:975,159,734,197",
+    "2:98,526,745,205",
+    "3:966,397,726,414"
+  ],
+  "method": "alpha > 8 bounds, 2px source padding, aspect-preserving bicubic fit, transparent gutters; stone aligned to lower foot point"
+}

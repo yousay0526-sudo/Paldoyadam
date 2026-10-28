@@ -135,6 +135,24 @@ bool gfx_load(Gfx *g, SDL_Renderer *renderer, const char *root) {
         }
         SDL_SetTextureScaleMode(g->locations[i].texture,SDL_ScaleModeNearest);
     }
+    asset_path(path,sizeof path,root,"maps/waypost.png");
+    g->waypost=load_picture(g,path);
+    if(!g->waypost.texture || g->waypost.w!=256 || g->waypost.h!=256) {
+        SDL_Log("Invalid waypost asset %s",path);gfx_free(g);return false;
+    }
+    SDL_SetTextureScaleMode(g->waypost.texture,SDL_ScaleModeLinear);
+    asset_path(path,sizeof path,root,"maps/waypost-boards.png");
+    g->waypost_boards=load_picture(g,path);
+    if(!g->waypost_boards.texture || g->waypost_boards.w!=1152 || g->waypost_boards.h!=100) {
+        SDL_Log("Invalid waypost board atlas %s",path);gfx_free(g);return false;
+    }
+    SDL_SetTextureScaleMode(g->waypost_boards.texture,SDL_ScaleModeLinear);
+    asset_path(path,sizeof path,root,"maps/cave-waystone.png");
+    g->cave_waystone=load_picture(g,path);
+    if(!g->cave_waystone.texture || g->cave_waystone.w!=256 || g->cave_waystone.h!=178) {
+        SDL_Log("Invalid cave waystone asset %s",path);gfx_free(g);return false;
+    }
+    SDL_SetTextureScaleMode(g->cave_waystone.texture,SDL_ScaleModeLinear);
     g->active_map=&g->map;
     if (g->hero_walk.w % HERO_WALK_COLUMNS ||
         g->hero_walk.h % (HERO_WALK_FRAMES / HERO_WALK_COLUMNS) ||
@@ -205,6 +223,12 @@ bool gfx_load(Gfx *g, SDL_Renderer *renderer, const char *root) {
     return true;
 }
 void gfx_free(Gfx *g) {
+    if(g->waypost_boards.texture) SDL_DestroyTexture(g->waypost_boards.texture);
+    g->waypost_boards=(Picture){0};
+    if(g->cave_waystone.texture) SDL_DestroyTexture(g->cave_waystone.texture);
+    g->cave_waystone=(Picture){0};
+    if(g->waypost.texture) SDL_DestroyTexture(g->waypost.texture);
+    g->waypost=(Picture){0};
     for (int i = 0; i < MONSTER_ATLAS_COUNT; i++) {
         if (g->monster_atlases[i].texture)
             SDL_DestroyTexture(g->monster_atlases[i].texture);
@@ -946,6 +970,36 @@ static void telegraph(Gfx *f, Vec2 p, float range, float angle, float half, floa
                     (Vec2){p.x + cosf(a1) * range, p.y + sinf(a1) * range}, rim);
     }
 }
+/* Roadside props point into the open lane; the interaction center stays unchanged. */
+static Vec2 waypost_pos(int index) {
+    static const Vec2 offsets[4]={{-74,80},{-105,10.5f},{-62,20},{-95,14}};
+    return (Vec2){MAP_EXITS[index].pos.x+offsets[index].x,
+                  MAP_EXITS[index].pos.y+offsets[index].y};
+}
+static void waypost(Gfx *f,int index,Vec2 camera) {
+    Vec2 p=screen_pos(waypost_pos(index),camera);
+    if(index==3) {
+        SDL_FRect rock={p.x-69,p.y-92,138,96};
+        SDL_RenderCopyF(f->renderer,f->cave_waystone.texture,NULL,&rock);
+        return;
+    }
+    /* Approved names are painted into each wooden board, never overlaid as UI text. */
+    SDL_Rect board={index*384,0,384,100};
+    SDL_FRect plate;
+    if(index==1) {
+        /* Mount just the board on the village's existing eastern lamp post. */
+        plate=(SDL_FRect){p.x-15,p.y-123,146,38};
+    } else {
+        SDL_FRect r={p.x-62.3f,p.y-144.3f,152,152};
+        SDL_Rect top={0,0,256,50},bottom={0,102,256,154};
+        SDL_FRect upper={r.x,r.y,r.w,r.h*50/256};
+        SDL_FRect lower={r.x,r.y+r.h*102/256,r.w,r.h*154/256};
+        SDL_RenderCopyF(f->renderer,f->waypost.texture,&top,&upper);
+        SDL_RenderCopyF(f->renderer,f->waypost.texture,&bottom,&lower);
+        plate=(SDL_FRect){r.x+41.5f,r.y+28,146,38};
+    }
+    SDL_RenderCopyF(f->renderer,f->waypost_boards.texture,&board,&plate);
+}
 void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool has_target,
                Vec2 target) {
     world_select(g->map);
@@ -984,16 +1038,11 @@ void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool has_ta
             } else
                 label(f, "약재", (Vec2){p.x, item.y - 24}, GOLD);
         }
-    for(int i=0;i<4;i++) if(MAP_EXITS[i].from==g->map && !g->training.active) {
-        Vec2 p=screen_pos(MAP_EXITS[i].pos,camera);
-        gfx_circle(f,p,22,(SDL_Color){218,190,120,160});
-        label(f,game_map_name(MAP_EXITS[i].to),(Vec2){p.x,p.y-30},GOLD);
-    }
     typedef struct {
         int kind, index;
         float y;
     } Actor;
-    Actor actors[10];
+    Actor actors[12];
     int count = 0, npcs = g->training.active || (g->map!=MAP_VILLAGE && g->map!=MAP_TRAINING) ? 0 : g->quest == Q_MESSENGER ? 5 : 4;
     for (int i = 0; i < npcs; i++)
         actors[count++] = (Actor){0, i, NPCS[i].pos.y};
@@ -1013,6 +1062,9 @@ void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool has_ta
                       BOSS_STRIKE_HALF, g->boss.timer / BOSS_WINDUP_SECONDS,
                       (SDL_Color){205, 55, 41, 110}, (SDL_Color){255, 176, 129, 255});
     }
+    for(int i=0;i<4;i++)
+        if(MAP_EXITS[i].from==g->map && !g->training.active)
+            actors[count++] = (Actor){4,i,waypost_pos(i).y};
     actors[count++] = (Actor){3, 0, g->hero.pos.y};
     for (int i = 1; i < count; i++) {
         Actor a = actors[i];
@@ -1036,6 +1088,7 @@ void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool has_ta
     }
     for (int a = 0; a < count; a++) {
         int i = actors[a].index;
+        if(actors[a].kind==4) { waypost(f,i,camera);continue; }
         Vec2 p;
         if (actors[a].kind == 0) {
             p = screen_pos(NPCS[i].pos, camera);
