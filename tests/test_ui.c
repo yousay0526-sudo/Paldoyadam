@@ -124,6 +124,38 @@ static void panel_controls_fit(App *a) {
         a->touch_input=false;
     }
 }
+/* Pause, fullscreen and bag are 44px icon buttons in one top row; the coin
+ * amount sits left of the bag and never reaches the location card. */
+static void top_hud_icons_fit(App *app) {
+    const Vec2 sizes[] = {{432,270},{480,306},{568,320},{844,390},{1100,650},{1920,1080}};
+    const int amounts[] = {0, 55, 999, 9999, 999999};
+    legacy_reset(&app->game); game_start(&app->game);
+    for (int view = 0; view < 6; view++) {
+        app->width = sizes[view].x; app->height = sizes[view].y;
+        for (int amount = 0; amount < 5; amount++) {
+            app->game.coins = amounts[amount];
+            app->button_count = 0; draw_hud(app);
+            SDL_FRect bag = {0}, pause = {0}, screen = {0};
+            for (int i = 0; i < app->button_count; i++) {
+                Button control = app->buttons[i];
+                if (control.action == ACT_BAG) bag = control.rect;
+                if (control.action == ACT_PAUSE) pause = control.rect;
+                if (control.action == ACT_FULLSCREEN) screen = control.rect;
+            }
+            CHECK(bag.w == 44 && bag.h == 44 && pause.w == 44 && screen.w == 44);
+            CHECK(bag.y == pause.y && screen.y == pause.y);
+            CHECK(bag.x + bag.w <= screen.x && screen.x + screen.w <= pause.x);
+            CHECK(pause.x + pause.w <= app->width);
+            char text[32]; float size;
+            snprintf(text, sizeof text, "%d", amounts[amount]);
+            SDL_FRect chip = coin_chip_rect(&app->gfx, bag.x - 2, text, &size);
+            CHECK(chip.x + chip.w <= bag.x && chip.y >= bag.y && chip.y + chip.h <= bag.y + bag.h);
+            CHECK(size >= 11 && size <= 15);
+            if (amounts[amount] <= 9999) CHECK(chip.x >= COIN_CHIP_LEFT);
+            if (amounts[amount] <= 999) CHECK(size == 15);
+        }
+    }
+}
 static void training_controls_fit(App *app) {
     const Vec2 sizes[] = {{432,270},{480,306},{568,320},{844,390},{1100,650}};
     Game saved;
@@ -201,6 +233,7 @@ int main(int argc,char **argv) {
     all_narratives(a);
     panel_controls_fit(a);
     training_controls_fit(a);
+    top_hud_icons_fit(a);
     text_stays_inside(a,surface);
     gfx_free(&a->gfx);
     SDL_DestroyRenderer(a->renderer);
