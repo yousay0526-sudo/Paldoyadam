@@ -1638,6 +1638,13 @@ static void smoke_scene(App *a, const char *scene) {
     } else if (!strcmp(scene, "journal")) {
         a->game.phase = PH_JOURNAL;
         a->game.quest = Q_RECOVER;
+    } else if (!strncmp(scene, "exit", 4) && scene[4] >= '0' && scene[4] <= '3' && !scene[5]) {
+        int i=scene[4]-'0';
+        a->game.map=MAP_EXITS[i].from;
+        a->game.hero.pos=MAP_EXITS[i].pos;
+        a->game.hero.pos.x-=15;
+        a->game.hero.pos.y+=30;
+        a->touch_input=true;
     } else if (!strcmp(scene, "solbaramjae")) {
         a->game.map=MAP_PASS;a->game.hero.pos=(Vec2){768*1.5f,530*1.5f};
         a->game.quest=Q_RECOVER;a->game.traces[0]=a->game.traces[1]=true;

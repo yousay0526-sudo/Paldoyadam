@@ -1,0 +1,5 @@
+[1/3] Building C object CMakeFiles/paldo-yadam.dir/src/main.c.obj
+[2/3] Building C object CMakeFiles/paldo-yadam.dir/src/draw.c.obj
+[3/3] Linking C executable paldo-yadam.exe
+
+Separate local in-game execution, smoke captures and CTest omitted at user request. Existing automatic CI remains enabled.

@@ -1,0 +1,44 @@
+{
+  "date": "2026-10-28",
+  "village_edit": {
+    "reference": "assets/maps/village.png at 535a13e",
+    "generated_blob": "c7d54139b906e0fe41dbb17160fbdc5e7bbb2f3c",
+    "prompt": "Edit the shown 1536x1024 Korean Joseon period RPG village background. Preserve the exact camera, pixel art painting style, all buildings, rocks, trees, foliage, roofs and composition. Make ONLY a tightly localized correction to the eastern/right edge road exit, approximately original pixel rectangle x1340..1535 y545..710: the low wooden fence/closed gate across the sandy road must be removed so the road is unambiguously OPEN and traversable from the village square to the right edge. The dirt road should be continuous, at least 95 pixels wide, along y600..680, with matching sandy stones/ruts. Keep the small lantern post at the left/south shoulder if it does not obstruct the road. Move any surviving gate leaves onto the side shoulders, never across the lane. Keep the stone wall and vegetation at the road sides. No people, text, portals, rings, UI, magic, extra props or any change elsewhere. Output the entire original map at exactly the same dimensions and alignment."
+  },
+  "waypost": {
+    "transparent_background": true,
+    "generated_blob": "c7a8e0cb381b0fff14c0fac44eaa1de98b0b664a",
+    "prompt": "Create one production game sprite: a humble wooden roadside wayfinding signpost for a Joseon Korea historical fantasy overhead RPG. Transparent background. One single isolated object, front view seen from elevated 3/4 overhead camera about 45 degrees. Weathered dark oak timber post planted in a few small gray stones, one wide horizontal arrow shaped wooden board pointing RIGHT, blank light warm tan wood face (absolutely no writing, symbols, letters or engraving). Board face is broad, uncluttered, nearly horizontal and flat enough to overlay 4 Korean characters in game. A tiny traditional warm amber paper lantern hangs from a short peg below and to the left of the arrow board using rope, and there is a small straw rope binding around the post. No roof, no gate, no magic, no portal, no circles, no people, no ground tile, no scenery. Rich hand painted crisp pixel-art texture, dark ink-like outlines, teal-gray stone shadows and warm sunset amber light, detailed wood grain matching a lush 16-bit Joseon village. Full object well inside square canvas with generous transparent margins. Silhouette roughly 70% canvas width and 80% height. Signboard at 25%-45% vertical, post to 85% vertical. Foot point center horizontally. Modest ordinary rural signpost, no modern signage.",
+    "actual_width": 1254,
+    "actual_height": 1254
+  },
+  "cave_waystone": {
+    "transparent_background": true,
+    "generated_blob": "a2c0f90cca68c8871155ce7fee9d92df13ad8bab",
+    "actual_width": 1254,
+    "actual_height": 1254,
+    "prompt": "Create ONE isolated game environment prop on transparent background for a top-down 3/4 view Korean Joseon historical RPG cave. A natural cave route marker made entirely of rough dark slate and granite: a LOW, WIDE irregular flat-faced boulder leaning slightly upright, supported by a compact cairn of 4 small broken rocks. Not a tombstone, not a monument, not a carved decorative sign. No wood, no rope, no lantern, no frame, no plants, no moss, no writing, no symbols. Its main front stone face should be broad, roughly horizontal, plain dark blue-gray, about 65% of the object width and enough flat empty surface to overlay two large Korean characters in game. Uneven chipped edges, broad angular facets, dust in cracks, small warm amber highlights from a cave lamp coming from upper left. Style must look like a prop already in a lush high-detail Joseon cave RPG map: hand-painted pixel illustration, earthy muted desaturated blue-charcoal granite, dark ink-like crevice shadows, crisp fine pixel texture and simple broad readable rock forms. Avoid photographic 3D render or smooth gradient, avoid huge glossy contrast. Camera looks down at 45 degrees, shows top plane and front face. Whole silhouette low and broad, about 1.65 times as wide as high, natural stones embedded in cave floor. Generous fully transparent margins, no scenery, ground tile, shadow rectangle, UI or border. Canvas square, object centered with its base at about 82% of image height."
+  },
+  "approved_material": {
+    "user_approval": "ㅇㅇ 좋다 이정표의 경우 다른 이정표들도 동일하게 적용해서 게임에 넣어보자",
+    "scope": "Apply approved texture lettering to every waypoint; prior approval requested direct application without extra confirmation; separate in-game tests explicitly waived",
+    "approved_review": {
+      "path": "art/maps/waypoints-20261028/approved-material-review.png",
+      "width": 1785,
+      "height": 881,
+      "bytes": 1976365,
+      "sha256": "f15dcc77a158cd11566462aeec291fdaf798964af2125d8f7d44e62ce9d56585",
+      "git_blob": "01afe1817b172e35e9c281854cc907e31159b2fd"
+    },
+    "asset_atlas": {
+      "path": "art/maps/waypoints-20261028/approved-material-atlas.png",
+      "width": 1774,
+      "height": 887,
+      "bytes": 1253877,
+      "sha256": "347b4daee3ce97ed8f04144a4115bd07026b39e1d228d2581ee5953c80da9c8a",
+      "git_blob": "2a10dc70bd2f3f58a8470a8219f5f5b388512aa5"
+    },
+    "preparation": "scripts/prepare_approved_waypoints.ps1",
+    "prompt": "Prepare four isolated transparent sprites from the approved two-panel review: identical warm wooden right-arrow boards reading exactly 솔바람재, 탐식굴, 마을 with thick handmade soot ink absorbed into the grain and comfortable interior padding; a low cave-compatible coarse blue-gray granite marker reading 마을 in irregular chipped hand-chiseled cuts, same unpainted stone material, dark depth shading only, no arrow or pigment. Match the approved reference, use broad facets and sparse cracks, no glossy slate veins, no post/lantern/background/UI. Two-column two-row source atlas with transparent margins; crop and proportionally fit into runtime cells."
+  }
+}
