@@ -124,6 +124,120 @@ static void panel_controls_fit(App *a) {
         a->touch_input=false;
     }
 }
+/* Pause, fullscreen and bag are 44px icon buttons in one top row; the coin
+ * amount sits left of the bag and never reaches the location card. */
+static void top_hud_icons_fit(App *app) {
+    const Vec2 sizes[] = {{432,270},{480,306},{568,320},{844,390},{1100,650},{1920,1080}};
+    const int amounts[] = {0, 55, 999, 9999, 999999};
+    legacy_reset(&app->game); game_start(&app->game);
+    for (int view = 0; view < 6; view++) {
+        app->width = sizes[view].x; app->height = sizes[view].y;
+        for (int amount = 0; amount < 5; amount++) {
+            app->game.coins = amounts[amount];
+            app->button_count = 0; draw_hud(app);
+            SDL_FRect bag = {0}, pause = {0}, screen = {0};
+            for (int i = 0; i < app->button_count; i++) {
+                Button control = app->buttons[i];
+                if (control.action == ACT_BAG) bag = control.rect;
+                if (control.action == ACT_PAUSE) pause = control.rect;
+                if (control.action == ACT_FULLSCREEN) screen = control.rect;
+            }
+            CHECK(bag.w == 44 && bag.h == 44 && pause.w == 44 && screen.w == 44);
+            CHECK(bag.y == pause.y && screen.y == pause.y);
+            CHECK(bag.x + bag.w <= screen.x && screen.x + screen.w <= pause.x);
+            CHECK(pause.x + pause.w <= app->width);
+            char text[32]; float size;
+            snprintf(text, sizeof text, "%d", amounts[amount]);
+            SDL_FRect chip = coin_chip_rect(&app->gfx, bag.x - 2, text, &size);
+            CHECK(chip.x + chip.w <= bag.x && chip.y >= bag.y && chip.y + chip.h <= bag.y + bag.h);
+            CHECK(size >= 11 && size <= 15);
+            if (amounts[amount] <= 9999) CHECK(chip.x >= COIN_CHIP_LEFT);
+            if (amounts[amount] <= 999) CHECK(size == 15);
+        }
+    }
+}
+/* Bag/tonic/bandage art is optional: absent files leave the slot empty;
+ * a supplied picture is drawn inside its own button only. */
+static void hud_art_slots(App *app, SDL_Surface *surface) {
+    for (int i = 0; i < UI_ICON_COUNT; i++)
+        CHECK(app->gfx.ui_icons[i].texture == NULL || app->gfx.ui_icons[i].w > 0);
+    Picture saved[UI_ICON_COUNT];
+    memcpy(saved, app->gfx.ui_icons, sizeof saved);
+    SDL_Texture *art = SDL_CreateTexture(app->renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_TARGET, 64, 64);
+    CHECK(art != NULL);
+    SDL_SetRenderTarget(app->renderer, art);
+    SDL_SetRenderDrawColor(app->renderer, 255, 0, 255, 255); SDL_RenderClear(app->renderer);
+    SDL_SetRenderTarget(app->renderer, NULL);
+    legacy_reset(&app->game); game_start(&app->game);
+    app->width = 480; app->height = 306; app->touch_input = false;
+    for (int slot = 0; slot < UI_ICON_COUNT; slot++) {
+        for (int i = 0; i < UI_ICON_COUNT; i++) app->gfx.ui_icons[i] = (Picture){0};
+        app->gfx.ui_icons[slot] = (Picture){art, 64, 64};
+        SDL_SetRenderDrawColor(app->renderer, 0, 0, 0, 255); SDL_RenderClear(app->renderer);
+        app->button_count = 0; draw_hud(app);
+        SDL_RenderPresent(app->renderer);
+        Action want = slot == UI_ICON_BAG ? ACT_BAG : ACT_USE;
+        int value = slot == UI_ICON_TONIC ? ITEM_TONIC : slot == UI_ICON_BANDAGE ? ITEM_BANDAGE : 0;
+        SDL_FRect home = {0};
+        for (int i = 0; i < app->button_count; i++)
+            if (app->buttons[i].action == want && app->buttons[i].value == value) home = app->buttons[i].rect;
+        CHECK(home.w > 0);
+        int inside = 0, outside = 0;
+        SDL_LockSurface(surface);
+        for (int y = 0; y < surface->h; y++)
+            for (int x = 0; x < surface->w; x++) {
+                Uint8 r, g, b, a2;
+                SDL_GetRGBA(((Uint32 *)((Uint8 *)surface->pixels + y * surface->pitch))[x], surface->format, &r, &g, &b, &a2);
+                if (!(r > 120 && g < 90 && b > 120 && r - g > 80)) continue;
+                if (x >= home.x && x < home.x + home.w && y >= home.y && y < home.y + home.h) inside++;
+                else outside++;
+            }
+        SDL_UnlockSurface(surface);
+        CHECK(inside > 200 && outside == 0);
+    }
+    SDL_DestroyTexture(art);
+    memcpy(app->gfx.ui_icons, saved, sizeof saved);
+}
+static bool overlaps(SDL_FRect a, SDL_FRect b) {
+    return !(a.x >= b.x + b.w || b.x >= a.x + a.w || a.y >= b.y + b.h || b.y >= a.y + a.h);
+}
+/* The minimap shows on landscape screens 360+ tall, stays clear of every
+ * HUD control, moves the boss bar to the top center and swallows taps. */
+static void minimap_fits(App *app) {
+    const Vec2 sizes[] = {{432,270},{568,320},{667,375},{844,390},{1100,650},{1280,720},{1920,1080}};
+    for (int view = 0; view < 7; view++) {
+        app->width = sizes[view].x; app->height = sizes[view].y;
+        for (int touch = 0; touch < 2; touch++)
+            for (int fight = 0; fight < 2; fight++) {
+                legacy_reset(&app->game); game_start(&app->game);
+                if (fight) { app->game.quest = Q_COMBAT; app->game.map = MAP_CAVE; }
+                app->touch_input = touch != 0;
+                app->game.hero.pos = NPCS[ELDER].pos;
+                app->button_count = 0; draw_hud(app);
+                SDL_FRect m = app->minimap;
+                if (app->height < MINIMAP_MIN_HEIGHT) { CHECK(m.w == 0); continue; }
+                CHECK(m.w > 0 && fabsf(m.w / m.h - 1.5f) < .02f);
+                CHECK(m.x >= 0 && m.x + m.w <= app->width && m.y + m.h <= app->height);
+                for (int i = 0; i < app->button_count; i++) CHECK(!overlaps(m, app->buttons[i].rect));
+                float w = app->width, bw = fminf(230, w * .32f);
+                SDL_FRect boss = {(w - bw) / 2, 8, bw, 42};
+                CHECK(!overlaps(boss, (SDL_FRect){12, 8, 190, 44}) && !overlaps(boss, m));
+                for (int i = 0; i < app->button_count; i++) CHECK(!overlaps(boss, app->buttons[i].rect));
+                char text[32]; float size;
+                snprintf(text, sizeof text, "%d", app->game.coins);
+                CHECK(!overlaps(boss, coin_chip_rect(&app->gfx, w - 150, text, &size)));
+                app->pointer_down = false; app->target_set = false;
+                pointer_down(app, 3, (Vec2){m.x + m.w / 2, m.y + m.h / 2});
+                CHECK(!app->pointer_down && !app->attack_pointer_down);
+            }
+    }
+    Game saved;
+    legacy_reset(&app->game); game_start(&app->game);
+    CHECK(game_enter_training(&app->game, &saved));
+    app->width = 844; app->height = 390; app->button_count = 0; draw_hud(app);
+    CHECK(app->minimap.w == 0);
+    app->touch_input = false;
+}
 static void training_controls_fit(App *app) {
     const Vec2 sizes[] = {{432,270},{480,306},{568,320},{844,390},{1100,650}};
     Game saved;
@@ -201,6 +315,9 @@ int main(int argc,char **argv) {
     all_narratives(a);
     panel_controls_fit(a);
     training_controls_fit(a);
+    top_hud_icons_fit(a);
+    hud_art_slots(a,surface);
+    minimap_fits(a);
     text_stays_inside(a,surface);
     gfx_free(&a->gfx);
     SDL_DestroyRenderer(a->renderer);

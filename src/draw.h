@@ -31,6 +31,10 @@ typedef struct {
     SDL_Texture *texture;
     int w, h;
 } Picture;
+/* Optional HUD icon pictures (assets/ui/). A missing file leaves its slot
+ * empty: the button still works and shows its count, only the art is blank. */
+typedef enum { UI_ICON_BAG, UI_ICON_TONIC, UI_ICON_BANDAGE, UI_ICON_COUNT } UiIcon;
+extern const char *const UI_ICON_FILES[UI_ICON_COUNT];
 typedef struct {
     int codepoint, w, h, xoff, yoff;
     float advance;
@@ -51,6 +55,7 @@ typedef struct {
     Picture hero_techniques[TECH_COUNT];
     Picture hero_idle_directions, hero_walk_directions[HERO_DIRECTIONS];
     Picture monster_atlases[MONSTER_ATLAS_COUNT];
+    Picture ui_icons[UI_ICON_COUNT];
     Typeface fonts[2];
     int face;
     char root[1024];
@@ -88,6 +93,9 @@ void gfx_story_release(Gfx *gfx);
 void gfx_collision(Gfx *gfx, Vec2 camera);
 void gfx_world(Gfx *gfx, const Game *game, float width, float height, Vec2 camera,
                bool target_set, Vec2 target);
+/* Shrunken painting of the current map with the hero, people, enemies,
+ * exits, the current goal and the visible world rectangle `view`. */
+void gfx_minimap(Gfx *gfx, const Game *game, SDL_FRect box, SDL_FRect view);
 Vec2 world_camera(float width, float height, Vec2 focus);
 float world_zoom(float screen_height);
 Vec2 world_from_screen(Vec2 screen, Vec2 camera, float zoom);

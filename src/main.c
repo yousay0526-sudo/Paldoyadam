@@ -66,6 +66,8 @@ typedef struct {
     SDL_Renderer *renderer;
     float width, height, density;
     Vec2 camera;
+    /* Minimap area of the last HUD frame (w 0 when hidden); taps there do not walk. */
+    SDL_FRect minimap;
     Button buttons[BUTTON_MAX];
     int button_count;
     Line dialogue[5];
@@ -475,6 +477,96 @@ static SDL_FRect panel(App *a, const char *kicker, const char *title, float desi
 static void hud_card(Gfx *f, SDL_FRect r, Uint8 alpha) {
     gfx_round(f, r, 11, (SDL_Color){12, 28, 31, alpha});
 }
+/* Top HUD symbols, drawn from primitives so they stay crisp at any scale.
+ * Each fits a square of side `size` centered on `c`. */
+typedef enum {
+    ICON_COIN, ICON_BAG, ICON_FULLSCREEN, ICON_PAUSE, ICON_HEART, ICON_TONIC, ICON_BANDAGE, ICON_TECHNIQUE
+} HudIcon;
+static void hud_icon(Gfx *f, HudIcon icon, Vec2 c, float size, SDL_Color ink) {
+    float s = size / 2;
+    if (icon == ICON_BAG || icon == ICON_TONIC || icon == ICON_BANDAGE) {
+        /* Painted art from assets/ui/ (docs/HUD_ICON_ART_BRIEF.md); empty
+         * until it is added. Dimmed ink dims the picture the same way. */
+        Picture *art = &f->ui_icons[icon == ICON_BAG ? UI_ICON_BAG
+                                    : icon == ICON_TONIC ? UI_ICON_TONIC : UI_ICON_BANDAGE];
+        if (!art->texture || art->w <= 0 || art->h <= 0)
+            return;
+        float scale = size * 1.2f / (float)(art->w > art->h ? art->w : art->h);
+        SDL_FRect box = {c.x - art->w * scale / 2, c.y - art->h * scale / 2, art->w * scale, art->h * scale};
+        bool dim = ink.r != PAPER.r || ink.g != PAPER.g || ink.b != PAPER.b;
+        SDL_SetTextureColorMod(art->texture, dim ? 150 : 255, dim ? 150 : 255, dim ? 150 : 255);
+        SDL_SetTextureAlphaMod(art->texture, dim ? 170 : 255);
+        SDL_RenderCopyF(f->renderer, art->texture, NULL, &box);
+        SDL_SetTextureColorMod(art->texture, 255, 255, 255);
+        SDL_SetTextureAlphaMod(art->texture, 255);
+    } else if (icon == ICON_COIN) {
+        /* Yeopjeon: a brass disc with a square hole. */
+        gfx_disc(f, c, s, GOLD, (SDL_Color){137, 101, 52, 255});
+        gfx_circle(f, c, s * .72f, (SDL_Color){168, 128, 70, 255});
+        float hole = s * .62f;
+        gfx_rect(f, (SDL_FRect){c.x - hole / 2, c.y - hole / 2, hole, hole}, (SDL_Color){12, 28, 31, 255});
+    } else if (icon == ICON_FULLSCREEN) {
+        float t = fmaxf(2, size * .11f), arm = s * .55f, e = s * .85f;
+        for (int corner = 0; corner < 4; corner++) {
+            float sx = corner & 1 ? 1.0f : -1.0f, sy = corner & 2 ? 1.0f : -1.0f;
+            float x = c.x + sx * e, y = c.y + sy * e;
+            gfx_rect(f, (SDL_FRect){sx < 0 ? x : x - arm, sy < 0 ? y : y - t, arm, t}, ink);
+            gfx_rect(f, (SDL_FRect){sx < 0 ? x : x - t, sy < 0 ? y : y - arm, t, arm}, ink);
+        }
+    } else if (icon == ICON_PAUSE) {
+        float bar = fmaxf(3, size * .2f);
+        gfx_round(f, (SDL_FRect){c.x - s * .55f, c.y - s * .75f, bar, s * 1.5f}, 1, ink);
+        gfx_round(f, (SDL_FRect){c.x + s * .55f - bar, c.y - s * .75f, bar, s * 1.5f}, 1, ink);
+    } else if (icon == ICON_TECHNIQUE) {
+        /* Mugong: two crossed blades with short guards. */
+        for (int side = -1; side <= 1; side += 2) {
+            Vec2 hilt = {c.x + side * s * .8f, c.y + s * .8f};
+            float angle = -PI / 2 - side * PI / 4;
+            Vec2 dir = {cosf(angle), sinf(angle)};
+            gfx_sector(f, hilt, s * 1.95f, angle, .13f, ink);
+            Vec2 guard = {hilt.x + dir.x * s * .45f, hilt.y + dir.y * s * .45f};
+            gfx_round(f, (SDL_FRect){guard.x - s * .2f, guard.y - s * .2f, s * .4f, s * .4f}, s * .2f, GOLD);
+        }
+    } else {
+        /* Two lobes and a downward wedge. */
+        float lobe = s * .5f;
+        gfx_disc(f, (Vec2){c.x - lobe * .9f, c.y - s * .3f}, lobe, ink, ink);
+        gfx_disc(f, (Vec2){c.x + lobe * .9f, c.y - s * .3f}, lobe, ink, ink);
+        gfx_sector(f, (Vec2){c.x, c.y + s * .95f}, s * 1.28f, -PI / 2, PI / 4.6f, ink);
+    }
+}
+static void icon_button(App *a, SDL_FRect r, HudIcon icon, Action action) {
+    button(a, r, "", action, 0, true, false);
+    hud_icon(&a->gfx, icon, (Vec2){r.x + r.w / 2, r.y + r.h / 2}, 20, PAPER);
+}
+/* An icon with its count (or key hint) for the quick item column. */
+static void icon_count_button(App *a, SDL_FRect r, HudIcon icon, const char *label, Action action,
+                              int value, bool enabled) {
+    button(a, r, "", action, value, enabled, false);
+    SDL_Color ink = enabled ? PAPER : (SDL_Color){153, 166, 151, 255};
+    float left = r.x + (r.w - 26 - gfx_measure(&a->gfx, label, 15)) / 2;
+    hud_icon(&a->gfx, icon, (Vec2){left + 10, r.y + r.h / 2}, 20, ink);
+    gfx_text(&a->gfx, label, left + 26, r.y + r.h / 2 - 7.5f, 15, 0, ink);
+}
+/* Money stays visible next to the bag: a coin and the amount. Large sums
+ * shrink the digits instead of growing into the location card at left. */
+#define COIN_CHIP_LEFT 210.0f
+static SDL_FRect coin_chip_rect(Gfx *f, float right, const char *text, float *size) {
+    *size = 15;
+    while (*size > 11 && right - gfx_measure(f, text, *size) - 42 < COIN_CHIP_LEFT)
+        *size -= .5f;
+    float width = gfx_measure(f, text, *size) + 42;
+    return (SDL_FRect){right - width, 9, width, 34};
+}
+static void coin_chip(App *a, float right, int coins) {
+    char text[32];
+    float size;
+    snprintf(text, sizeof text, "%d", coins);
+    SDL_FRect r = coin_chip_rect(&a->gfx, right, text, &size);
+    surface(&a->gfx, r, 12, (SDL_Color){21, 39, 40, 235});
+    hud_icon(&a->gfx, ICON_COIN, (Vec2){r.x + 18, r.y + r.h / 2}, 18, PAPER);
+    gfx_text(&a->gfx, text, r.x + 32, r.y + r.h / 2 - size * .5f, size, 0, PAPER);
+}
 static const char *move_name(int move) {
     return move == MOVE_ATTACK ? "기본 공격"
         : move >= 0 && move < TECH_COUNT ? TECHNIQUES[move].name : "없음";
@@ -555,30 +647,44 @@ static void health_bar(Gfx *f, SDL_FRect r, int hp, float ghost, int max_hp, flo
     if (lost.w > left.w) gfx_round(f, lost, radius, (SDL_Color){238, 214, 160, 255});
     if (left.w > 0) gfx_round(f, left, radius, RED);
 }
+/* Below the top-right icon row on landscape screens tall enough to keep it
+ * clear of the attack hint; 3:2 like the maps, growing with the screen. */
+#define MINIMAP_MIN_HEIGHT 360.0f
+static SDL_FRect minimap_rect(float w, float h) {
+    if (h < MINIMAP_MIN_HEIGHT) return (SDL_FRect){0};
+    float mw = roundf(fminf(228, h * .3f)), mh = roundf(mw * 2 / 3);
+    return (SDL_FRect){w - 12 - mw, 54, mw, mh};
+}
 static void draw_hud(App *a) {
     Gfx *f = &a->gfx;
     Game *g = &a->game;
     float w = a->width, h = a->height;
     char text[512];
+    a->minimap = (SDL_FRect){0};
     hud_card(f, (SDL_FRect){12, 8, 190, 44}, 214);
     gfx_text(f, g->training.active ? "비밀 수련장 · 격리된 빈터" : game_map_name(g->map), 24, 13, 11, 0, GOLD);
     health_bar(f, (SDL_FRect){53, 38, 85, 4}, g->hero.hp, a->hero_ghost, g->hero.max_hp, 2.5f,
                (SDL_Color){25, 18, 19, 255});
-    gfx_text(f, "체력", 24, 32, 10, 0, MUTED);
+    hud_icon(f, ICON_HEART, (Vec2){32, 40}, 14, RED);
     snprintf(text, sizeof text, "%d/%d", g->hero.hp, g->hero.max_hp);
     gfx_text(f, text, 149, 32, 10, 0, MUTED);
     if (g->phase == PH_PLAY) {
-        button(a, (SDL_FRect){w - 52, 4, 44, 44}, "정지", ACT_PAUSE, 0, true, false);
+        icon_button(a, (SDL_FRect){w - 52, 4, 44, 44}, ICON_PAUSE, ACT_PAUSE);
 #ifndef __ANDROID__
-        button(a, (SDL_FRect){w - 100, 4, 44, 44}, "화면", ACT_FULLSCREEN, 0, true, false);
+        icon_button(a, (SDL_FRect){w - 100, 4, 44, 44}, ICON_FULLSCREEN, ACT_FULLSCREEN);
 #endif
         if (g->training.active) {
             button(a, (SDL_FRect){w - 196, 4, 92, 44}, "훈련 종료", ACT_TRAINING_EXIT, 0, true, false);
             draw_training_status(a);
         } else {
-            snprintf(text, sizeof text, "가방 · %d문", g->coins);
-            button(a, (SDL_FRect){w - 196, 4, 92, 44}, text, ACT_BAG, 0, true, false);
+            icon_button(a, (SDL_FRect){w - 148, 4, 44, 44}, ICON_BAG, ACT_BAG);
+            coin_chip(a, w - 150, g->coins);
             draw_quest_tracker(a);
+            a->minimap = minimap_rect(w, h);
+            if (a->minimap.w > 0) {
+                float zoom = world_zoom(h);
+                gfx_minimap(f, g, a->minimap, (SDL_FRect){a->camera.x, a->camera.y, w / zoom, h / zoom});
+            }
         }
         const char *weapon = g->augment == AUG_STEEL  ? "강철 대검"
                              : g->augment == AUG_WIND ? "환도 · 바람의 깃"
@@ -600,14 +706,14 @@ static void draw_hud(App *a) {
          * 32-pixel down/right swipe, and shift quick items out of its way. */
         float item_x = a->touch_input ? w - 260 : w - 198;
         if (!g->training.active) {
-            snprintf(text, sizeof text, "탕약 %d", g->tonics);
-            button(a, (SDL_FRect){item_x, a->touch_input ? h - 115 : h - 98, 78, 44},
-                   text, ACT_USE, ITEM_TONIC, game_can_use(g, ITEM_TONIC), false);
-            snprintf(text, sizeof text, "지혈산 %d", g->bandages);
-            button(a, (SDL_FRect){item_x, a->touch_input ? h - 66 : h - 54, 78, 44},
-                   text, ACT_USE, ITEM_BANDAGE, game_can_use(g, ITEM_BANDAGE), false);
-            button(a, (SDL_FRect){item_x, a->touch_input ? h - 164 : h - 142, 78, 44},
-                   a->touch_input ? "무공" : "무공 K", ACT_TECHNIQUES, 0, true, false);
+            snprintf(text, sizeof text, "%d", g->tonics);
+            icon_count_button(a, (SDL_FRect){item_x, a->touch_input ? h - 115 : h - 98, 78, 44},
+                              ICON_TONIC, text, ACT_USE, ITEM_TONIC, game_can_use(g, ITEM_TONIC));
+            snprintf(text, sizeof text, "%d", g->bandages);
+            icon_count_button(a, (SDL_FRect){item_x, a->touch_input ? h - 66 : h - 54, 78, 44},
+                              ICON_BANDAGE, text, ACT_USE, ITEM_BANDAGE, game_can_use(g, ITEM_BANDAGE));
+            icon_count_button(a, (SDL_FRect){item_x, a->touch_input ? h - 164 : h - 142, 78, 44},
+                              ICON_TECHNIQUE, a->touch_input ? "" : "K", ACT_TECHNIQUES, 0, true);
         }
         SDL_FRect attack = a->touch_input ? (SDL_FRect){w - 160, h - 160, 88, 88}
                                            : (SDL_FRect){w - 116, h - 116, 88, 88};
@@ -677,7 +783,9 @@ static void draw_hud(App *a) {
     }
     if (g->quest == Q_COMBAT) {
         float bw = fminf(230, w * .32f);
-        SDL_FRect r = {w - bw - 14, 54, bw, 42};
+        /* The minimap takes the right column, so the boss bar moves to the top center. */
+        SDL_FRect r = a->minimap.w > 0 ? (SDL_FRect){(w - bw) / 2, 8, bw, 42}
+                                       : (SDL_FRect){w - bw - 14, 54, bw, 42};
         hud_card(f, r, 220);
         gfx_text(f, "변이한 백정", r.x + 12, r.y + 7, 14, 0, PAPER);
         snprintf(text, sizeof text, "%d", g->boss.hp);
@@ -1242,6 +1350,7 @@ static void pointer_down(App *a, Sint64 id, Vec2 p) {
             return;
         }
     }
+    if (a->minimap.w > 0 && inside(a->minimap, p)) return;
     if (a->game.training.active && (inside((SDL_FRect){12, 58, 148, 146}, p) ||
         inside((SDL_FRect){12, 8, 190, 44}, p))) return;
     if (a->game.phase != PH_PLAY || a->pointer_down ||
