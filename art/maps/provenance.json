@@ -1,12 +1,22 @@
 [
   {
     "path": "assets/maps/village.png",
-    "library_file_id": "libfile_9039be1dd07481918510dd96290475da",
     "width": 1536,
     "height": 1024,
-    "bytes": 3992305,
-    "sha256": "8a5988fca8c8eebff354c0addef14f4ecc41edc50b4ca575409a74655574bbcb",
-    "source": "approved ImageGen output, unchanged"
+    "bytes": 4299307,
+    "sha256": "9c32bc07643d2293942c41b5e3a03b83dea633f8177fb95e729c18ff1df36315",
+    "source": "ImageGen eastern gate correction composited over approved original; pixels outside x1330..1535 y545..719 unchanged",
+    "original": {
+      "path": "assets/maps/village.png",
+      "library_file_id": "libfile_9039be1dd07481918510dd96290475da",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 3992305,
+      "sha256": "8a5988fca8c8eebff354c0addef14f4ecc41edc50b4ca575409a74655574bbcb",
+      "source": "approved ImageGen output, unchanged"
+    },
+    "generated_edit": "art/maps/waypoints-20261028/village-open-east-generated.png",
+    "preparation": "scripts/prepare_map_waypoints.ps1"
   },
   {
     "path": "assets/maps/solbaramjae.png",
@@ -25,5 +35,15 @@
     "bytes": 3327561,
     "sha256": "8143bb8b480928c4e3b71f982b5bef8b44991c0735fc12d32cf2ece504e3605d",
     "source": "approved ImageGen output, unchanged"
+  },
+  {
+    "path": "assets/maps/waypost.png",
+    "width": 256,
+    "height": 256,
+    "bytes": 61882,
+    "sha256": "deb3ecc9cc508dc91d7d593a2cf6c92b242f1877bef20b041f64a389fcf71114",
+    "source": "ImageGen transparent waypost, prepared at 256x256",
+    "master": "art/maps/waypoints-20261028/waypost-generated.png",
+    "preparation": "scripts/prepare_map_waypoints.ps1"
   }
 ]

@@ -1,0 +1,35 @@
+Final native build and CTest after adding waypost footprints: 12/12 passed (14.95 s).
+Previous render-only run (before footprints), also 12/12 passed:
+Test project <repo>/build-maps-host
+      Start 11: hero_animation
+      Start  7: map_backgrounds
+ 1/12 Test  #7: map_backgrounds ..................   Passed    2.86 sec
+      Start 12: monster_animation
+ 2/12 Test #11: hero_animation ...................   Passed    5.71 sec
+      Start 10: responsive_ui
+ 3/12 Test #12: monster_animation ................   Passed    3.88 sec
+      Start  8: native_render
+ 4/12 Test #10: responsive_ui ....................   Passed    1.73 sec
+      Start  2: gameplay
+ 5/12 Test  #2: gameplay .........................   Passed    0.57 sec
+      Start  3: world_navigation
+ 6/12 Test  #8: native_render ....................   Passed    1.33 sec
+      Start  1: map_travel
+ 7/12 Test  #3: world_navigation .................   Passed    0.77 sec
+      Start  6: hit_feedback
+ 8/12 Test  #1: map_travel .......................   Passed    0.76 sec
+      Start  5: directional_combat
+ 9/12 Test  #6: hit_feedback .....................   Passed    0.79 sec
+      Start  9: player_controls
+10/12 Test  #5: directional_combat ...............   Passed    0.73 sec
+      Start  4: isolated_training
+11/12 Test  #9: player_controls ..................   Passed    0.71 sec
+12/12 Test  #4: isolated_training ................   Passed    0.59 sec
+
+100% tests passed out of 12
+
+Total Test time (real) =  10.81 sec
+
+
+Eight exit smoke captures (844x390,1280x720) succeeded.
+Asset check: 35172 changed pixels; outside x1330..1535/y545..719: 0; actual bounds 1331,546..1535,718; transparent sign corners and opaque post verified.

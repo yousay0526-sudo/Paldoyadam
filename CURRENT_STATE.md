@@ -8,6 +8,14 @@
 - 정본: `src/*.c`, `src/*.h`; 주요 문서: `README.md`, `docs/CONTROLS.md`, `docs/VALIDATION.md`, `docs/WEB.md`
 
 
+## 2026-10-28 · 열린 탐식굴 길·조선풍 길목 이정표 · PR 검토 대기
+- 기준 main `535a13e`, 독립 브랜치 `fix/joseon-map-exits-20261028`. 탐식굴 쪽 마을 길이 닫힌 문처럼 보이는 문제와 원형 출구 표식의 이질감을 수정했다.
+- `assets/maps/village.png`: ImageGen 편집 중 동쪽 길만 부분 적용. 35,172픽셀 변경, 지정 영역 밖 0픽셀 변경. 나머지 맵/배경·동굴 사과를 보존했다.
+- `assets/maps/waypost.png`, `src/draw.c/h`: 네 지점에 목제 이정표·새끼줄·작은 등롱·밑돌, 간판 위 목적지 이름을 표시하고 기존 이동 원을 제거했다. 발 위치에 따른 앞뒤 그리기와 텍스처 해제를 연결했다.
+- `src/maps.c`와 `art/maps/layout.json`: 밑돌의 작은 충돌 네 곳 추가. 기존 이동 판정/도착 좌표·상호작용 버튼/Space·전투·의뢰·보존 정책은 유지한다.
+- Windows 전체 SDL 빌드 및 CTest **12/12 통과**, 네 출구 × 844×390/1280×720의 실제 게임 출력 8장 확인. 상세 [구현/검증](docs/MAP_WAYPOINTS.md), [실제 화면](docs/waypoint-review.png), [원화·준비](art/maps/waypoints-20261028/README.md).
+- 실제 브라우저/휴대폰 조작·APK·장시간 성능은 미검증. 원격 웹 빌드는 PR CI로 확인한다. GAME_BIBLE.md 없음. main 병합·배포·버전 변경 없음. 다음 독립 기능 작업은 승인 후 진행한다.
+
 ## 2026-10-28 · PR #46 병합·자동 배포 승인
 - 사용자가 PR #46의 main 병합과 자동 Pages 배포를 명시적으로 승인했다.
 - 승인된 구현 커밋: `9412b7d975e35833fd3362d16a54f63086c9d089`. Windows CTest 12/12와 원격 네이티브·웹/단일 HTML 빌드 성공을 확인했다.

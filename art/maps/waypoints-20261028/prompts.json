@@ -1,0 +1,13 @@
+{
+  "date": "2026-10-28",
+  "village_edit": {
+    "reference": "assets/maps/village.png at 535a13e",
+    "generated_blob": "c7d54139b906e0fe41dbb17160fbdc5e7bbb2f3c",
+    "prompt": "Edit the shown 1536x1024 Korean Joseon period RPG village background. Preserve the exact camera, pixel art painting style, all buildings, rocks, trees, foliage, roofs and composition. Make ONLY a tightly localized correction to the eastern/right edge road exit, approximately original pixel rectangle x1340..1535 y545..710: the low wooden fence/closed gate across the sandy road must be removed so the road is unambiguously OPEN and traversable from the village square to the right edge. The dirt road should be continuous, at least 95 pixels wide, along y600..680, with matching sandy stones/ruts. Keep the small lantern post at the left/south shoulder if it does not obstruct the road. Move any surviving gate leaves onto the side shoulders, never across the lane. Keep the stone wall and vegetation at the road sides. No people, text, portals, rings, UI, magic, extra props or any change elsewhere. Output the entire original map at exactly the same dimensions and alignment."
+  },
+  "waypost": {
+    "transparent_background": true,
+    "generated_blob": "c7a8e0cb381b0fff14c0fac44eaa1de98b0b664a",
+    "prompt": "Create one production game sprite: a humble wooden roadside wayfinding signpost for a Joseon Korea historical fantasy overhead RPG. Transparent background. One single isolated object, front view seen from elevated 3/4 overhead camera about 45 degrees. Weathered dark oak timber post planted in a few small gray stones, one wide horizontal arrow shaped wooden board pointing RIGHT, blank light warm tan wood face (absolutely no writing, symbols, letters or engraving). Board face is broad, uncluttered, nearly horizontal and flat enough to overlay 4 Korean characters in game. A tiny traditional warm amber paper lantern hangs from a short peg below and to the left of the arrow board using rope, and there is a small straw rope binding around the post. No roof, no gate, no magic, no portal, no circles, no people, no ground tile, no scenery. Rich hand painted crisp pixel-art texture, dark ink-like outlines, teal-gray stone shadows and warm sunset amber light, detailed wood grain matching a lush 16-bit Joseon village. Full object well inside square canvas with generous transparent margins. Silhouette roughly 70% canvas width and 80% height. Signboard at 25%-45% vertical, post to 85% vertical. Foot point center horizontally. Modest ordinary rural signpost, no modern signage."
+  }
+}

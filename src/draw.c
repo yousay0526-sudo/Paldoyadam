@@ -135,6 +135,12 @@ bool gfx_load(Gfx *g, SDL_Renderer *renderer, const char *root) {
         }
         SDL_SetTextureScaleMode(g->locations[i].texture,SDL_ScaleModeNearest);
     }
+    asset_path(path,sizeof path,root,"maps/waypost.png");
+    g->waypost=load_picture(g,path);
+    if(!g->waypost.texture || g->waypost.w!=256 || g->waypost.h!=256) {
+        SDL_Log("Invalid waypost asset %s",path);gfx_free(g);return false;
+    }
+    SDL_SetTextureScaleMode(g->waypost.texture,SDL_ScaleModeLinear);
     g->active_map=&g->map;
     if (g->hero_walk.w % HERO_WALK_COLUMNS ||
         g->hero_walk.h % (HERO_WALK_FRAMES / HERO_WALK_COLUMNS) ||
@@ -205,6 +211,8 @@ bool gfx_load(Gfx *g, SDL_Renderer *renderer, const char *root) {
     return true;
 }
 void gfx_free(Gfx *g) {
+    if(g->waypost.texture) SDL_DestroyTexture(g->waypost.texture);
+    g->waypost=(Picture){0};
     for (int i = 0; i < MONSTER_ATLAS_COUNT; i++) {
         if (g->monster_atlases[i].texture)
             SDL_DestroyTexture(g->monster_atlases[i].texture);
@@ -946,6 +954,20 @@ static void telegraph(Gfx *f, Vec2 p, float range, float angle, float half, floa
                     (Vec2){p.x + cosf(a1) * range, p.y + sinf(a1) * range}, rim);
     }
 }
+/* Roadside props point into the open lane; the interaction center stays unchanged. */
+static Vec2 waypost_pos(int index) {
+    static const Vec2 offsets[4]={{-74,80},{-50,52},{-62,20},{-62,20}};
+    return (Vec2){MAP_EXITS[index].pos.x+offsets[index].x,
+                  MAP_EXITS[index].pos.y+offsets[index].y};
+}
+static void waypost(Gfx *f,int index,Vec2 camera) {
+    Vec2 p=screen_pos(waypost_pos(index),camera);
+    /* Authored 1280px master: post foot (525,1215), board face (395,300)..(1050,465). */
+    SDL_FRect r={p.x-62.3f,p.y-144.3f,152,152};
+    SDL_RenderCopyF(f->renderer,f->waypost.texture,NULL,&r);
+    gfx_heading(f,game_map_name(MAP_EXITS[index].to),
+                (SDL_FRect){r.x+45,r.y+34,83,21},16,(SDL_Color){49,29,16,255});
+}
 void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool has_target,
                Vec2 target) {
     world_select(g->map);
@@ -984,16 +1006,11 @@ void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool has_ta
             } else
                 label(f, "약재", (Vec2){p.x, item.y - 24}, GOLD);
         }
-    for(int i=0;i<4;i++) if(MAP_EXITS[i].from==g->map && !g->training.active) {
-        Vec2 p=screen_pos(MAP_EXITS[i].pos,camera);
-        gfx_circle(f,p,22,(SDL_Color){218,190,120,160});
-        label(f,game_map_name(MAP_EXITS[i].to),(Vec2){p.x,p.y-30},GOLD);
-    }
     typedef struct {
         int kind, index;
         float y;
     } Actor;
-    Actor actors[10];
+    Actor actors[12];
     int count = 0, npcs = g->training.active || (g->map!=MAP_VILLAGE && g->map!=MAP_TRAINING) ? 0 : g->quest == Q_MESSENGER ? 5 : 4;
     for (int i = 0; i < npcs; i++)
         actors[count++] = (Actor){0, i, NPCS[i].pos.y};
@@ -1013,6 +1030,9 @@ void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool has_ta
                       BOSS_STRIKE_HALF, g->boss.timer / BOSS_WINDUP_SECONDS,
                       (SDL_Color){205, 55, 41, 110}, (SDL_Color){255, 176, 129, 255});
     }
+    for(int i=0;i<4;i++)
+        if(MAP_EXITS[i].from==g->map && !g->training.active)
+            actors[count++] = (Actor){4,i,waypost_pos(i).y};
     actors[count++] = (Actor){3, 0, g->hero.pos.y};
     for (int i = 1; i < count; i++) {
         Actor a = actors[i];
@@ -1036,6 +1056,7 @@ void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool has_ta
     }
     for (int a = 0; a < count; a++) {
         int i = actors[a].index;
+        if(actors[a].kind==4) { waypost(f,i,camera);continue; }
         Vec2 p;
         if (actors[a].kind == 0) {
             p = screen_pos(NPCS[i].pos, camera);
