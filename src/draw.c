@@ -141,6 +141,12 @@ bool gfx_load(Gfx *g, SDL_Renderer *renderer, const char *root) {
         SDL_Log("Invalid waypost asset %s",path);gfx_free(g);return false;
     }
     SDL_SetTextureScaleMode(g->waypost.texture,SDL_ScaleModeLinear);
+    asset_path(path,sizeof path,root,"maps/cave-waystone.png");
+    g->cave_waystone=load_picture(g,path);
+    if(!g->cave_waystone.texture || g->cave_waystone.w!=256 || g->cave_waystone.h!=178) {
+        SDL_Log("Invalid cave waystone asset %s",path);gfx_free(g);return false;
+    }
+    SDL_SetTextureScaleMode(g->cave_waystone.texture,SDL_ScaleModeLinear);
     g->active_map=&g->map;
     if (g->hero_walk.w % HERO_WALK_COLUMNS ||
         g->hero_walk.h % (HERO_WALK_FRAMES / HERO_WALK_COLUMNS) ||
@@ -211,6 +217,8 @@ bool gfx_load(Gfx *g, SDL_Renderer *renderer, const char *root) {
     return true;
 }
 void gfx_free(Gfx *g) {
+    if(g->cave_waystone.texture) SDL_DestroyTexture(g->cave_waystone.texture);
+    g->cave_waystone=(Picture){0};
     if(g->waypost.texture) SDL_DestroyTexture(g->waypost.texture);
     g->waypost=(Picture){0};
     for (int i = 0; i < MONSTER_ATLAS_COUNT; i++) {
@@ -956,17 +964,53 @@ static void telegraph(Gfx *f, Vec2 p, float range, float angle, float half, floa
 }
 /* Roadside props point into the open lane; the interaction center stays unchanged. */
 static Vec2 waypost_pos(int index) {
-    static const Vec2 offsets[4]={{-74,80},{-50,52},{-62,20},{-62,20}};
+    static const Vec2 offsets[4]={{-74,80},{-105,10.5f},{-62,20},{-95,14}};
     return (Vec2){MAP_EXITS[index].pos.x+offsets[index].x,
                   MAP_EXITS[index].pos.y+offsets[index].y};
 }
+static void waypost_text(Gfx *f,const char *name,SDL_FRect box,float size,SDL_Color ink) {
+    int face=f->face;
+    f->face=0; /* Nanum Myeongjo Bold: clear Korean strokes at phone scale. */
+    gfx_label(f,name,box,size,ink);
+    box.x+=.6f;
+    gfx_label(f,name,box,size,ink);
+    f->face=face;
+}
 static void waypost(Gfx *f,int index,Vec2 camera) {
     Vec2 p=screen_pos(waypost_pos(index),camera);
-    /* Authored 1280px master: post foot (525,1215), board face (395,300)..(1050,465). */
-    SDL_FRect r={p.x-62.3f,p.y-144.3f,152,152};
-    SDL_RenderCopyF(f->renderer,f->waypost.texture,NULL,&r);
-    gfx_heading(f,game_map_name(MAP_EXITS[index].to),
-                (SDL_FRect){r.x+45,r.y+34,83,21},16,(SDL_Color){49,29,16,255});
+    if(index==3) {
+        SDL_FRect rock={p.x-69,p.y-92,138,96};
+        SDL_RenderCopyF(f->renderer,f->cave_waystone.texture,NULL,&rock);
+        SDL_FRect text={rock.x+27,rock.y+32,84,33};
+        waypost_text(f,game_map_name(MAP_EXITS[index].to),
+                     (SDL_FRect){text.x+1,text.y+1,text.w,text.h},28,(SDL_Color){27,28,29,255});
+        waypost_text(f,game_map_name(MAP_EXITS[index].to),text,28,(SDL_Color){238,225,194,255});
+        SDL_Color chalk={224,212,184,255};
+        for(int i=0;i<2;i++) {
+            gfx_line(f,(Vec2){p.x+i,p.y-23},(Vec2){p.x+i,p.y-13},chalk);
+            gfx_line(f,(Vec2){p.x-5+i,p.y-18},(Vec2){p.x+i,p.y-13},chalk);
+            gfx_line(f,(Vec2){p.x+5+i,p.y-18},(Vec2){p.x+i,p.y-13},chalk);
+        }
+        return;
+    }
+    /* Widen the authored board independently; retain the post's proportions. */
+    SDL_Rect board={70,50,170,52};
+    SDL_FRect plate;
+    if(index==1) {
+        /* Mount just the board on the village's existing eastern lamp post. */
+        plate=(SDL_FRect){p.x-15,p.y-123,146,38};
+    } else {
+        SDL_FRect r={p.x-62.3f,p.y-144.3f,152,152};
+        SDL_Rect top={0,0,256,50},bottom={0,102,256,154};
+        SDL_FRect upper={r.x,r.y,r.w,r.h*50/256};
+        SDL_FRect lower={r.x,r.y+r.h*102/256,r.w,r.h*154/256};
+        SDL_RenderCopyF(f->renderer,f->waypost.texture,&top,&upper);
+        SDL_RenderCopyF(f->renderer,f->waypost.texture,&bottom,&lower);
+        plate=(SDL_FRect){r.x+41.5f,r.y+28,146,38};
+    }
+    SDL_RenderCopyF(f->renderer,f->waypost.texture,&board,&plate);
+    waypost_text(f,game_map_name(MAP_EXITS[index].to),
+                 (SDL_FRect){plate.x+5,plate.y+1,122,35},26,(SDL_Color){38,24,13,255});
 }
 void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool has_target,
                Vec2 target) {

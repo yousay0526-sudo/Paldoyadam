@@ -45,5 +45,17 @@
     "source": "ImageGen transparent waypost, prepared at 256x256",
     "master": "art/maps/waypoints-20261028/waypost-generated.png",
     "preparation": "scripts/prepare_map_waypoints.ps1"
+  },
+  {
+    "path": "assets/maps/cave-waystone.png",
+    "width": 256,
+    "height": 178,
+    "bytes": 89499,
+    "sha256": "5c7c1362ab5391aeacd3d0f7576a69057d6bd76d7d624b434f37e3b9a64374e5",
+    "source": "ImageGen cave route marker, cropped and reduced with alpha preserved",
+    "master": "art/maps/waypoints-20261028/cave-waystone-generated.png",
+    "master_width": 1254,
+    "master_height": 1254,
+    "preparation": "scripts/prepare_cave_waystone.ps1"
   }
 ]

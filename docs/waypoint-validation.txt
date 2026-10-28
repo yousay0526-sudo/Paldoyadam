@@ -1,35 +1,53 @@
-Final native build and CTest after adding waypost footprints: 12/12 passed (14.95 s).
-Previous render-only run (before footprints), also 12/12 passed:
 Test project <repo>/build-maps-host
       Start 11: hero_animation
-      Start  7: map_backgrounds
- 1/12 Test  #7: map_backgrounds ..................   Passed    2.86 sec
       Start 12: monster_animation
- 2/12 Test #11: hero_animation ...................   Passed    5.71 sec
+ 1/12 Test #12: monster_animation ................   Passed    7.24 sec
+      Start  7: map_backgrounds
+ 2/12 Test #11: hero_animation ...................   Passed   10.70 sec
       Start 10: responsive_ui
- 3/12 Test #12: monster_animation ................   Passed    3.88 sec
+ 3/12 Test  #7: map_backgrounds ..................   Passed    4.03 sec
       Start  8: native_render
- 4/12 Test #10: responsive_ui ....................   Passed    1.73 sec
-      Start  2: gameplay
- 5/12 Test  #2: gameplay .........................   Passed    0.57 sec
-      Start  3: world_navigation
- 6/12 Test  #8: native_render ....................   Passed    1.33 sec
+ 4/12 Test #10: responsive_ui ....................   Passed    1.98 sec
       Start  1: map_travel
- 7/12 Test  #3: world_navigation .................   Passed    0.77 sec
+ 5/12 Test  #8: native_render ....................   Passed    1.49 sec
+      Start  3: world_navigation
+ 6/12 Test  #1: map_travel .......................   Passed    0.84 sec
       Start  6: hit_feedback
- 8/12 Test  #1: map_travel .......................   Passed    0.76 sec
+ 7/12 Test  #3: world_navigation .................   Passed    0.78 sec
       Start  5: directional_combat
- 9/12 Test  #6: hit_feedback .....................   Passed    0.79 sec
+ 8/12 Test  #6: hit_feedback .....................   Passed    0.78 sec
       Start  9: player_controls
-10/12 Test  #5: directional_combat ...............   Passed    0.73 sec
+ 9/12 Test  #5: directional_combat ...............   Passed    0.77 sec
+      Start  2: gameplay
+10/12 Test  #9: player_controls ..................   Passed    0.72 sec
       Start  4: isolated_training
-11/12 Test  #9: player_controls ..................   Passed    0.71 sec
-12/12 Test  #4: isolated_training ................   Passed    0.59 sec
+11/12 Test  #2: gameplay .........................   Passed    0.77 sec
+12/12 Test  #4: isolated_training ................   Passed    0.86 sec
 
 100% tests passed out of 12
 
-Total Test time (real) =  10.81 sec
+Total Test time (real) =  15.92 sec
 
 
-Eight exit smoke captures (844x390,1280x720) succeeded.
-Asset check: 35172 changed pixels; outside x1330..1535/y545..719: 0; actual bounds 1331,546..1535,718; transparent sign corners and opaque post verified.
+Native render: exit0, 844x390, 57 Korean/Latin glyphs, OK
+
+
+Native render: exit0, 1280x720, 57 Korean/Latin glyphs, OK
+
+
+Native render: exit1, 844x390, 57 Korean/Latin glyphs, OK
+
+
+Native render: exit1, 1280x720, 57 Korean/Latin glyphs, OK
+
+
+Native render: exit2, 844x390, 51 Korean/Latin glyphs, OK
+
+
+Native render: exit2, 1280x720, 51 Korean/Latin glyphs, OK
+
+
+Native render: exit3, 844x390, 51 Korean/Latin glyphs, OK
+
+
+Native render: exit3, 1280x720, 51 Korean/Latin glyphs, OK
