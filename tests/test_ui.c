@@ -238,6 +238,45 @@ static void minimap_fits(App *app) {
     CHECK(app->minimap.w == 0);
     app->touch_input = false;
 }
+/* The hit-chain counter always finds a spot clear of every control and card. */
+static void combo_counter_fits(App *app) {
+    const Vec2 sizes[] = {{432,270},{480,306},{568,320},{667,375},{844,390},{1100,650},{1280,720},{1920,1080}};
+    for (int view = 0; view < 8; view++) {
+        app->width = sizes[view].x; app->height = sizes[view].y;
+        for (int touch = 0; touch < 2; touch++)
+            for (int scene = 0; scene < 3; scene++) {
+                Game saved;
+                legacy_reset(&app->game); game_start(&app->game);
+                if (scene == 1) { app->game.quest = Q_COMBAT; app->game.map = MAP_CAVE; }
+                if (scene == 2) CHECK(game_enter_training(&app->game, &saved));
+                app->touch_input = touch != 0;
+                app->game.hero.pos = scene == 2 ? BOSS_HOME : NPCS[ELDER].pos;
+                app->game.chain_hits = 12; app->game.combo_count = 2;
+                app->game.combo_time = COMBO_SECONDS;
+                app->button_count = 0; draw_hud(app);
+                SDL_FRect c = app->combo;
+                CHECK(c.w > 0 && c.h > 0);
+                CHECK(c.x >= 0 && c.y >= 0 && c.x + c.w <= app->width && c.y + c.h <= app->height);
+                for (int i = 0; i < app->button_count; i++) CHECK(!overlaps(c, app->buttons[i].rect));
+                CHECK(!overlaps(c, app->attack_hint) && !overlaps(c, (SDL_FRect){12, 8, 190, 44}));
+                if (app->minimap.w > 0) CHECK(!overlaps(c, app->minimap));
+                if (scene == 1) CHECK(!overlaps(c, boss_bar_rect(app)));
+                if (scene == 2) CHECK(!overlaps(c, (SDL_FRect){12, 58, 148, 146}));
+                char text[32]; float size;
+                snprintf(text, sizeof text, "%d", app->game.coins);
+                if (scene != 2) CHECK(!overlaps(c, coin_chip_rect(&app->gfx, app->width - 150, text, &size)));
+                /* One hit is not a chain; a broken chain fades, then hides. */
+                app->game.chain_hits = 1; app->button_count = 0; draw_hud(app);
+                CHECK(app->combo.w == 0);
+                app->game.chain_hits = 0; app->game.chain_last = 7; app->game.chain_fade = CHAIN_FADE_SECONDS / 2;
+                app->game.combo_time = 0; app->button_count = 0; draw_hud(app);
+                CHECK(app->combo.w > 0);
+                app->game.chain_fade = 0; app->button_count = 0; draw_hud(app);
+                CHECK(app->combo.w == 0);
+            }
+    }
+    app->touch_input = false;
+}
 static void training_controls_fit(App *app) {
     const Vec2 sizes[] = {{432,270},{480,306},{568,320},{844,390},{1100,650}};
     Game saved;
@@ -318,6 +357,7 @@ int main(int argc,char **argv) {
     top_hud_icons_fit(a);
     hud_art_slots(a,surface);
     minimap_fits(a);
+    combo_counter_fits(a);
     text_stays_inside(a,surface);
     gfx_free(&a->gfx);
     SDL_DestroyRenderer(a->renderer);

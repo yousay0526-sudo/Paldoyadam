@@ -23,6 +23,8 @@
 #define HERO_SKILL_SECONDS .64f
 #define HERO_SKILL_IMPACT .24f
 #define COMBO_SECONDS 1.05f
+#define CHAIN_POP_SECONDS .18f
+#define CHAIN_FADE_SECONDS .45f
 #define HIT_FLASH_SECONDS .12f
 #define HITSTOP_LIGHT_SECONDS .035f
 #define HITSTOP_HEAVY_SECONDS .055f
@@ -210,6 +212,10 @@ typedef struct {
     /* Input links never award damage. Confirmed hits advance once per impact. */
     int input_count, last_move, combo_count, last_hit_move, queued_move;
     float input_time, combo_time, buffer_time;
+    /* Display only: confirmed hits chained inside the combo window, any move,
+     * uncapped. It never changes damage; the last broken chain fades out. */
+    int chain_hits, chain_last;
+    float chain_pop, chain_fade;
     enum { IMPACT_NONE, IMPACT_HIT, IMPACT_MISS } last_impact;
     enum { TRAIN_READY, TRAIN_STARTED, TRAIN_QUEUED, TRAIN_COOLDOWN,
            TRAIN_INVALID, TRAIN_BLOCKED } combat_request;

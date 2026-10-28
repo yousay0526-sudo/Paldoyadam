@@ -194,8 +194,43 @@ static void multiple_targets(void) {
     advance(&g, 15);
     CHECK(g.boars[0].hp == hp0 && g.boars[1].hp == hp1 - 9);
 }
+/* The on-screen chain counts every confirmed hit in the window, including a
+ * repeated move, while the damage tier keeps its own rules. */
+static void display_chain(void) {
+    Game g; fixture(&g);
+    const int moves[] = {MOVE_ATTACK, TECH_SWEEP, TECH_CLEAVE, TECH_RETREAT, TECH_RETREAT};
+    for (int i = 0; i < 5; i++) {
+        if (i == 4) g.technique_cooldowns[TECH_RETREAT] = 0;
+        g.hero.pos = BOSS_HOME; g.boss.pos = polar(BOSS_HOME, 0, 40);
+        CHECK(request(&g, moves[i])); advance(&g, 65);
+        CHECK(g.chain_hits == i + 1 && g.chain_fade == 0);
+        CHECK(g.combo_count == (i == 4 ? 1 : i < 3 ? i + 1 : 3));
+    }
+    advance(&g, 110);
+    CHECK(g.chain_hits == 0 && g.chain_last == 5 && g.chain_fade > 0);
+    advance(&g, 50);
+    CHECK(g.chain_fade == 0 && g.chain_last == 5);
+    /* A whiff breaks the chain at once. */
+    fixture(&g);
+    CHECK(game_attack(&g)); advance(&g, 50);
+    CHECK(g.chain_hits == 1);
+    g.boss.pos.x += 300;
+    CHECK(game_technique(&g, TECH_SWEEP)); advance(&g, 30);
+    CHECK(g.chain_hits == 0 && g.chain_last == 0 && g.chain_fade == 0);
+    /* Leaving training clears it without a fade. */
+    Game saved;
+    legacy_reset(&g); game_start(&g);
+    CHECK(game_enter_training(&g, &saved));
+    for (int i = 0; i < 2; i++) {
+        g.hero.pos = BOSS_HOME; g.boss.pos = polar(BOSS_HOME, 0, 40);
+        CHECK(request(&g, i ? TECH_SWEEP : MOVE_ATTACK)); advance(&g, 65);
+    }
+    CHECK(g.chain_hits == 2);
+    CHECK(game_leave_training(&g, &saved));
+    CHECK(g.chain_hits == 0 && g.chain_last == 0 && g.chain_fade == 0 && g.chain_pop == 0);
+}
 int main(void) {
-    sectors(); actual_impacts(); confirmed_chains(); reservations(); multiple_targets();
+    sectors(); actual_impacts(); confirmed_chains(); reservations(); multiple_targets(); display_chain();
     printf("PASS: %d directional combat checks.\n", checks);
     return 0;
 }

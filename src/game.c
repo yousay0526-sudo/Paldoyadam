@@ -166,7 +166,8 @@ bool game_leave_training(Game *game, const Game *saved) {
     world_select(game->map);
     game->queued_move = game->last_move = game->last_hit_move = game->input_move = MOVE_NONE;
     game->buffer_time = game->combo_time = game->input_time = game->request_time = 0;
-    game->combo_count = game->input_count = 0;
+    game->combo_count = game->input_count = game->chain_hits = game->chain_last = 0;
+    game->chain_pop = game->chain_fade = 0;
     game->last_impact = IMPACT_NONE;
     game->combat_request = TRAIN_READY;
     game->hero.attacking = game->hero.skilling = game->hero.walking = false;
@@ -610,7 +611,8 @@ static void reset_fight(Game *g, Vec2 pos) {
     g->hero.attacking = false;
     g->hero.attack_elapsed = 0;
     g->hero.skilling = false; g->hero.skill_elapsed = 0;
-    g->combo_count = g->input_count = 0;
+    g->combo_count = g->input_count = g->chain_hits = g->chain_last = 0;
+    g->chain_pop = g->chain_fade = 0;
     g->combo_time = g->input_time = g->buffer_time = g->request_time = 0;
     g->queued_move = g->last_move = g->last_hit_move = g->input_move = MOVE_NONE;
     g->last_impact = IMPACT_NONE; g->combat_request = TRAIN_READY;
@@ -989,8 +991,21 @@ static bool request_move(Game *g, int move) {
     combat_feedback(g, move, TRAIN_STARTED);
     return true;
 }
+static void break_chain(Game *g) {
+    if (g->chain_hits >= 2) {
+        g->chain_last = g->chain_hits;
+        g->chain_fade = CHAIN_FADE_SECONDS;
+    }
+    g->chain_hits = 0;
+    g->chain_pop = 0;
+}
 static void finish_impact(Game *game, int move, bool hit) {
     world_select(game->map);
+    if (hit) {
+        game->chain_hits = game->combo_time > 0 ? game->chain_hits + 1 : 1;
+        game->chain_pop = CHAIN_POP_SECONDS;
+        game->chain_fade = 0;
+    } else break_chain(game);
     game->input_time = COMBO_SECONDS;
     game->last_impact = hit ? IMPACT_HIT : IMPACT_MISS;
     game->combo_count = hit ? next_combo(game, move) : 0;
@@ -1220,7 +1235,9 @@ void game_tick(Game *g, float dt, Vec2 input) {
     g->combo_time = fmaxf(0, g->combo_time - dt);
     g->input_time = fmaxf(0, g->input_time - dt);
     g->request_time = fmaxf(0, g->request_time - dt);
-    if (g->combo_time <= 0) { g->combo_count = 0; g->last_hit_move = MOVE_NONE; }
+    g->chain_pop = fmaxf(0, g->chain_pop - dt);
+    g->chain_fade = fmaxf(0, g->chain_fade - dt);
+    if (g->combo_time <= 0) { g->combo_count = 0; g->last_hit_move = MOVE_NONE; break_chain(g); }
     if (g->input_time <= 0) { g->input_count = 0; g->last_move = MOVE_NONE; }
     g->buffer_time = fmaxf(0, g->buffer_time - dt);
     if (g->buffer_time <= 0) g->queued_move = MOVE_NONE;
@@ -1310,7 +1327,8 @@ bool game_travel(Game *g, int index) {
     g->hero.attack_elapsed=g->hero.skill_elapsed=g->hero.walk_cycle=0;
     g->hero.attack_target=-1;
     g->queued_move=g->last_move=g->last_hit_move=g->input_move=MOVE_NONE;
-    g->combo_count=g->input_count=0;
+    g->combo_count=g->input_count=g->chain_hits=g->chain_last=0;
+    g->chain_pop=g->chain_fade=0;
     g->combo_time=g->input_time=g->buffer_time=g->request_time=0;
     g->last_impact=IMPACT_NONE;g->combat_request=TRAIN_READY;
     g->effect_count=0;g->notices=0;

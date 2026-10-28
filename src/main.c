@@ -68,6 +68,8 @@ typedef struct {
     Vec2 camera;
     /* Minimap area of the last HUD frame (w 0 when hidden); taps there do not walk. */
     SDL_FRect minimap;
+    /* Hit-chain counter and attack hint of the last HUD frame (w 0 when hidden). */
+    SDL_FRect combo, attack_hint;
     Button buttons[BUTTON_MAX];
     int button_count;
     Line dialogue[5];
@@ -655,12 +657,97 @@ static SDL_FRect minimap_rect(float w, float h) {
     float mw = roundf(fminf(228, h * .3f)), mh = roundf(mw * 2 / 3);
     return (SDL_FRect){w - 12 - mw, 54, mw, mh};
 }
+static SDL_FRect boss_bar_rect(const App *a) {
+    float bw = fminf(230, a->width * .32f);
+    /* The minimap takes the right column, so the boss bar moves to the top center. */
+    return a->minimap.w > 0 ? (SDL_FRect){(a->width - bw) / 2, 8, bw, 42}
+                            : (SDL_FRect){a->width - bw - 14, 54, bw, 42};
+}
+static bool rects_overlap(SDL_FRect a, SDL_FRect b) {
+    return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+}
+/* First free spot for the hit-chain counter: under the right-hand top stack,
+ * else beside the attack hint, else under the left cards. */
+static SDL_FRect combo_rect(const App *a) {
+    const Game *g = &a->game;
+    bool compact = a->height < MINIMAP_MIN_HEIGHT;
+    float cw = compact ? 96 : 116, ch = compact ? 44 : 52, w = a->width;
+    float top = a->minimap.w > 0 ? a->minimap.y + a->minimap.h + 8 : 54;
+    if (g->quest == Q_COMBAT && a->minimap.w <= 0) {
+        SDL_FRect boss = boss_bar_rect(a);
+        top = boss.y + boss.h + 8;
+    }
+    float left_top = g->training.active ? 210 : 112;
+    SDL_FRect spots[] = {
+        {w - 12 - cw, top, cw, ch},
+        {a->attack_hint.x - 6 - cw, a->attack_hint.y + a->attack_hint.h - ch, cw, ch},
+        {12, left_top, cw, ch},
+    };
+    SDL_FRect taken[BUTTON_MAX + 6];
+    int count = 0;
+    for (int i = 0; i < a->button_count; i++) taken[count++] = a->buttons[i].rect;
+    taken[count++] = a->attack_hint;
+    taken[count++] = a->minimap;
+    taken[count++] = (SDL_FRect){12, 8, 190, 44};
+    if (g->quest == Q_COMBAT) taken[count++] = boss_bar_rect(a);
+    if (g->training.active) taken[count++] = (SDL_FRect){12, 58, 148, 146};
+    for (size_t s = 0; s < sizeof spots / sizeof *spots; s++) {
+        SDL_FRect r = spots[s];
+        bool free = r.x >= 0 && r.y >= 0 && r.x + r.w <= w && r.y + r.h <= a->height;
+        for (int i = 0; free && i < count; i++)
+            free = taken[i].w <= 0 || !rects_overlap(r, taken[i]);
+        if (free) return r;
+    }
+    return (SDL_FRect){0};
+}
+/* Big hit-chain number: pops on every confirmed hit, warms in colour at
+ * 5/10/20, and greys out when the chain breaks. The three pips are the
+ * existing damage tier (different moves, +10%/+20%). */
+static void draw_combo(App *a) {
+    Game *g = &a->game;
+    Gfx *f = &a->gfx;
+    a->combo = (SDL_FRect){0};
+    bool live = g->chain_hits >= 2 && g->combo_time > 0;
+    if (!live && g->chain_fade <= 0) return;
+    SDL_FRect r = combo_rect(a);
+    if (r.w <= 0) return;
+    a->combo = r;
+    int hits = live ? g->chain_hits : g->chain_last;
+    float fade = live ? 1 : g->chain_fade / CHAIN_FADE_SECONDS;
+    SDL_Color ink = !live ? MUTED
+        : hits >= 20 ? (SDL_Color){235, 92, 64, 255}
+        : hits >= 10 ? (SDL_Color){240, 152, 72, 255}
+        : hits >= 5 ? GOLD : PAPER;
+    ink.a = (Uint8)(255 * fade);
+    hud_card(f, r, (Uint8)(190 * fade));
+    bool compact = r.h < 52;
+    float pop = live ? g->chain_pop / CHAIN_POP_SECONDS : 0;
+    float size = (compact ? 24 : 30) * (1 + .3f * pop);
+    char text[16];
+    snprintf(text, sizeof text, "%d", hits);
+    float number_w = gfx_measure(f, text, size);
+    float x = r.x + 10, base = r.y + (compact ? 5 : 6) - (size - (compact ? 24 : 30)) / 2;
+    gfx_text(f, text, x, base, size, 0, ink);
+    SDL_Color label = GOLD;
+    label.a = ink.a;
+    gfx_text(f, "연격", x + number_w + 6, r.y + (compact ? 9 : 11), compact ? 11 : 13, 0, label);
+    for (int i = 0; i < 3; i++) {
+        Vec2 c = {x + number_w + 10 + i * 10, r.y + r.h - (compact ? 14 : 17)};
+        SDL_Color pip = live && i < g->combo_count ? GOLD : (SDL_Color){90, 92, 84, 255};
+        pip.a = ink.a;
+        gfx_disc(f, c, 3, pip, pip);
+    }
+    if (live) {
+        float left = g->combo_time / COMBO_SECONDS;
+        gfx_rect(f, (SDL_FRect){r.x + 10, r.y + r.h - 6, (r.w - 20) * left, 3}, ink);
+    }
+}
 static void draw_hud(App *a) {
     Gfx *f = &a->gfx;
     Game *g = &a->game;
     float w = a->width, h = a->height;
     char text[512];
-    a->minimap = (SDL_FRect){0};
+    a->minimap = a->attack_hint = (SDL_FRect){0};
     hud_card(f, (SDL_FRect){12, 8, 190, 44}, 214);
     gfx_text(f, g->training.active ? "비밀 수련장 · 격리된 빈터" : game_map_name(g->map), 24, 13, 11, 0, GOLD);
     health_bar(f, (SDL_FRect){53, 38, 85, 4}, g->hero.hp, a->hero_ghost, g->hero.max_hp, 2.5f,
@@ -741,6 +828,7 @@ static void draw_hud(App *a) {
             snprintf(text, sizeof text, "명중 %d연계", g->combo_count);
         else snprintf(text, sizeof text, "밀어서 무공");
         SDL_FRect attack_hint = {center.x - 54, attack.y - 37, 108, 26};
+        a->attack_hint = attack_hint;
         hud_card(f, attack_hint, 205);
         gfx_label(f, text, attack_hint, 11, GOLD);
         if (a->attack_pointer_down) {
@@ -782,10 +870,8 @@ static void draw_hud(App *a) {
         }
     }
     if (g->quest == Q_COMBAT) {
-        float bw = fminf(230, w * .32f);
-        /* The minimap takes the right column, so the boss bar moves to the top center. */
-        SDL_FRect r = a->minimap.w > 0 ? (SDL_FRect){(w - bw) / 2, 8, bw, 42}
-                                       : (SDL_FRect){w - bw - 14, 54, bw, 42};
+        SDL_FRect r = boss_bar_rect(a);
+        float bw = r.w;
         hud_card(f, r, 220);
         gfx_text(f, "변이한 백정", r.x + 12, r.y + 7, 14, 0, PAPER);
         snprintf(text, sizeof text, "%d", g->boss.hp);
@@ -797,6 +883,8 @@ static void draw_hud(App *a) {
         snprintf(text, sizeof text, "출혈 · %.0f초", ceilf(g->hero.bleed));
         gfx_text(f, text, 18, h - 85, 15, 0, (SDL_Color){255, 198, 175, 255});
     }
+    a->combo = (SDL_FRect){0};
+    if (g->phase == PH_PLAY) draw_combo(a);
 }
 static void draw_shop(App *a) {
     Game *g = &a->game;
@@ -1659,6 +1747,14 @@ static void smoke_scene(App *a, const char *scene) {
         a->game.boss.angle = PI;
         a->game.boss.timer = .4f;
         a->game.toast_time = 0;
+    } else if (!strcmp(scene, "combo")) {
+        /* Review shot of the hit-chain counter mid-fight. */
+        a->game.map=MAP_PASS;
+        a->game.traces[0] = a->game.traces[1] = true;
+        a->game.quest = Q_RECOVER;
+        a->game.hero.pos = (Vec2){a->game.boars[0].pos.x - 60, a->game.boars[0].pos.y};
+        a->game.chain_hits = 12; a->game.combo_count = 2;
+        a->game.combo_time = .7f; a->game.chain_pop = CHAIN_POP_SECONDS / 2;
     } else if (!strcmp(scene, "recover")) {
         a->game.map=MAP_PASS;
         a->game.traces[0] = a->game.traces[1] = true;
