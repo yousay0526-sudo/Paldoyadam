@@ -93,6 +93,9 @@ void gfx_story_release(Gfx *gfx);
 void gfx_collision(Gfx *gfx, Vec2 camera);
 void gfx_world(Gfx *gfx, const Game *game, float width, float height, Vec2 camera,
                bool target_set, Vec2 target);
+/* Shrunken painting of the current map with the hero, people, enemies,
+ * exits, the current goal and the visible world rectangle `view`. */
+void gfx_minimap(Gfx *gfx, const Game *game, SDL_FRect box, SDL_FRect view);
 Vec2 world_camera(float width, float height, Vec2 focus);
 float world_zoom(float screen_height);
 Vec2 world_from_screen(Vec2 screen, Vec2 camera, float zoom);

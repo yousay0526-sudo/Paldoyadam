@@ -66,6 +66,8 @@ typedef struct {
     SDL_Renderer *renderer;
     float width, height, density;
     Vec2 camera;
+    /* Minimap area of the last HUD frame (w 0 when hidden); taps there do not walk. */
+    SDL_FRect minimap;
     Button buttons[BUTTON_MAX];
     int button_count;
     Line dialogue[5];
@@ -645,11 +647,20 @@ static void health_bar(Gfx *f, SDL_FRect r, int hp, float ghost, int max_hp, flo
     if (lost.w > left.w) gfx_round(f, lost, radius, (SDL_Color){238, 214, 160, 255});
     if (left.w > 0) gfx_round(f, left, radius, RED);
 }
+/* Below the top-right icon row on landscape screens tall enough to keep it
+ * clear of the attack hint; 3:2 like the maps, growing with the screen. */
+#define MINIMAP_MIN_HEIGHT 360.0f
+static SDL_FRect minimap_rect(float w, float h) {
+    if (h < MINIMAP_MIN_HEIGHT) return (SDL_FRect){0};
+    float mw = roundf(fminf(228, h * .3f)), mh = roundf(mw * 2 / 3);
+    return (SDL_FRect){w - 12 - mw, 54, mw, mh};
+}
 static void draw_hud(App *a) {
     Gfx *f = &a->gfx;
     Game *g = &a->game;
     float w = a->width, h = a->height;
     char text[512];
+    a->minimap = (SDL_FRect){0};
     hud_card(f, (SDL_FRect){12, 8, 190, 44}, 214);
     gfx_text(f, g->training.active ? "비밀 수련장 · 격리된 빈터" : game_map_name(g->map), 24, 13, 11, 0, GOLD);
     health_bar(f, (SDL_FRect){53, 38, 85, 4}, g->hero.hp, a->hero_ghost, g->hero.max_hp, 2.5f,
@@ -669,6 +680,11 @@ static void draw_hud(App *a) {
             icon_button(a, (SDL_FRect){w - 148, 4, 44, 44}, ICON_BAG, ACT_BAG);
             coin_chip(a, w - 150, g->coins);
             draw_quest_tracker(a);
+            a->minimap = minimap_rect(w, h);
+            if (a->minimap.w > 0) {
+                float zoom = world_zoom(h);
+                gfx_minimap(f, g, a->minimap, (SDL_FRect){a->camera.x, a->camera.y, w / zoom, h / zoom});
+            }
         }
         const char *weapon = g->augment == AUG_STEEL  ? "강철 대검"
                              : g->augment == AUG_WIND ? "환도 · 바람의 깃"
@@ -767,7 +783,9 @@ static void draw_hud(App *a) {
     }
     if (g->quest == Q_COMBAT) {
         float bw = fminf(230, w * .32f);
-        SDL_FRect r = {w - bw - 14, 54, bw, 42};
+        /* The minimap takes the right column, so the boss bar moves to the top center. */
+        SDL_FRect r = a->minimap.w > 0 ? (SDL_FRect){(w - bw) / 2, 8, bw, 42}
+                                       : (SDL_FRect){w - bw - 14, 54, bw, 42};
         hud_card(f, r, 220);
         gfx_text(f, "변이한 백정", r.x + 12, r.y + 7, 14, 0, PAPER);
         snprintf(text, sizeof text, "%d", g->boss.hp);
@@ -1332,6 +1350,7 @@ static void pointer_down(App *a, Sint64 id, Vec2 p) {
             return;
         }
     }
+    if (a->minimap.w > 0 && inside(a->minimap, p)) return;
     if (a->game.training.active && (inside((SDL_FRect){12, 58, 148, 146}, p) ||
         inside((SDL_FRect){12, 8, 190, 44}, p))) return;
     if (a->game.phase != PH_PLAY || a->pointer_down ||

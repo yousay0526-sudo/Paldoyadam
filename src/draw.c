@@ -816,6 +816,57 @@ void gfx_story(Gfx *f, int index, float w, float h, float elapsed, float footer_
     SDL_RenderCopyF(f->renderer, p->texture, NULL, &art);
     SDL_SetTextureAlphaMod(p->texture, 255);
 }
+void gfx_minimap(Gfx *f, const Game *g, SDL_FRect box, SDL_FRect view) {
+    if (g->map < 0 || g->map >= MAP_TRAINING || !f->locations[g->map].texture)
+        return;
+    gfx_round(f, box, 9, (SDL_Color){12, 28, 31, 225});
+    SDL_FRect inner = {box.x + 4, box.y + 4, box.w - 8, box.h - 8};
+    float sx = inner.w / WORLD_W, sy = inner.h / WORLD_H;
+#define MINI(p) ((Vec2){inner.x + (p).x * sx, inner.y + (p).y * sy})
+    SDL_Rect clip = {(int)inner.x, (int)inner.y, (int)ceilf(inner.w), (int)ceilf(inner.h)};
+    SDL_RenderSetClipRect(f->renderer, &clip);
+    /* Smooth and dim the painting so the markers read at this size. */
+    SDL_Texture *map = f->locations[g->map].texture;
+    SDL_SetTextureScaleMode(map, SDL_ScaleModeLinear);
+    SDL_SetTextureColorMod(map, 175, 175, 175);
+    SDL_RenderCopyF(f->renderer, map, NULL, &inner);
+    SDL_SetTextureColorMod(map, 255, 255, 255);
+    SDL_SetTextureScaleMode(map, SDL_ScaleModeNearest);
+    SDL_Color dark = {8, 18, 20, 255};
+    /* Visible part of the world. */
+    gfx_border(f, (SDL_FRect){inner.x + view.x * sx, inner.y + view.y * sy, view.w * sx, view.h * sy},
+               (SDL_Color){239, 230, 208, 150});
+    for (int i = 0; i < 4; i++)
+        if (MAP_EXITS[i].from == g->map) {
+            Vec2 p = MINI(MAP_EXITS[i].pos);
+            gfx_sector(f, (Vec2){p.x, p.y + 4}, 8, -PI / 2, .45f, GOLD);
+        }
+    if (g->map == MAP_VILLAGE)
+        for (int i = 0; i < (g->quest == Q_MESSENGER ? 5 : 4); i++)
+            gfx_disc(f, MINI(NPCS[i].pos), 2.5f, PAPER, dark);
+    if (g->map == MAP_PASS)
+        for (int i = 0; i < BOAR_COUNT; i++)
+            if (g->drops[i].exists && !g->drops[i].collected)
+                gfx_disc(f, MINI(g->drops[i].pos), 2, (SDL_Color){142, 196, 112, 255}, dark);
+    if (game_boars_active(g))
+        for (int i = 0; i < BOAR_COUNT; i++)
+            if (g->boars[i].hp > 0)
+                gfx_disc(f, MINI(g->boars[i].pos), 2.5f, RED, dark);
+    if (g->map == MAP_CAVE && g->boss.hp > 0)
+        gfx_disc(f, MINI(g->boss.pos), 3.5f, RED, dark);
+    /* Current goal: a gold ring. */
+    Vec2 goal = MINI(game_objective(g));
+    gfx_circle(f, goal, 5, GOLD);
+    gfx_circle(f, goal, 4, GOLD);
+    Vec2 hero = MINI(g->hero.pos), dir = g->hero.dir;
+    float len = sqrtf(dir.x * dir.x + dir.y * dir.y);
+    if (len > .01f)
+        gfx_sector(f, hero, 9, atan2f(dir.y, dir.x), .45f, GOLD);
+    gfx_disc(f, hero, 3.5f, GOLD, dark);
+#undef MINI
+    SDL_RenderSetClipRect(f->renderer, NULL);
+    gfx_round_border(f, box, 9, (SDL_Color){207, 185, 139, 90});
+}
 Vec2 world_camera(float w, float h, Vec2 p) {
     return (Vec2){w >= WORLD_W ? (WORLD_W - w) / 2 : clampf(p.x - w / 2, 0, WORLD_W - w),
                   h >= WORLD_H ? (WORLD_H - h) / 2 : clampf(p.y - h / 2, 0, WORLD_H - h)};

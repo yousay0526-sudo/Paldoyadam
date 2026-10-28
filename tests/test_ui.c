@@ -198,6 +198,46 @@ static void hud_art_slots(App *app, SDL_Surface *surface) {
     SDL_DestroyTexture(art);
     memcpy(app->gfx.ui_icons, saved, sizeof saved);
 }
+static bool overlaps(SDL_FRect a, SDL_FRect b) {
+    return !(a.x >= b.x + b.w || b.x >= a.x + a.w || a.y >= b.y + b.h || b.y >= a.y + a.h);
+}
+/* The minimap shows on landscape screens 360+ tall, stays clear of every
+ * HUD control, moves the boss bar to the top center and swallows taps. */
+static void minimap_fits(App *app) {
+    const Vec2 sizes[] = {{432,270},{568,320},{667,375},{844,390},{1100,650},{1280,720},{1920,1080}};
+    for (int view = 0; view < 7; view++) {
+        app->width = sizes[view].x; app->height = sizes[view].y;
+        for (int touch = 0; touch < 2; touch++)
+            for (int fight = 0; fight < 2; fight++) {
+                legacy_reset(&app->game); game_start(&app->game);
+                if (fight) { app->game.quest = Q_COMBAT; app->game.map = MAP_CAVE; }
+                app->touch_input = touch != 0;
+                app->game.hero.pos = NPCS[ELDER].pos;
+                app->button_count = 0; draw_hud(app);
+                SDL_FRect m = app->minimap;
+                if (app->height < MINIMAP_MIN_HEIGHT) { CHECK(m.w == 0); continue; }
+                CHECK(m.w > 0 && fabsf(m.w / m.h - 1.5f) < .02f);
+                CHECK(m.x >= 0 && m.x + m.w <= app->width && m.y + m.h <= app->height);
+                for (int i = 0; i < app->button_count; i++) CHECK(!overlaps(m, app->buttons[i].rect));
+                float w = app->width, bw = fminf(230, w * .32f);
+                SDL_FRect boss = {(w - bw) / 2, 8, bw, 42};
+                CHECK(!overlaps(boss, (SDL_FRect){12, 8, 190, 44}) && !overlaps(boss, m));
+                for (int i = 0; i < app->button_count; i++) CHECK(!overlaps(boss, app->buttons[i].rect));
+                char text[32]; float size;
+                snprintf(text, sizeof text, "%d", app->game.coins);
+                CHECK(!overlaps(boss, coin_chip_rect(&app->gfx, w - 150, text, &size)));
+                app->pointer_down = false; app->target_set = false;
+                pointer_down(app, 3, (Vec2){m.x + m.w / 2, m.y + m.h / 2});
+                CHECK(!app->pointer_down && !app->attack_pointer_down);
+            }
+    }
+    Game saved;
+    legacy_reset(&app->game); game_start(&app->game);
+    CHECK(game_enter_training(&app->game, &saved));
+    app->width = 844; app->height = 390; app->button_count = 0; draw_hud(app);
+    CHECK(app->minimap.w == 0);
+    app->touch_input = false;
+}
 static void training_controls_fit(App *app) {
     const Vec2 sizes[] = {{432,270},{480,306},{568,320},{844,390},{1100,650}};
     Game saved;
@@ -277,6 +317,7 @@ int main(int argc,char **argv) {
     training_controls_fit(a);
     top_hud_icons_fit(a);
     hud_art_slots(a,surface);
+    minimap_fits(a);
     text_stays_inside(a,surface);
     gfx_free(&a->gfx);
     SDL_DestroyRenderer(a->renderer);
