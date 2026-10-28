@@ -31,6 +31,10 @@ typedef struct {
     SDL_Texture *texture;
     int w, h;
 } Picture;
+/* Optional HUD icon pictures (assets/ui/). A missing file leaves its slot
+ * empty: the button still works and shows its count, only the art is blank. */
+typedef enum { UI_ICON_BAG, UI_ICON_TONIC, UI_ICON_BANDAGE, UI_ICON_COUNT } UiIcon;
+extern const char *const UI_ICON_FILES[UI_ICON_COUNT];
 typedef struct {
     int codepoint, w, h, xoff, yoff;
     float advance;
@@ -51,6 +55,7 @@ typedef struct {
     Picture hero_techniques[TECH_COUNT];
     Picture hero_idle_directions, hero_walk_directions[HERO_DIRECTIONS];
     Picture monster_atlases[MONSTER_ATLAS_COUNT];
+    Picture ui_icons[UI_ICON_COUNT];
     Typeface fonts[2];
     int face;
     char root[1024];

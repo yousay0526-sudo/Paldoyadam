@@ -64,6 +64,9 @@ static Picture load_picture(Gfx *g, const char *path) {
         SDL_SetTextureBlendMode(p.texture, SDL_BLENDMODE_BLEND);
     return p;
 }
+const char *const UI_ICON_FILES[UI_ICON_COUNT] = {
+    "ui/icon-bag.png", "ui/icon-tonic.png", "ui/icon-bandage.png"
+};
 bool gfx_load(Gfx *g, SDL_Renderer *renderer, const char *root) {
     memset(g, 0, sizeof *g);
     g->renderer = renderer;
@@ -135,6 +138,12 @@ bool gfx_load(Gfx *g, SDL_Renderer *renderer, const char *root) {
         }
         SDL_SetTextureScaleMode(g->locations[i].texture,SDL_ScaleModeNearest);
     }
+    for (int i = 0; i < UI_ICON_COUNT; i++) {
+        asset_path(path, sizeof path, root, UI_ICON_FILES[i]);
+        g->ui_icons[i] = load_picture(g, path);
+        if (g->ui_icons[i].texture)
+            SDL_SetTextureScaleMode(g->ui_icons[i].texture, SDL_ScaleModeLinear);
+    }
     g->active_map=&g->map;
     if (g->hero_walk.w % HERO_WALK_COLUMNS ||
         g->hero_walk.h % (HERO_WALK_FRAMES / HERO_WALK_COLUMNS) ||
@@ -205,6 +214,11 @@ bool gfx_load(Gfx *g, SDL_Renderer *renderer, const char *root) {
     return true;
 }
 void gfx_free(Gfx *g) {
+    for (int i = 0; i < UI_ICON_COUNT; i++) {
+        if (g->ui_icons[i].texture)
+            SDL_DestroyTexture(g->ui_icons[i].texture);
+        g->ui_icons[i] = (Picture){0};
+    }
     for (int i = 0; i < MONSTER_ATLAS_COUNT; i++) {
         if (g->monster_atlases[i].texture)
             SDL_DestroyTexture(g->monster_atlases[i].texture);

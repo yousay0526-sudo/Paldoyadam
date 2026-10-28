@@ -156,6 +156,48 @@ static void top_hud_icons_fit(App *app) {
         }
     }
 }
+/* Bag/tonic/bandage art is optional: absent files leave the slot empty;
+ * a supplied picture is drawn inside its own button only. */
+static void hud_art_slots(App *app, SDL_Surface *surface) {
+    for (int i = 0; i < UI_ICON_COUNT; i++)
+        CHECK(app->gfx.ui_icons[i].texture == NULL || app->gfx.ui_icons[i].w > 0);
+    Picture saved[UI_ICON_COUNT];
+    memcpy(saved, app->gfx.ui_icons, sizeof saved);
+    SDL_Texture *art = SDL_CreateTexture(app->renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_TARGET, 64, 64);
+    CHECK(art != NULL);
+    SDL_SetRenderTarget(app->renderer, art);
+    SDL_SetRenderDrawColor(app->renderer, 255, 0, 255, 255); SDL_RenderClear(app->renderer);
+    SDL_SetRenderTarget(app->renderer, NULL);
+    legacy_reset(&app->game); game_start(&app->game);
+    app->width = 480; app->height = 306; app->touch_input = false;
+    for (int slot = 0; slot < UI_ICON_COUNT; slot++) {
+        for (int i = 0; i < UI_ICON_COUNT; i++) app->gfx.ui_icons[i] = (Picture){0};
+        app->gfx.ui_icons[slot] = (Picture){art, 64, 64};
+        SDL_SetRenderDrawColor(app->renderer, 0, 0, 0, 255); SDL_RenderClear(app->renderer);
+        app->button_count = 0; draw_hud(app);
+        SDL_RenderPresent(app->renderer);
+        Action want = slot == UI_ICON_BAG ? ACT_BAG : ACT_USE;
+        int value = slot == UI_ICON_TONIC ? ITEM_TONIC : slot == UI_ICON_BANDAGE ? ITEM_BANDAGE : 0;
+        SDL_FRect home = {0};
+        for (int i = 0; i < app->button_count; i++)
+            if (app->buttons[i].action == want && app->buttons[i].value == value) home = app->buttons[i].rect;
+        CHECK(home.w > 0);
+        int inside = 0, outside = 0;
+        SDL_LockSurface(surface);
+        for (int y = 0; y < surface->h; y++)
+            for (int x = 0; x < surface->w; x++) {
+                Uint8 r, g, b, a2;
+                SDL_GetRGBA(((Uint32 *)((Uint8 *)surface->pixels + y * surface->pitch))[x], surface->format, &r, &g, &b, &a2);
+                if (!(r > 120 && g < 90 && b > 120 && r - g > 80)) continue;
+                if (x >= home.x && x < home.x + home.w && y >= home.y && y < home.y + home.h) inside++;
+                else outside++;
+            }
+        SDL_UnlockSurface(surface);
+        CHECK(inside > 200 && outside == 0);
+    }
+    SDL_DestroyTexture(art);
+    memcpy(app->gfx.ui_icons, saved, sizeof saved);
+}
 static void training_controls_fit(App *app) {
     const Vec2 sizes[] = {{432,270},{480,306},{568,320},{844,390},{1100,650}};
     Game saved;
@@ -234,6 +276,7 @@ int main(int argc,char **argv) {
     panel_controls_fit(a);
     training_controls_fit(a);
     top_hud_icons_fit(a);
+    hud_art_slots(a,surface);
     text_stays_inside(a,surface);
     gfx_free(&a->gfx);
     SDL_DestroyRenderer(a->renderer);

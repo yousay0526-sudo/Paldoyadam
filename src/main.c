@@ -482,20 +482,27 @@ typedef enum {
 } HudIcon;
 static void hud_icon(Gfx *f, HudIcon icon, Vec2 c, float size, SDL_Color ink) {
     float s = size / 2;
-    if (icon == ICON_COIN) {
+    if (icon == ICON_BAG || icon == ICON_TONIC || icon == ICON_BANDAGE) {
+        /* Painted art from assets/ui/ (docs/HUD_ICON_ART_BRIEF.md); empty
+         * until it is added. Dimmed ink dims the picture the same way. */
+        Picture *art = &f->ui_icons[icon == ICON_BAG ? UI_ICON_BAG
+                                    : icon == ICON_TONIC ? UI_ICON_TONIC : UI_ICON_BANDAGE];
+        if (!art->texture || art->w <= 0 || art->h <= 0)
+            return;
+        float scale = size * 1.2f / (float)(art->w > art->h ? art->w : art->h);
+        SDL_FRect box = {c.x - art->w * scale / 2, c.y - art->h * scale / 2, art->w * scale, art->h * scale};
+        bool dim = ink.r != PAPER.r || ink.g != PAPER.g || ink.b != PAPER.b;
+        SDL_SetTextureColorMod(art->texture, dim ? 150 : 255, dim ? 150 : 255, dim ? 150 : 255);
+        SDL_SetTextureAlphaMod(art->texture, dim ? 170 : 255);
+        SDL_RenderCopyF(f->renderer, art->texture, NULL, &box);
+        SDL_SetTextureColorMod(art->texture, 255, 255, 255);
+        SDL_SetTextureAlphaMod(art->texture, 255);
+    } else if (icon == ICON_COIN) {
         /* Yeopjeon: a brass disc with a square hole. */
         gfx_disc(f, c, s, GOLD, (SDL_Color){137, 101, 52, 255});
         gfx_circle(f, c, s * .72f, (SDL_Color){168, 128, 70, 255});
         float hole = s * .62f;
         gfx_rect(f, (SDL_FRect){c.x - hole / 2, c.y - hole / 2, hole, hole}, (SDL_Color){12, 28, 31, 255});
-    } else if (icon == ICON_BAG) {
-        /* Bottari: a cloth bundle tied at the top. */
-        Vec2 knot = {c.x, c.y - s * .42f};
-        gfx_sector(f, knot, s * .62f, -PI * .5f - .62f, .36f, ink);
-        gfx_sector(f, knot, s * .62f, -PI * .5f + .62f, .36f, ink);
-        gfx_round(f, (SDL_FRect){c.x - s * .9f, c.y - s * .3f, s * 1.8f, s * 1.2f}, s * .45f, ink);
-        gfx_round(f, (SDL_FRect){c.x - s * .32f, knot.y - s * .14f, s * .64f, s * .3f}, s * .12f,
-                  (SDL_Color){178, 62, 52, 255});
     } else if (icon == ICON_FULLSCREEN) {
         float t = fmaxf(2, size * .11f), arm = s * .55f, e = s * .85f;
         for (int corner = 0; corner < 4; corner++) {
@@ -508,22 +515,6 @@ static void hud_icon(Gfx *f, HudIcon icon, Vec2 c, float size, SDL_Color ink) {
         float bar = fmaxf(3, size * .2f);
         gfx_round(f, (SDL_FRect){c.x - s * .55f, c.y - s * .75f, bar, s * 1.5f}, 1, ink);
         gfx_round(f, (SDL_FRect){c.x + s * .55f - bar, c.y - s * .75f, bar, s * 1.5f}, 1, ink);
-    } else if (icon == ICON_TONIC) {
-        /* Tangyak: a bowl of dark brew with rising steam. */
-        gfx_line(f, (Vec2){c.x - s * .25f, c.y - s * .35f}, (Vec2){c.x - s * .1f, c.y - s * .95f}, ink);
-        gfx_line(f, (Vec2){c.x + s * .2f, c.y - s * .35f}, (Vec2){c.x + s * .35f, c.y - s * .95f}, ink);
-        gfx_sector(f, (Vec2){c.x, c.y - s * .1f}, s * .9f, PI / 2, PI / 2, ink);
-        gfx_round(f, (SDL_FRect){c.x - s * .75f, c.y - s * .22f, s * 1.5f, s * .24f}, s * .1f,
-                  (SDL_Color){104, 64, 38, 255});
-        gfx_rect(f, (SDL_FRect){c.x - s * .35f, c.y + s * .78f, s * .7f, s * .18f}, ink);
-    } else if (icon == ICON_BANDAGE) {
-        /* Jihyeolsan: a folded paper packet marked with a red cross. */
-        gfx_round(f, (SDL_FRect){c.x - s * .75f, c.y - s * .85f, s * 1.5f, s * 1.7f}, s * .18f, ink);
-        gfx_rect(f, (SDL_FRect){c.x - s * .75f, c.y - s * .5f, s * 1.5f, fmaxf(1, s * .08f)},
-                 (SDL_Color){150, 140, 120, 255});
-        SDL_Color red = {178, 62, 52, 255};
-        gfx_rect(f, (SDL_FRect){c.x - s * .12f, c.y - s * .3f, s * .24f, s * .85f}, red);
-        gfx_rect(f, (SDL_FRect){c.x - s * .42f, c.y - s * .0f, s * .84f, s * .24f}, red);
     } else if (icon == ICON_TECHNIQUE) {
         /* Mugong: two crossed blades with short guards. */
         for (int side = -1; side <= 1; side += 2) {
