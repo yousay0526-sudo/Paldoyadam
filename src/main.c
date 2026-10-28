@@ -33,7 +33,7 @@ typedef enum {
     ACT_CHOOSE,
     ACT_PICKUP, ACT_ATTACK, ACT_TECHNIQUE, ACT_TECHNIQUES, ACT_SWIPE_SELECT,
     ACT_TECH_BIND, ACT_BIND_RESET, ACT_BAG_TAB, ACT_BAG_SELECT, ACT_EQUIP, ACT_GEAR_SELECT,
-    ACT_TRAINING_EXIT
+    ACT_TRAINING_EXIT, ACT_DODGE
 } Action;
 typedef enum {
     DONE_NONE,
@@ -288,6 +288,21 @@ static void interact(App *a) {
         say(a, &line, 1, DONE_NONE);
     }
 }
+/* The dodge follows the held movement (keys or the move drag), else the
+ * current run; with neither, the game steps back from the facing. */
+static Vec2 dodge_direction(const App *a) {
+    const Uint8 *keys = SDL_GetKeyboardState(NULL);
+    Vec2 v = a->pointer_down ? a->pointer_delta : (Vec2){0, 0};
+    if (!a->movement_blocked) {
+        v.x += (float)(keys[SDL_SCANCODE_D] || keys[SDL_SCANCODE_RIGHT]) -
+               (float)(keys[SDL_SCANCODE_A] || keys[SDL_SCANCODE_LEFT]);
+        v.y += (float)(keys[SDL_SCANCODE_S] || keys[SDL_SCANCODE_DOWN]) -
+               (float)(keys[SDL_SCANCODE_W] || keys[SDL_SCANCODE_UP]);
+    }
+    if (hypotf(v.x, v.y) > .01f) return v;
+    Vec2 run = a->game.hero.vel;
+    return hypotf(run.x, run.y) > 20 ? run : (Vec2){0, 0};
+}
 static void dispatch(App *a, Action action, int value) {
     Game *g = &a->game;
     switch (action) {
@@ -321,6 +336,10 @@ static void dispatch(App *a, Action action, int value) {
         if (a->width <= a->height) break;
         a->target_set = false;
         game_attack(g);
+        break;
+    case ACT_DODGE:
+        if (a->width <= a->height) break;
+        if (game_dodge(g, dodge_direction(a))) a->target_set = false;
         break;
     case ACT_TECHNIQUE:
         if (a->width <= a->height) break;
@@ -742,6 +761,34 @@ static void draw_combo(App *a) {
         gfx_rect(f, (SDL_FRect){r.x + 10, r.y + r.h - 6, (r.w - 20) * left, 3}, ink);
     }
 }
+static SDL_FRect dodge_button_rect(const App *a, SDL_FRect attack) {
+    /* Touch: under the attack disc, a short thumb slide away. Keyboard
+     * players use Shift/L; the button sits left of the quick items, or in
+     * their column in training, which has none. */
+    if (a->touch_input) return (SDL_FRect){attack.x + 10, a->height - 52, 68, 44};
+    float x = a->game.training.active ? a->width - 198 : a->width - 282;
+    return (SDL_FRect){x, a->height - 98, 78, 44};
+}
+static void draw_dodge_button(App *a, SDL_FRect attack) {
+    Gfx *f = &a->gfx;
+    const Game *g = &a->game;
+    SDL_FRect r = dodge_button_rect(a, attack);
+    bool ready = g->dodge_charges > 0;
+    button(a, r, "", ACT_DODGE, 0, true, false);
+    SDL_Color ink = ready ? PAPER : MUTED;
+    gfx_label(f, a->touch_input ? "보법" : "보법 Shift", (SDL_FRect){r.x + 3, r.y + 6, r.w - 6, 20},
+              a->touch_input ? 15 : 12, ink);
+    /* Two charge pips; the refilling one shows its progress. */
+    for (int i = 0; i < DODGE_CHARGES; i++) {
+        SDL_FRect pip = {r.x + r.w / 2 - 17 + i * 18, r.y + r.h - 12, 16, 4};
+        gfx_rect(f, pip, (SDL_Color){62, 70, 66, 255});
+        float fill = i < g->dodge_charges ? 1
+            : i == g->dodge_charges ? 1 - g->dodge_recharge / DODGE_RECHARGE_SECONDS : 0;
+        if (fill > 0)
+            gfx_rect(f, (SDL_FRect){pip.x, pip.y, pip.w * clampf(fill, 0, 1), pip.h},
+                     i < g->dodge_charges ? GOLD : MUTED);
+    }
+}
 static void draw_hud(App *a) {
     Gfx *f = &a->gfx;
     Game *g = &a->game;
@@ -827,6 +874,7 @@ static void draw_hud(App *a) {
         } else if (g->combo_count > 1 && g->combo_time > 0)
             snprintf(text, sizeof text, "명중 %d연계", g->combo_count);
         else snprintf(text, sizeof text, "밀어서 무공");
+        draw_dodge_button(a, attack);
         SDL_FRect attack_hint = {center.x - 54, attack.y - 37, 108, 26};
         a->attack_hint = attack_hint;
         hud_card(f, attack_hint, 205);
@@ -1584,7 +1632,10 @@ static void handle_events(App *a) {
             else if (key == SDLK_z && a->game.phase == PH_PLAY) {
                 a->attack_key_down = true;
                 dispatch(a, ACT_ATTACK, 0);
-            } else if (key == SDLK_f)
+            } else if ((key == SDLK_LSHIFT || key == SDLK_RSHIFT || key == SDLK_l) &&
+                       a->game.phase == PH_PLAY)
+                dispatch(a, ACT_DODGE, 0);
+            else if (key == SDLK_f)
                 dispatch(a, ACT_PICKUP, 0);
             else if (key == SDLK_e)
                 dispatch(a, ACT_INTERACT, 0);
@@ -1755,6 +1806,15 @@ static void smoke_scene(App *a, const char *scene) {
         a->game.hero.pos = (Vec2){a->game.boars[0].pos.x - 60, a->game.boars[0].pos.y};
         a->game.chain_hits = 12; a->game.combo_count = 2;
         a->game.combo_time = .7f; a->game.chain_pop = CHAIN_POP_SECONDS / 2;
+    } else if (!strcmp(scene, "dodge")) {
+        /* Review shot of the dash afterimages and a spent charge. */
+        a->game.map=MAP_PASS;
+        a->game.traces[0] = a->game.traces[1] = true;
+        a->game.quest = Q_RECOVER;
+        a->game.hero.pos = (Vec2){a->game.boars[0].pos.x - 110, a->game.boars[0].pos.y};
+        a->touch_input = true;
+        game_dodge(&a->game, (Vec2){1, 0});
+        game_tick(&a->game, .07f, (Vec2){0, 0});
     } else if (!strcmp(scene, "recover")) {
         a->game.map=MAP_PASS;
         a->game.traces[0] = a->game.traces[1] = true;

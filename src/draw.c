@@ -793,8 +793,22 @@ void gfx_hero(Gfx *f, const Game *g, Vec2 feet) {
         dest = (SDL_FRect){feet.x - root_x * size,
                            feet.y - roots[attack].y / 512 * size, size, size};
     }
-    SDL_SetTextureAlphaMod(p->texture,
-        g->hero.hurt_time <= 0 && g->hero.invul > 0 && ((int)(g->time * 18) % 2) ? 110 : 255);
+    if (g->hero.dodging) {
+        /* Two fading afterimages trail the dash; the hero itself stays solid. */
+        float t = g->hero.dodge_elapsed / DODGE_SECONDS;
+        for (int k = 2; k >= 1; k--) {
+            float back = k * 16 * (1 - t * .5f);
+            SDL_FRect ghost = {dest.x - g->hero.dodge_dir.x * back, dest.y - g->hero.dodge_dir.y * back,
+                               dest.w, dest.h};
+            SDL_SetTextureColorMod(p->texture, 190, 220, 230);
+            SDL_SetTextureAlphaMod(p->texture, (Uint8)((k == 1 ? 120 : 60) * (1 - t)));
+            SDL_RenderCopyExF(f->renderer, p->texture, &source, &ghost, 0,
+                             NULL, flip ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE);
+        }
+        SDL_SetTextureColorMod(p->texture, 255, 255, 255);
+    }
+    SDL_SetTextureAlphaMod(p->texture, !g->hero.dodging && g->hero.hurt_time <= 0 &&
+        g->hero.invul > 0 && ((int)(g->time * 18) % 2) ? 110 : 255);
     SDL_RenderCopyExF(f->renderer, p->texture, &source, &dest, 0,
                      NULL, flip ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE);
     SDL_SetTextureAlphaMod(p->texture, 255);

@@ -129,6 +129,7 @@ void game_reset(Game *g) {
     g->swipe_bindings[SWIPE_RIGHT] = TECH_SWEEP;
     g->swipe_bindings[SWIPE_DOWN] = TECH_RETREAT;
     g->swipe_bindings[SWIPE_LEFT] = TECH_THRUST;
+    g->dodge_charges = DODGE_CHARGES;
 }
 void game_start(Game *g) {
     world_select(g->map);
@@ -170,7 +171,8 @@ bool game_leave_training(Game *game, const Game *saved) {
     game->chain_pop = game->chain_fade = 0;
     game->last_impact = IMPACT_NONE;
     game->combat_request = TRAIN_READY;
-    game->hero.attacking = game->hero.skilling = game->hero.walking = false;
+    game->hero.attacking = game->hero.skilling = game->hero.walking = game->hero.dodging = false;
+    game->hero.dodge_elapsed = 0;
     game->hero.vel = game->hero.knock = (Vec2){0, 0};
     game->hero.attack_elapsed = game->hero.skill_elapsed = game->hero.walk_cycle = 0;
     game_clear_hit_feedback(game);
@@ -586,6 +588,28 @@ bool game_technique(Game *g, Technique technique) {
     if (technique < 0 || technique >= TECH_COUNT) { game_invalid_direction(g); return false; }
     return request_move(g, technique);
 }
+bool game_dodge(Game *g, Vec2 direction) {
+    world_select(g->map);
+    Hero *h = &g->hero;
+    if (g->phase != PH_PLAY || h->hp <= 0 || h->dodging || g->dodge_charges <= 0 ||
+        !isfinite(direction.x) || !isfinite(direction.y))
+        return false;
+    float length = hypotf(direction.x, direction.y);
+    Vec2 dir = length > .05f ? (Vec2){direction.x / length, direction.y / length}
+                             : (Vec2){-h->dir.x, -h->dir.y};
+    if (hypotf(dir.x, dir.y) < .5f) dir = (Vec2){(float)-h->face, 0};
+    /* The dash wins over a swing: before its impact the swing is lost, after
+     * it only the recovery is cut. A queued follow-up waits for the dash. */
+    h->attacking = h->skilling = false;
+    h->attack_elapsed = h->skill_elapsed = 0;
+    h->dodging = true; h->dodge_elapsed = 0; h->dodge_dir = dir;
+    h->invul = fmaxf(h->invul, DODGE_INVUL_SECONDS);
+    if (g->dodge_charges == DODGE_CHARGES) g->dodge_recharge = DODGE_RECHARGE_SECONDS;
+    g->dodge_charges--;
+    effect(g, (Effect){.kind = FX_DUST, .pos = h->pos, .life = .45f, .amount = 2,
+                       .angle = atan2f(dir.y, dir.x)});
+    return true;
+}
 bool game_skill(Game *g) {
     world_select(g->map); return game_technique(g, TECH_CLEAVE); }
 bool game_begin_boss(Game *g) {
@@ -611,6 +635,8 @@ static void reset_fight(Game *g, Vec2 pos) {
     g->hero.attacking = false;
     g->hero.attack_elapsed = 0;
     g->hero.skilling = false; g->hero.skill_elapsed = 0;
+    g->hero.dodging = false; g->hero.dodge_elapsed = 0;
+    g->dodge_charges = DODGE_CHARGES; g->dodge_recharge = 0;
     g->combo_count = g->input_count = g->chain_hits = g->chain_last = 0;
     g->chain_pop = g->chain_fade = 0;
     g->combo_time = g->input_time = g->buffer_time = g->request_time = 0;
@@ -667,7 +693,9 @@ static void separate_bodies(Game *g, float dt) {
     world_select(g->map);
     Body bodies[BOAR_COUNT + 2];
     int count = 0;
-    bodies[count++] = (Body){&g->hero.pos, HERO_RADIUS, BODY_MASS_HERO};
+    /* A dodging hero slips between bodies; separation resumes after the dash. */
+    if (!g->hero.dodging)
+        bodies[count++] = (Body){&g->hero.pos, HERO_RADIUS, BODY_MASS_HERO};
     if ((g->map == MAP_CAVE || g->map == MAP_TRAINING) && g->quest == Q_COMBAT && g->boss.hp > 0)
         bodies[count++] = (Body){&g->boss.pos, BOSS_RADIUS, BODY_MASS_BOSS};
     else if (game_boars_active(g))
@@ -973,7 +1001,8 @@ static bool request_move(Game *g, int move) {
         return false;
     }
     float remaining = g->hero.skilling ? HERO_SKILL_SECONDS - g->hero.skill_elapsed
-        : g->hero.attacking ? HERO_ATTACK_SECONDS - g->hero.attack_elapsed : 0;
+        : g->hero.attacking ? HERO_ATTACK_SECONDS - g->hero.attack_elapsed
+        : g->hero.dodging ? DODGE_SECONDS - g->hero.dodge_elapsed : 0;
     if (remaining > 0 || g->hitstop_time > 0) {
         /* Keep one intentional follow-up across the entire active animation.
          * The last valid input replaces it; no held direction auto-repeats.
@@ -1203,6 +1232,22 @@ void game_tick(Game *g, float dt, Vec2 input) {
     Vec2 step = {target.x * dt + (was.x - target.x) * lag, target.y * dt + (was.y - target.y) * lag};
     if (length <= .05f && hypotf(g->hero.vel.x, g->hero.vel.y) < 2)
         g->hero.vel = (Vec2){0, 0};
+    if (g->hero.dodging) {
+        /* Ease-out dash: distance(t) = D * (1 - (1 - t)^2), exact per step.
+         * It leaves at walking speed so the run carries on smoothly. */
+        Hero *h = &g->hero;
+        float t0 = h->dodge_elapsed / DODGE_SECONDS;
+        h->dodge_elapsed = fminf(DODGE_SECONDS, h->dodge_elapsed + dt);
+        float t1 = h->dodge_elapsed / DODGE_SECONDS;
+        float covered = DODGE_DISTANCE * ((1 - t0) * (1 - t0) - (1 - t1) * (1 - t1));
+        step = (Vec2){h->dodge_dir.x * covered, h->dodge_dir.y * covered};
+        h->dir = h->dodge_dir;
+        if (fabsf(h->dodge_dir.x) > .1f) h->face = h->dodge_dir.x > 0 ? 1 : -1;
+        if (h->dodge_elapsed >= DODGE_SECONDS) {
+            h->dodging = false;
+            h->vel = (Vec2){h->dodge_dir.x * HERO_SPEED, h->dodge_dir.y * HERO_SPEED};
+        } else h->vel = (Vec2){0, 0};
+    }
     if (step.x != 0 || step.y != 0) {
         g->hero.pos = world_move(g->hero.pos, step, HERO_RADIUS);
         /* Keep only the motion the terrain allowed, so walls never store speed. */
@@ -1236,6 +1281,13 @@ void game_tick(Game *g, float dt, Vec2 input) {
     g->input_time = fmaxf(0, g->input_time - dt);
     g->request_time = fmaxf(0, g->request_time - dt);
     g->chain_pop = fmaxf(0, g->chain_pop - dt);
+    if (g->dodge_charges < DODGE_CHARGES) {
+        g->dodge_recharge -= dt;
+        if (g->dodge_recharge <= 0) {
+            g->dodge_charges++;
+            g->dodge_recharge = g->dodge_charges < DODGE_CHARGES ? DODGE_RECHARGE_SECONDS : 0;
+        }
+    }
     g->chain_fade = fmaxf(0, g->chain_fade - dt);
     if (g->combo_time <= 0) { g->combo_count = 0; g->last_hit_move = MOVE_NONE; break_chain(g); }
     if (g->input_time <= 0) { g->input_count = 0; g->last_move = MOVE_NONE; }
@@ -1276,7 +1328,7 @@ void game_tick(Game *g, float dt, Vec2 input) {
     }
     tick_attack(g, dt);
     tick_technique(g, dt);
-    if (!g->hero.attacking && !g->hero.skilling && g->queued_move != MOVE_NONE) {
+    if (!g->hero.attacking && !g->hero.skilling && !g->hero.dodging && g->queued_move != MOVE_NONE) {
         int next = g->queued_move;
         g->queued_move = MOVE_NONE; g->buffer_time = 0;
         request_move(g, next);
@@ -1322,7 +1374,8 @@ bool game_travel(Game *g, int index) {
     if(!world_clear(MAP_EXITS[index].arrival,HERO_RADIUS)) { world_select(from);return false; }
     g->map=MAP_EXITS[index].to;
     g->hero.pos=MAP_EXITS[index].arrival;
-    g->hero.attacking=g->hero.skilling=g->hero.walking=false;
+    g->hero.attacking=g->hero.skilling=g->hero.walking=g->hero.dodging=false;
+    g->hero.dodge_elapsed=0;
     g->hero.vel=g->hero.knock=(Vec2){0,0};
     g->hero.attack_elapsed=g->hero.skill_elapsed=g->hero.walk_cycle=0;
     g->hero.attack_target=-1;

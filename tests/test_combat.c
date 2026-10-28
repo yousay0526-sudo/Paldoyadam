@@ -229,8 +229,58 @@ static void display_chain(void) {
     CHECK(game_leave_training(&g, &saved));
     CHECK(g.chain_hits == 0 && g.chain_last == 0 && g.chain_fade == 0 && g.chain_pop == 0);
 }
+static void dodging(void) {
+    Game g; fixture(&g);
+    Vec2 start = g.hero.pos;
+    CHECK(g.dodge_charges == DODGE_CHARGES);
+    CHECK(game_dodge(&g, (Vec2){0, 3}));
+    CHECK(g.hero.dodging && g.hero.invul >= DODGE_INVUL_SECONDS && g.dodge_charges == 1);
+    CHECK(!game_dodge(&g, (Vec2){0, 1}));   /* one dash at a time */
+    advance(&g, 23);
+    CHECK(!g.hero.dodging);
+    CHECK(fabsf(g.hero.pos.x - start.x) < .5f && g.hero.pos.y - start.y > 78 && g.hero.pos.y - start.y < 84);
+    /* Charges: two, then empty; each refills in turn. */
+    CHECK(game_dodge(&g, (Vec2){0, -1})); advance(&g, 23);
+    CHECK(g.dodge_charges == 0 && !game_dodge(&g, (Vec2){1, 0}));
+    advance(&g, 75);
+    CHECK(g.dodge_charges == 1);
+    advance(&g, 121);
+    CHECK(g.dodge_charges == 2 && g.dodge_recharge == 0);
+    /* No direction: step back from the facing. */
+    fixture(&g); g.boss.pos.x -= 300; g.hero.dir = (Vec2){1, 0};
+    start = g.hero.pos;
+    CHECK(game_dodge(&g, (Vec2){0, 0})); advance(&g, 23);
+    CHECK(start.x - g.hero.pos.x > 78);
+    /* Before impact the swing is lost; a follow-up waits for the dash. */
+    fixture(&g);
+    CHECK(game_attack(&g)); advance(&g, 5);
+    CHECK(game_dodge(&g, (Vec2){0, 1}));
+    CHECK(!g.hero.attacking);
+    g.attack_cooldown = 0;
+    CHECK(game_attack(&g) && g.queued_move == MOVE_ATTACK && !g.hero.attacking);
+    advance(&g, 23);
+    CHECK(g.hero.attacking && g.training.hits == 0 && g.training.misses == 0);
+    /* After impact it cuts only the recovery and keeps the chain alive. */
+    fixture(&g);
+    CHECK(game_attack(&g)); advance(&g, 20);
+    CHECK(g.training.hits == 1 && g.hero.attacking && g.chain_hits == 1);
+    CHECK(game_dodge(&g, (Vec2){0, 1}));
+    CHECK(!g.hero.attacking && g.chain_hits == 1 && g.combo_time > 0);
+    /* Invulnerable for the dash, hurt again afterwards (outside training). */
+    legacy_reset(&g); game_start(&g);
+    CHECK(game_dodge(&g, (Vec2){1, 0}));
+    game_hurt(&g, 10, false);
+    CHECK(g.hero.hp == 100);
+    advance(&g, 25);
+    game_hurt(&g, 10, false);
+    CHECK(g.hero.hp < 100);
+    /* Not while dead or in a menu. */
+    legacy_reset(&g);
+    CHECK(!game_dodge(&g, (Vec2){1, 0}) && g.dodge_charges == DODGE_CHARGES);
+}
 int main(void) {
     sectors(); actual_impacts(); confirmed_chains(); reservations(); multiple_targets(); display_chain();
+    dodging();
     printf("PASS: %d directional combat checks.\n", checks);
     return 0;
 }

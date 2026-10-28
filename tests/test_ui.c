@@ -265,6 +265,16 @@ static void combo_counter_fits(App *app) {
                 char text[32]; float size;
                 snprintf(text, sizeof text, "%d", app->game.coins);
                 if (scene != 2) CHECK(!overlaps(c, coin_chip_rect(&app->gfx, app->width - 150, text, &size)));
+                int dodge = -1;
+                for (int i = 0; i < app->button_count; i++)
+                    if (app->buttons[i].action == ACT_DODGE) dodge = i;
+                CHECK(dodge >= 0);
+                SDL_FRect d = app->buttons[dodge].rect;
+                CHECK(d.w >= 44 && d.h >= 44 && d.x >= 0 && d.y >= 0);
+                CHECK(d.x + d.w <= app->width && d.y + d.h <= app->height);
+                for (int i = 0; i < app->button_count; i++) CHECK(i == dodge || !overlaps(d, app->buttons[i].rect));
+                CHECK(!overlaps(d, app->attack_hint));
+                if (scene == 2) CHECK(!overlaps(d, (SDL_FRect){12, 58, 148, 146}));
                 /* One hit is not a chain; a broken chain fades, then hides. */
                 app->game.chain_hits = 1; app->button_count = 0; draw_hud(app);
                 CHECK(app->combo.w == 0);
@@ -273,6 +283,11 @@ static void combo_counter_fits(App *app) {
                 CHECK(app->combo.w > 0);
                 app->game.chain_fade = 0; app->button_count = 0; draw_hud(app);
                 CHECK(app->combo.w == 0);
+                /* A tap on the button dashes at once. */
+                app->pointer_down = app->attack_pointer_down = false;
+                pointer_down(app, 7, (Vec2){d.x + d.w / 2, d.y + d.h / 2});
+                CHECK(app->game.hero.dodging && app->game.dodge_charges == DODGE_CHARGES - 1);
+                CHECK(!app->pointer_down && !app->attack_pointer_down);
             }
     }
     app->touch_input = false;
