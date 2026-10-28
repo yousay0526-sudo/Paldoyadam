@@ -46,7 +46,7 @@ typedef struct {
 typedef struct {
     SDL_Renderer *renderer;
     Picture map, hero, hero_walk, hero_attack, messenger, boss, boar, npcs, prologue[3];
-    Picture locations[3], waypost, cave_waystone;
+    Picture locations[3], waypost, waypost_boards, cave_waystone;
     Picture *active_map;
     Picture hero_techniques[TECH_COUNT];
     Picture hero_idle_directions, hero_walk_directions[HERO_DIRECTIONS];

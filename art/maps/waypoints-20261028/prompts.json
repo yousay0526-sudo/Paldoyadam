@@ -18,5 +18,27 @@
     "actual_width": 1254,
     "actual_height": 1254,
     "prompt": "Create ONE isolated game environment prop on transparent background for a top-down 3/4 view Korean Joseon historical RPG cave. A natural cave route marker made entirely of rough dark slate and granite: a LOW, WIDE irregular flat-faced boulder leaning slightly upright, supported by a compact cairn of 4 small broken rocks. Not a tombstone, not a monument, not a carved decorative sign. No wood, no rope, no lantern, no frame, no plants, no moss, no writing, no symbols. Its main front stone face should be broad, roughly horizontal, plain dark blue-gray, about 65% of the object width and enough flat empty surface to overlay two large Korean characters in game. Uneven chipped edges, broad angular facets, dust in cracks, small warm amber highlights from a cave lamp coming from upper left. Style must look like a prop already in a lush high-detail Joseon cave RPG map: hand-painted pixel illustration, earthy muted desaturated blue-charcoal granite, dark ink-like crevice shadows, crisp fine pixel texture and simple broad readable rock forms. Avoid photographic 3D render or smooth gradient, avoid huge glossy contrast. Camera looks down at 45 degrees, shows top plane and front face. Whole silhouette low and broad, about 1.65 times as wide as high, natural stones embedded in cave floor. Generous fully transparent margins, no scenery, ground tile, shadow rectangle, UI or border. Canvas square, object centered with its base at about 82% of image height."
+  },
+  "approved_material": {
+    "user_approval": "ㅇㅇ 좋다 이정표의 경우 다른 이정표들도 동일하게 적용해서 게임에 넣어보자",
+    "scope": "Apply approved texture lettering to every waypoint; prior approval requested direct application without extra confirmation; separate in-game tests explicitly waived",
+    "approved_review": {
+      "path": "art/maps/waypoints-20261028/approved-material-review.png",
+      "width": 1785,
+      "height": 881,
+      "bytes": 1976365,
+      "sha256": "f15dcc77a158cd11566462aeec291fdaf798964af2125d8f7d44e62ce9d56585",
+      "git_blob": "01afe1817b172e35e9c281854cc907e31159b2fd"
+    },
+    "asset_atlas": {
+      "path": "art/maps/waypoints-20261028/approved-material-atlas.png",
+      "width": 1774,
+      "height": 887,
+      "bytes": 1253877,
+      "sha256": "347b4daee3ce97ed8f04144a4115bd07026b39e1d228d2581ee5953c80da9c8a",
+      "git_blob": "2a10dc70bd2f3f58a8470a8219f5f5b388512aa5"
+    },
+    "preparation": "scripts/prepare_approved_waypoints.ps1",
+    "prompt": "Prepare four isolated transparent sprites from the approved two-panel review: identical warm wooden right-arrow boards reading exactly 솔바람재, 탐식굴, 마을 with thick handmade soot ink absorbed into the grain and comfortable interior padding; a low cave-compatible coarse blue-gray granite marker reading 마을 in irregular chipped hand-chiseled cuts, same unpainted stone material, dark depth shading only, no arrow or pigment. Match the approved reference, use broad facets and sparse cracks, no glossy slate veins, no post/lantern/background/UI. Two-column two-row source atlas with transparent margins; crop and proportionally fit into runtime cells."
   }
 }

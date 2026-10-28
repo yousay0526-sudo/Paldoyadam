@@ -141,6 +141,12 @@ bool gfx_load(Gfx *g, SDL_Renderer *renderer, const char *root) {
         SDL_Log("Invalid waypost asset %s",path);gfx_free(g);return false;
     }
     SDL_SetTextureScaleMode(g->waypost.texture,SDL_ScaleModeLinear);
+    asset_path(path,sizeof path,root,"maps/waypost-boards.png");
+    g->waypost_boards=load_picture(g,path);
+    if(!g->waypost_boards.texture || g->waypost_boards.w!=1152 || g->waypost_boards.h!=100) {
+        SDL_Log("Invalid waypost board atlas %s",path);gfx_free(g);return false;
+    }
+    SDL_SetTextureScaleMode(g->waypost_boards.texture,SDL_ScaleModeLinear);
     asset_path(path,sizeof path,root,"maps/cave-waystone.png");
     g->cave_waystone=load_picture(g,path);
     if(!g->cave_waystone.texture || g->cave_waystone.w!=256 || g->cave_waystone.h!=178) {
@@ -217,6 +223,8 @@ bool gfx_load(Gfx *g, SDL_Renderer *renderer, const char *root) {
     return true;
 }
 void gfx_free(Gfx *g) {
+    if(g->waypost_boards.texture) SDL_DestroyTexture(g->waypost_boards.texture);
+    g->waypost_boards=(Picture){0};
     if(g->cave_waystone.texture) SDL_DestroyTexture(g->cave_waystone.texture);
     g->cave_waystone=(Picture){0};
     if(g->waypost.texture) SDL_DestroyTexture(g->waypost.texture);
@@ -968,33 +976,15 @@ static Vec2 waypost_pos(int index) {
     return (Vec2){MAP_EXITS[index].pos.x+offsets[index].x,
                   MAP_EXITS[index].pos.y+offsets[index].y};
 }
-static void waypost_text(Gfx *f,const char *name,SDL_FRect box,float size,SDL_Color ink) {
-    int face=f->face;
-    f->face=0; /* Nanum Myeongjo Bold: clear Korean strokes at phone scale. */
-    gfx_label(f,name,box,size,ink);
-    box.x+=.6f;
-    gfx_label(f,name,box,size,ink);
-    f->face=face;
-}
 static void waypost(Gfx *f,int index,Vec2 camera) {
     Vec2 p=screen_pos(waypost_pos(index),camera);
     if(index==3) {
         SDL_FRect rock={p.x-69,p.y-92,138,96};
         SDL_RenderCopyF(f->renderer,f->cave_waystone.texture,NULL,&rock);
-        SDL_FRect text={rock.x+27,rock.y+32,84,33};
-        waypost_text(f,game_map_name(MAP_EXITS[index].to),
-                     (SDL_FRect){text.x+1,text.y+1,text.w,text.h},28,(SDL_Color){27,28,29,255});
-        waypost_text(f,game_map_name(MAP_EXITS[index].to),text,28,(SDL_Color){238,225,194,255});
-        SDL_Color chalk={224,212,184,255};
-        for(int i=0;i<2;i++) {
-            gfx_line(f,(Vec2){p.x+i,p.y-23},(Vec2){p.x+i,p.y-13},chalk);
-            gfx_line(f,(Vec2){p.x-5+i,p.y-18},(Vec2){p.x+i,p.y-13},chalk);
-            gfx_line(f,(Vec2){p.x+5+i,p.y-18},(Vec2){p.x+i,p.y-13},chalk);
-        }
         return;
     }
-    /* Widen the authored board independently; retain the post's proportions. */
-    SDL_Rect board={70,50,170,52};
+    /* Approved names are painted into each wooden board, never overlaid as UI text. */
+    SDL_Rect board={index*384,0,384,100};
     SDL_FRect plate;
     if(index==1) {
         /* Mount just the board on the village's existing eastern lamp post. */
@@ -1008,9 +998,7 @@ static void waypost(Gfx *f,int index,Vec2 camera) {
         SDL_RenderCopyF(f->renderer,f->waypost.texture,&bottom,&lower);
         plate=(SDL_FRect){r.x+41.5f,r.y+28,146,38};
     }
-    SDL_RenderCopyF(f->renderer,f->waypost.texture,&board,&plate);
-    waypost_text(f,game_map_name(MAP_EXITS[index].to),
-                 (SDL_FRect){plate.x+5,plate.y+1,122,35},26,(SDL_Color){38,24,13,255});
+    SDL_RenderCopyF(f->renderer,f->waypost_boards.texture,&board,&plate);
 }
 void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool has_target,
                Vec2 target) {

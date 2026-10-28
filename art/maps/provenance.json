@@ -50,12 +50,43 @@
     "path": "assets/maps/cave-waystone.png",
     "width": 256,
     "height": 178,
-    "bytes": 89499,
-    "sha256": "5c7c1362ab5391aeacd3d0f7576a69057d6bd76d7d624b434f37e3b9a64374e5",
-    "source": "ImageGen cave route marker, cropped and reduced with alpha preserved",
-    "master": "art/maps/waypoints-20261028/cave-waystone-generated.png",
-    "master_width": 1254,
-    "master_height": 1254,
-    "preparation": "scripts/prepare_cave_waystone.ps1"
+    "bytes": 80170,
+    "sha256": "6a07941074693d0032f31333f8e8de18b4aa9e88ccc876635cd00c8e6ce96807",
+    "source": "Approved cave-integrated, rough hand-chiseled unpainted lettering authored into the PNG; no arrow",
+    "master": "art/maps/waypoints-20261028/approved-material-atlas.png",
+    "approval_reference": "art/maps/waypoints-20261028/approved-material-review.png",
+    "preparation": "scripts/prepare_approved_waypoints.ps1",
+    "previous": {
+      "path": "assets/maps/cave-waystone.png",
+      "width": 256,
+      "height": 178,
+      "bytes": 89499,
+      "sha256": "5c7c1362ab5391aeacd3d0f7576a69057d6bd76d7d624b434f37e3b9a64374e5",
+      "source": "ImageGen cave route marker, cropped and reduced with alpha preserved",
+      "master": "art/maps/waypoints-20261028/cave-waystone-generated.png",
+      "master_width": 1254,
+      "master_height": 1254,
+      "preparation": "scripts/prepare_cave_waystone.ps1"
+    }
+  },
+  {
+    "path": "assets/maps/waypost-boards.png",
+    "width": 1152,
+    "height": 100,
+    "bytes": 267385,
+    "sha256": "52b1d2d291d8ab05a087cded9f68536ee79d2525da3af29959ff2afb7ed08619",
+    "source": "Matching ink-brush names authored into all three wooden boards",
+    "names": [
+      "솔바람재",
+      "탐식굴",
+      "마을"
+    ],
+    "cell_size": [
+      384,
+      100
+    ],
+    "master": "art/maps/waypoints-20261028/approved-material-atlas.png",
+    "approval_reference": "art/maps/waypoints-20261028/approved-material-review.png",
+    "preparation": "scripts/prepare_approved_waypoints.ps1"
   }
 ]
