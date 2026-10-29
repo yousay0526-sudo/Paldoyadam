@@ -194,8 +194,93 @@ static void multiple_targets(void) {
     advance(&g, 15);
     CHECK(g.boars[0].hp == hp0 && g.boars[1].hp == hp1 - 9);
 }
+/* The on-screen chain counts every confirmed hit in the window, including a
+ * repeated move, while the damage tier keeps its own rules. */
+static void display_chain(void) {
+    Game g; fixture(&g);
+    const int moves[] = {MOVE_ATTACK, TECH_SWEEP, TECH_CLEAVE, TECH_RETREAT, TECH_RETREAT};
+    for (int i = 0; i < 5; i++) {
+        if (i == 4) g.technique_cooldowns[TECH_RETREAT] = 0;
+        g.hero.pos = BOSS_HOME; g.boss.pos = polar(BOSS_HOME, 0, 40);
+        CHECK(request(&g, moves[i])); advance(&g, 65);
+        CHECK(g.chain_hits == i + 1 && g.chain_fade == 0);
+        CHECK(g.combo_count == (i == 4 ? 1 : i < 3 ? i + 1 : 3));
+    }
+    advance(&g, 110);
+    CHECK(g.chain_hits == 0 && g.chain_last == 5 && g.chain_fade > 0);
+    advance(&g, 50);
+    CHECK(g.chain_fade == 0 && g.chain_last == 5);
+    /* A whiff breaks the chain at once. */
+    fixture(&g);
+    CHECK(game_attack(&g)); advance(&g, 50);
+    CHECK(g.chain_hits == 1);
+    g.boss.pos.x += 300;
+    CHECK(game_technique(&g, TECH_SWEEP)); advance(&g, 30);
+    CHECK(g.chain_hits == 0 && g.chain_last == 0 && g.chain_fade == 0);
+    /* Leaving training clears it without a fade. */
+    Game saved;
+    legacy_reset(&g); game_start(&g);
+    CHECK(game_enter_training(&g, &saved));
+    for (int i = 0; i < 2; i++) {
+        g.hero.pos = BOSS_HOME; g.boss.pos = polar(BOSS_HOME, 0, 40);
+        CHECK(request(&g, i ? TECH_SWEEP : MOVE_ATTACK)); advance(&g, 65);
+    }
+    CHECK(g.chain_hits == 2);
+    CHECK(game_leave_training(&g, &saved));
+    CHECK(g.chain_hits == 0 && g.chain_last == 0 && g.chain_fade == 0 && g.chain_pop == 0);
+}
+static void dodging(void) {
+    Game g; fixture(&g);
+    Vec2 start = g.hero.pos;
+    CHECK(g.dodge_charges == DODGE_CHARGES);
+    CHECK(game_dodge(&g, (Vec2){0, 3}));
+    CHECK(g.hero.dodging && g.hero.invul >= DODGE_INVUL_SECONDS && g.dodge_charges == 1);
+    CHECK(!game_dodge(&g, (Vec2){0, 1}));   /* one dash at a time */
+    advance(&g, 23);
+    CHECK(!g.hero.dodging);
+    CHECK(fabsf(g.hero.pos.x - start.x) < .5f && g.hero.pos.y - start.y > 78 && g.hero.pos.y - start.y < 84);
+    /* Charges: two, then empty; each refills in turn. */
+    CHECK(game_dodge(&g, (Vec2){0, -1})); advance(&g, 23);
+    CHECK(g.dodge_charges == 0 && !game_dodge(&g, (Vec2){1, 0}));
+    advance(&g, 75);
+    CHECK(g.dodge_charges == 1);
+    advance(&g, 121);
+    CHECK(g.dodge_charges == 2 && g.dodge_recharge == 0);
+    /* No direction: step back from the facing. */
+    fixture(&g); g.boss.pos.x -= 300; g.hero.dir = (Vec2){1, 0};
+    start = g.hero.pos;
+    CHECK(game_dodge(&g, (Vec2){0, 0})); advance(&g, 23);
+    CHECK(start.x - g.hero.pos.x > 78);
+    /* Before impact the swing is lost; a follow-up waits for the dash. */
+    fixture(&g);
+    CHECK(game_attack(&g)); advance(&g, 5);
+    CHECK(game_dodge(&g, (Vec2){0, 1}));
+    CHECK(!g.hero.attacking);
+    g.attack_cooldown = 0;
+    CHECK(game_attack(&g) && g.queued_move == MOVE_ATTACK && !g.hero.attacking);
+    advance(&g, 23);
+    CHECK(g.hero.attacking && g.training.hits == 0 && g.training.misses == 0);
+    /* After impact it cuts only the recovery and keeps the chain alive. */
+    fixture(&g);
+    CHECK(game_attack(&g)); advance(&g, 20);
+    CHECK(g.training.hits == 1 && g.hero.attacking && g.chain_hits == 1);
+    CHECK(game_dodge(&g, (Vec2){0, 1}));
+    CHECK(!g.hero.attacking && g.chain_hits == 1 && g.combo_time > 0);
+    /* Invulnerable for the dash, hurt again afterwards (outside training). */
+    legacy_reset(&g); game_start(&g);
+    CHECK(game_dodge(&g, (Vec2){1, 0}));
+    game_hurt(&g, 10, false);
+    CHECK(g.hero.hp == 100);
+    advance(&g, 25);
+    game_hurt(&g, 10, false);
+    CHECK(g.hero.hp < 100);
+    /* Not while dead or in a menu. */
+    legacy_reset(&g);
+    CHECK(!game_dodge(&g, (Vec2){1, 0}) && g.dodge_charges == DODGE_CHARGES);
+}
 int main(void) {
-    sectors(); actual_impacts(); confirmed_chains(); reservations(); multiple_targets();
+    sectors(); actual_impacts(); confirmed_chains(); reservations(); multiple_targets(); display_chain();
+    dodging();
     printf("PASS: %d directional combat checks.\n", checks);
     return 0;
 }

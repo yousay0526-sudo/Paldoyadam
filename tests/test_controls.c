@@ -150,9 +150,9 @@ static void combat_inputs(App *a) {
     p=attack_fixture(a); pointer_down(a,1,p); dispatch(a,ACT_BAG,0);
     CHECK(!a->attack_pointer_down && a->game.phase==PH_BAG);
     pointer_up(a,1,p); dispatch(a,ACT_CLOSE,0); CHECK(!a->game.hero.attacking);
-    key(a,SDLK_z,false); CHECK(a->attack_key_down && a->game.hero.attacking);
-    key_up(a,SDLK_z); CHECK(!a->attack_key_down);
-    const SDL_Keycode keys[]={SDLK_q,SDLK_r,SDLK_g,SDLK_t};
+    key(a,SDLK_a,false); CHECK(a->attack_key_down && a->game.hero.attacking);
+    key_up(a,SDLK_a); CHECK(!a->attack_key_down);
+    const SDL_Keycode keys[]={SDLK_q,SDLK_w,SDLK_e,SDLK_r};
     for(int d=0;d<SWIPE_COUNT;d++) {
         attack_fixture(a); key(a,keys[d],false);
         CHECK(a->game.hero.skilling && a->game.hero.technique==a->game.swipe_bindings[d]);
@@ -162,25 +162,25 @@ static void combat_inputs(App *a) {
     CHECK(a->game.swipe_bindings[SWIPE_UP]==TECH_THRUST);
     key(a,SDLK_ESCAPE,false); key(a,SDLK_q,false);
     CHECK(a->game.hero.technique==TECH_THRUST && a->game.hero.skilling);
-    attack_fixture(a); key(a,SDLK_z,false);
+    attack_fixture(a); key(a,SDLK_a,false);
     SDL_Event e={0}; e.type=SDL_WINDOWEVENT; e.window.event=SDL_WINDOWEVENT_FOCUS_LOST;
     SDL_PushEvent(&e); handle_events(a);
     CHECK(a->game.phase==PH_PAUSED && !a->attack_key_down);
     attack_fixture(a); a->height=900; pointer_down(a,1,p);
     CHECK(!a->attack_pointer_down && !a->pointer_down);
-    key(a,SDLK_z,false); key(a,SDLK_q,false);
+    key(a,SDLK_a,false); key(a,SDLK_q,false);
     CHECK(!a->game.hero.attacking && !a->game.hero.skilling);
-    key_up(a,SDLK_z);
+    key_up(a,SDLK_a);
     attack_fixture(a);
 }
 static void combat_frames(App *a, int count);
 /* Holding Z repeats the basic attack, but never replaces a technique the
  * player queued explicitly during the current move. */
 static void held_attack_keeps_queued_technique(App *a) {
-    attack_fixture(a); key(a,SDLK_z,false);
+    attack_fixture(a); key(a,SDLK_a,false);
     CHECK(a->attack_key_down && a->game.hero.attacking);
     combat_frames(a,10);
-    key(a,SDLK_r,false);
+    key(a,SDLK_w,false);
     CHECK(a->game.hero.skilling && a->game.hero.technique==TECH_SWEEP);
     key(a,SDLK_q,false);
     CHECK(a->game.queued_move==TECH_CLEAVE);
@@ -195,7 +195,7 @@ static void held_attack_keeps_queued_technique(App *a) {
     combat_frames(a,1); CHECK(a->game.queued_move==MOVE_ATTACK);
     for(int i=0;i<20 && !a->game.hero.attacking;i++) combat_frames(a,1);
     CHECK(a->game.hero.attacking && !a->game.hero.skilling);
-    key_up(a,SDLK_z); CHECK(!a->attack_key_down);
+    key_up(a,SDLK_a); CHECK(!a->attack_key_down);
 }
 /* The rotate notice hides the game: shortcuts must not change it unseen. */
 static void portrait_blocks_shortcuts(App *a) {
@@ -209,8 +209,8 @@ static void portrait_blocks_shortcuts(App *a) {
     a->game.hero.pos=NPCS[ELDER].pos; a->game.hero.hp=40;
     a->game.hero.bleed=3; a->game.quest=Q_RECOVER;
     a->game.drops[0]=(Drop){.pos=NPCS[ELDER].pos,.exists=true};
-    const SDL_Keycode keys[]={SDLK_SPACE,SDLK_RETURN,SDLK_e,SDLK_f,SDLK_1,SDLK_2,SDLK_i,SDLK_j,
-                              SDLK_k,SDLK_z,SDLK_q,SDLK_r,SDLK_g,SDLK_t,SDLK_ESCAPE,SDLK_F8};
+    const SDL_Keycode keys[]={SDLK_SPACE,SDLK_RETURN,SDLK_d,SDLK_s,SDLK_f,SDLK_1,SDLK_2,SDLK_i,SDLK_j,
+                              SDLK_k,SDLK_a,SDLK_q,SDLK_w,SDLK_e,SDLK_r,SDLK_ESCAPE,SDLK_F8};
     for(size_t i=0;i<sizeof keys/sizeof *keys;i++) {
         key(a,keys[i],false);
         CHECK(a->game.phase==PH_PLAY && a->game.hero.hp==40 && a->game.tonics==2);
@@ -218,7 +218,7 @@ static void portrait_blocks_shortcuts(App *a) {
         CHECK(!a->attack_key_down && !a->game.hero.attacking && !a->game.hero.skilling);
         CHECK(a->game.cooldown==0 && a->game.queued_move==MOVE_NONE);
     }
-    key_up(a,SDLK_z);
+    key_up(a,SDLK_a);
     /* Display-only keys still work, and rotating back restores shortcuts. */
     key(a,SDLK_F3,false); CHECK(a->debug_collision); key(a,SDLK_F3,false);
     a->width=844; a->height=390;
@@ -446,7 +446,7 @@ static void training_entry_and_inputs(App *app) {
     CHECK(!app->target_set && !app->pointer_down);
     key(app, SDLK_i, false); key(app, SDLK_j, false); key(app, SDLK_SPACE, false); key(app, SDLK_f, false);
     CHECK(app->game.phase == PH_PLAY && app->game.quest == Q_MEET && app->game.herbs == 0);
-    key(app, SDLK_z, false); key_up(app, SDLK_z);
+    key(app, SDLK_a, false); key_up(app, SDLK_a);
     combat_frames(app, 4);
     CHECK(app->game.training.hits == 1 && app->game.training.last_damage == 9);
     key(app, SDLK_ESCAPE, false);
@@ -487,7 +487,7 @@ static void training_entry_and_inputs(App *app) {
     }
     for (int reason = 0; reason < 5; reason++) {
         key(app, SDLK_F8, false);
-        key(app, SDLK_q, false); key(app, SDLK_r, false);
+        key(app, SDLK_q, false); key(app, SDLK_w, false);
         CHECK(app->game.queued_move == TECH_SWEEP);
         app->game.hitstop_time = HITSTOP_LIGHT_SECONDS;
         app->game.hero.hurt_time = app->game.boss.hit_time = HIT_FLASH_SECONDS;
@@ -686,6 +686,63 @@ static void map_exit_inputs(App *a) {
     a->game.hero.pos=MAP_EXITS[0].pos;a->game.phase=PH_BAG;interact(a);CHECK(a->game.map==MAP_VILLAGE);
 }
 
+/* Arrow-key movement with Q/W/E/R techniques, A attack, S dodge, D talk;
+ * the pause menu rebinds any command and refuses the fixed keys. */
+static void keyboard_layout(App *a) {
+    legacy_reset(&a->game); game_start(&a->game);
+    memset(a->keys, 0, sizeof a->keys);
+    a->game.hero.pos = NPCS[ELDER].pos;
+    key(a, SDLK_d, false);
+    CHECK(a->game.phase == PH_DIALOGUE);
+    legacy_reset(&a->game); game_start(&a->game); stop_input(a);
+    key(a, SDLK_z, false);
+    CHECK(!a->game.hero.attacking && !a->attack_key_down);
+    key(a, SDLK_s, false);
+    CHECK(a->game.hero.dodging && a->game.dodge_charges == DODGE_CHARGES - 1);
+    a->game.hero.dodging = false;
+    /* Settings panel. */
+    key(a, SDLK_ESCAPE, false);
+    CHECK(a->game.phase == PH_PAUSED && !a->key_menu);
+    dispatch(a, ACT_KEY_MENU, 0);
+    CHECK(a->key_menu && a->key_waiting == -1);
+    dispatch(a, ACT_KEY_SELECT, KEY_ATTACK);
+    CHECK(a->key_waiting == KEY_ATTACK);
+    key(a, SDLK_SPACE, false); key(a, SDLK_UP, false); key(a, SDLK_F8, false);
+    CHECK(key_for(a, KEY_ATTACK) == SDLK_a && a->key_waiting == KEY_ATTACK && !a->game.training.active);
+    key(a, SDLK_z, false);
+    CHECK(key_for(a, KEY_ATTACK) == SDLK_z && a->key_waiting == -1);
+    /* Taking a used key swaps the two commands. */
+    dispatch(a, ACT_KEY_SELECT, KEY_DODGE);
+    key(a, SDLK_q, false);
+    CHECK(key_for(a, KEY_DODGE) == SDLK_q && key_for(a, KEY_TECH_UP) == SDLK_s);
+    /* Esc cancels the wait, then closes the panel; the game stays paused. */
+    dispatch(a, ACT_KEY_SELECT, KEY_BAG);
+    key(a, SDLK_ESCAPE, false);
+    CHECK(a->key_menu && a->key_waiting == -1 && key_for(a, KEY_BAG) == SDLK_i);
+    key(a, SDLK_ESCAPE, false);
+    CHECK(!a->key_menu && a->game.phase == PH_PAUSED);
+    key(a, SDLK_ESCAPE, false);
+    CHECK(a->game.phase == PH_PLAY);
+    key(a, SDLK_z, false);
+    CHECK(a->game.hero.attacking && a->attack_key_down);
+    key_up(a, SDLK_z);
+    CHECK(!a->attack_key_down);
+    key(a, SDLK_a, false);   /* the old key is free now */
+    CHECK(a->game.queued_move == MOVE_NONE);
+    a->game.phase = PH_PAUSED; dispatch(a, ACT_KEY_MENU, 0); dispatch(a, ACT_KEY_RESET, 0);
+    for (int i = 0; i < KEY_COUNT; i++) CHECK(key_for(a, (KeyCommand)i) == DEFAULT_KEYS[i]);
+    dispatch(a, ACT_CLOSE, 0); dispatch(a, ACT_CLOSE, 0);
+    CHECK(a->game.phase == PH_PLAY);
+    /* Saved text: valid lines load; reserved keys or clashes fall back. */
+    keys_parse(a, "0 122\n5 1073742049\n");
+    CHECK(key_for(a, KEY_ATTACK) == SDLK_z && key_for(a, KEY_DODGE) == SDLK_LSHIFT);
+    keys_parse(a, "0 32\n");
+    CHECK(key_for(a, KEY_ATTACK) == SDLK_a);
+    keys_parse(a, "0 113\n");
+    CHECK(key_for(a, KEY_ATTACK) == SDLK_a && key_for(a, KEY_TECH_UP) == SDLK_q);
+    keys_parse(a, NULL);
+    for (int i = 0; i < KEY_COUNT; i++) CHECK(a->keys[i] == 0);
+}
 int main(void) {
     SDL_SetMainReady();
     SDL_SetHint(SDL_HINT_VIDEODRIVER,"dummy");
@@ -703,6 +760,7 @@ int main(void) {
     combat_inputs(a);
     held_attack_keeps_queued_technique(a);
     portrait_blocks_shortcuts(a);
+    keyboard_layout(a);
     continuous_swipes(a);
     all_direction_pairs(a);
     swipe_thresholds(a);

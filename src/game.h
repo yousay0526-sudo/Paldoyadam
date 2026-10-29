@@ -23,6 +23,14 @@
 #define HERO_SKILL_SECONDS .64f
 #define HERO_SKILL_IMPACT .24f
 #define COMBO_SECONDS 1.05f
+#define CHAIN_POP_SECONDS .18f
+/* Bobeop: a short dash in the chosen direction with brief invulnerability. */
+#define DODGE_SECONDS .22f
+#define DODGE_DISTANCE 80.0f
+#define DODGE_INVUL_SECONDS .20f
+#define DODGE_CHARGES 2
+#define DODGE_RECHARGE_SECONDS 1.2f
+#define CHAIN_FADE_SECONDS .45f
 #define HIT_FLASH_SECONDS .12f
 #define HITSTOP_LIGHT_SECONDS .035f
 #define HITSTOP_HEAVY_SECONDS .055f
@@ -137,6 +145,10 @@ typedef struct {
     float skill_elapsed, skill_angle;
     Technique technique;
     bool skilling, skill_hit;
+    /* Dodge dash: fixed heading, eased distance; cancels a swing in progress. */
+    Vec2 dodge_dir;
+    float dodge_elapsed;
+    bool dodging;
 } Hero;
 typedef struct {
     Vec2 pos, home;
@@ -210,6 +222,13 @@ typedef struct {
     /* Input links never award damage. Confirmed hits advance once per impact. */
     int input_count, last_move, combo_count, last_hit_move, queued_move;
     float input_time, combo_time, buffer_time;
+    /* Display only: confirmed hits chained inside the combo window, any move,
+     * uncapped. It never changes damage; the last broken chain fades out. */
+    int chain_hits, chain_last;
+    float chain_pop, chain_fade;
+    /* Dodge charges refill one at a time. */
+    int dodge_charges;
+    float dodge_recharge;
     enum { IMPACT_NONE, IMPACT_HIT, IMPACT_MISS } last_impact;
     enum { TRAIN_READY, TRAIN_STARTED, TRAIN_QUEUED, TRAIN_COOLDOWN,
            TRAIN_INVALID, TRAIN_BLOCKED } combat_request;
@@ -253,6 +272,9 @@ int game_hero_frame(const Game *g);
 int game_hero_attack_frame(const Game *g);
 int game_hero_skill_frame(const Game *g);
 bool game_attack(Game *g);
+/* Dash toward `direction` (any length; zero steps back from the facing).
+ * Works mid-swing, cancelling it. False when no charge or not in play. */
+bool game_dodge(Game *g, Vec2 direction);
 /* Shared geometry for simulation and the existing procedural sword trail.
  * Radius is exclusive, angle inclusive; targets use their existing centers. */
 float game_attack_range(const Game *g, int move);

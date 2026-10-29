@@ -238,6 +238,94 @@ static void minimap_fits(App *app) {
     CHECK(app->minimap.w == 0);
     app->touch_input = false;
 }
+/* The hit-chain counter always finds a spot clear of every control and card. */
+static void combo_counter_fits(App *app) {
+    const Vec2 sizes[] = {{432,270},{480,306},{568,320},{667,375},{844,390},{1100,650},{1280,720},{1920,1080}};
+    for (int view = 0; view < 8; view++) {
+        app->width = sizes[view].x; app->height = sizes[view].y;
+        for (int touch = 0; touch < 2; touch++)
+            for (int scene = 0; scene < 3; scene++) {
+                Game saved;
+                legacy_reset(&app->game); game_start(&app->game);
+                if (scene == 1) { app->game.quest = Q_COMBAT; app->game.map = MAP_CAVE; }
+                if (scene == 2) CHECK(game_enter_training(&app->game, &saved));
+                app->touch_input = touch != 0;
+                app->game.hero.pos = scene == 2 ? BOSS_HOME : NPCS[ELDER].pos;
+                app->game.chain_hits = 12; app->game.combo_count = 2;
+                app->game.combo_time = COMBO_SECONDS;
+                app->button_count = 0; draw_hud(app);
+                SDL_FRect c = app->combo;
+                CHECK(c.w > 0 && c.h > 0);
+                CHECK(c.x >= 0 && c.y >= 0 && c.x + c.w <= app->width && c.y + c.h <= app->height);
+                for (int i = 0; i < app->button_count; i++) CHECK(!overlaps(c, app->buttons[i].rect));
+                CHECK(!overlaps(c, app->attack_hint) && !overlaps(c, (SDL_FRect){12, 8, 190, 44}));
+                if (app->minimap.w > 0) CHECK(!overlaps(c, app->minimap));
+                if (scene == 1) CHECK(!overlaps(c, boss_bar_rect(app)));
+                if (scene == 2) CHECK(!overlaps(c, (SDL_FRect){12, 58, 148, 146}));
+                char text[32]; float size;
+                snprintf(text, sizeof text, "%d", app->game.coins);
+                if (scene != 2) CHECK(!overlaps(c, coin_chip_rect(&app->gfx, app->width - 150, text, &size)));
+                int dodge = -1;
+                for (int i = 0; i < app->button_count; i++)
+                    if (app->buttons[i].action == ACT_DODGE) dodge = i;
+                CHECK(dodge >= 0);
+                SDL_FRect d = app->buttons[dodge].rect;
+                CHECK(d.w >= 44 && d.h >= 44 && d.x >= 0 && d.y >= 0);
+                CHECK(d.x + d.w <= app->width && d.y + d.h <= app->height);
+                for (int i = 0; i < app->button_count; i++) CHECK(i == dodge || !overlaps(d, app->buttons[i].rect));
+                CHECK(!overlaps(d, app->attack_hint));
+                if (scene == 2) CHECK(!overlaps(d, (SDL_FRect){12, 58, 148, 146}));
+                /* One hit is not a chain; a broken chain fades, then hides. */
+                app->game.chain_hits = 1; app->button_count = 0; draw_hud(app);
+                CHECK(app->combo.w == 0);
+                app->game.chain_hits = 0; app->game.chain_last = 7; app->game.chain_fade = CHAIN_FADE_SECONDS / 2;
+                app->game.combo_time = 0; app->button_count = 0; draw_hud(app);
+                CHECK(app->combo.w > 0);
+                app->game.chain_fade = 0; app->button_count = 0; draw_hud(app);
+                CHECK(app->combo.w == 0);
+                /* A tap on the button dashes at once. */
+                app->pointer_down = app->attack_pointer_down = false;
+                pointer_down(app, 7, (Vec2){d.x + d.w / 2, d.y + d.h / 2});
+                CHECK(app->game.hero.dodging && app->game.dodge_charges == DODGE_CHARGES - 1);
+                CHECK(!app->pointer_down && !app->attack_pointer_down);
+            }
+    }
+    app->touch_input = false;
+}
+/* Pause offers key settings to keyboard players; the panel fits every size. */
+static void key_settings_fit(App *app) {
+    const Vec2 sizes[] = {{432,270},{568,320},{844,390},{1280,720},{1920,1080}};
+    for (int view = 0; view < 5; view++) {
+        app->width = sizes[view].x; app->height = sizes[view].y;
+        legacy_reset(&app->game); game_start(&app->game);
+        app->game.phase = PH_PAUSED; app->key_menu = false;
+        app->touch_input = true; app->button_count = 0; draw_overlay(app);
+        for (int i = 0; i < app->button_count; i++) CHECK(app->buttons[i].action != ACT_KEY_MENU);
+        app->touch_input = false; app->button_count = 0; draw_overlay(app);
+        int menu = -1;
+        for (int i = 0; i < app->button_count; i++) if (app->buttons[i].action == ACT_KEY_MENU) menu = i;
+        CHECK(menu >= 0);
+        for (int i = 0; i < app->button_count; i++) CHECK(i == menu || !overlaps(app->buttons[menu].rect, app->buttons[i].rect));
+        dispatch(app, ACT_KEY_MENU, 0);
+        for (int waiting = -1; waiting < 1; waiting++) {
+            app->key_waiting = waiting;
+            app->button_count = 0; draw_overlay(app);
+            int rows = 0;
+            for (int i = 0; i < app->button_count; i++) {
+                SDL_FRect b = app->buttons[i].rect;
+                CHECK(b.x >= 0 && b.y >= 0 && b.x + b.w <= app->width && b.y + b.h <= app->height);
+                if (app->buttons[i].action != ACT_KEY_SELECT) continue;
+                rows++;
+                CHECK(b.h >= 20);
+                for (int j = 0; j < app->button_count; j++) CHECK(j == i || !overlaps(b, app->buttons[j].rect));
+            }
+            CHECK(rows == KEY_COUNT);
+        }
+        CHECK(gfx_measure(&app->gfx, KEY_NAMES[KEY_TECH_RIGHT], 9) < 160);
+        app->key_menu = false; app->key_waiting = -1;
+    }
+    app->touch_input = false;
+}
 static void training_controls_fit(App *app) {
     const Vec2 sizes[] = {{432,270},{480,306},{568,320},{844,390},{1100,650}};
     Game saved;
@@ -318,6 +406,8 @@ int main(int argc,char **argv) {
     top_hud_icons_fit(a);
     hud_art_slots(a,surface);
     minimap_fits(a);
+    combo_counter_fits(a);
+    key_settings_fit(a);
     text_stays_inside(a,surface);
     gfx_free(&a->gfx);
     SDL_DestroyRenderer(a->renderer);

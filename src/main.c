@@ -33,8 +33,21 @@ typedef enum {
     ACT_CHOOSE,
     ACT_PICKUP, ACT_ATTACK, ACT_TECHNIQUE, ACT_TECHNIQUES, ACT_SWIPE_SELECT,
     ACT_TECH_BIND, ACT_BIND_RESET, ACT_BAG_TAB, ACT_BAG_SELECT, ACT_EQUIP, ACT_GEAR_SELECT,
-    ACT_TRAINING_EXIT
+    ACT_TRAINING_EXIT, ACT_DODGE, ACT_KEY_MENU, ACT_KEY_SELECT, ACT_KEY_RESET
 } Action;
+/* Rebindable keyboard commands. Movement stays on the arrow keys; Esc,
+ * Space/Enter and the F-keys are fixed and cannot be taken. */
+typedef enum {
+    KEY_ATTACK, KEY_TECH_UP, KEY_TECH_RIGHT, KEY_TECH_DOWN, KEY_TECH_LEFT, KEY_DODGE,
+    KEY_INTERACT, KEY_PICKUP, KEY_TONIC, KEY_BANDAGE, KEY_BAG, KEY_JOURNAL, KEY_TECHNIQUES,
+    KEY_COUNT
+} KeyCommand;
+static const SDL_Keycode DEFAULT_KEYS[KEY_COUNT] = {
+    SDLK_a, SDLK_q, SDLK_w, SDLK_e, SDLK_r, SDLK_s,
+    SDLK_d, SDLK_f, SDLK_1, SDLK_2, SDLK_i, SDLK_j, SDLK_k};
+static const char *const KEY_NAMES[KEY_COUNT] = {
+    "기본 공격", "무공 ↑", "무공 →", "무공 ↓", "무공 ←",
+    "보법", "대화 · 조사", "약재 회수", "탕약", "지혈산", "가방", "여정 기록", "무공 배치"};
 typedef enum {
     DONE_NONE,
     DONE_ACCEPT,
@@ -68,6 +81,8 @@ typedef struct {
     Vec2 camera;
     /* Minimap area of the last HUD frame (w 0 when hidden); taps there do not walk. */
     SDL_FRect minimap;
+    /* Hit-chain counter and attack hint of the last HUD frame (w 0 when hidden). */
+    SDL_FRect combo, attack_hint;
     Button buttons[BUTTON_MAX];
     int button_count;
     Line dialogue[5];
@@ -84,6 +99,11 @@ typedef struct {
     int attack_direction;
     float attack_hold;
     bool secret_down, secret_moved, movement_blocked;
+    /* Custom keys (0 = default). key_waiting is the command awaiting a new
+     * key in the settings panel, or -1. */
+    SDL_Keycode keys[KEY_COUNT];
+    bool key_menu, keys_stored;
+    int key_waiting;
     Sint64 secret_id;
     Vec2 secret_start;
     Uint64 secret_started, secret_last;
@@ -162,6 +182,116 @@ static const Line MESSENGER_LINES[] = {
     {"윤겸 · 금위영 종사관", "장군! 전하의 서신입니다.\n전라도에서도 같은 일이 벌어지고 있습니다."},
     {"윤겸 · 금위영 종사관", "사람의 모습을 잃은 자들이 밤마다 고을을 헤집는다고 합니다."},
     {"장군", "말을 준비하게.\n다음 고을로 간다."}};
+static SDL_Keycode key_for(const App *a, KeyCommand command) {
+    return a->keys[command] ? a->keys[command] : DEFAULT_KEYS[command];
+}
+static bool key_reserved(SDL_Keycode key) {
+    return key == SDLK_ESCAPE || key == SDLK_AC_BACK || key == SDLK_SPACE || key == SDLK_RETURN ||
+           key == SDLK_UP || key == SDLK_DOWN || key == SDLK_LEFT || key == SDLK_RIGHT ||
+           key == SDLK_F3 || key == SDLK_F8 || key == SDLK_F11 || key == SDLK_UNKNOWN;
+}
+/* Short label for HUD hints: "A", "Shift", "Ctrl"... SDL reuses one buffer
+ * for key names, so each command keeps its own copy. */
+static const char *key_label(const App *a, KeyCommand command) {
+    static char labels[KEY_COUNT][24];
+    SDL_Keycode key = key_for(a, command);
+    const char *name = key == SDLK_LSHIFT || key == SDLK_RSHIFT ? "Shift"
+        : key == SDLK_LCTRL || key == SDLK_RCTRL ? "Ctrl"
+        : key == SDLK_LALT || key == SDLK_RALT ? "Alt" : SDL_GetKeyName(key);
+    snprintf(labels[command], sizeof labels[command], "%s", name && *name ? name : "?");
+    return labels[command];
+}
+/* Saved as "command keycode" lines: a file next to the native game, the
+ * browser's localStorage on the web. Unknown or clashing lines are ignored. */
+#ifdef __EMSCRIPTEN__
+EM_JS(void, web_save_keys, (const char *text), {
+    try { localStorage.setItem('paldo-keys', UTF8ToString(text)); } catch (e) {}
+});
+EM_JS(char *, web_load_keys, (void), {
+    var text = null;
+    try { text = localStorage.getItem('paldo-keys'); } catch (e) {}
+    if (!text) return 0;
+    var size = lengthBytesUTF8(text) + 1, out = _malloc(size);
+    stringToUTF8(text, out, size);
+    return out;
+});
+#else
+static char *keys_path(void) {
+    char *dir = SDL_GetPrefPath("Paldoyadam", "Paldoyadam");
+    if (!dir) return NULL;
+    size_t size = strlen(dir) + 16;
+    char *path = malloc(size);
+    if (path) snprintf(path, size, "%skeys.txt", dir);
+    SDL_free(dir);
+    return path;
+}
+#endif
+static void keys_parse(App *a, const char *text) {
+    SDL_Keycode loaded[KEY_COUNT] = {0};
+    int command;
+    long code;
+    int used;
+    while (text && sscanf(text, "%d %ld\n%n", &command, &code, &used) == 2) {
+        text += used;
+        if (command >= 0 && command < KEY_COUNT && !key_reserved((SDL_Keycode)code))
+            loaded[command] = (SDL_Keycode)code;
+    }
+    for (int i = 0; i < KEY_COUNT; i++) a->keys[i] = loaded[i];
+    /* Two commands on one key would hide one of them: fall back to defaults. */
+    for (int i = 0; i < KEY_COUNT; i++)
+        for (int j = i + 1; j < KEY_COUNT; j++)
+            if (key_for(a, (KeyCommand)i) == key_for(a, (KeyCommand)j)) {
+                memset(a->keys, 0, sizeof a->keys);
+                return;
+            }
+}
+static void keys_load(App *a) {
+#ifdef __EMSCRIPTEN__
+    char *text = web_load_keys();
+    keys_parse(a, text);
+    free(text);
+#else
+    char *path = keys_path();
+    FILE *file = path ? fopen(path, "r") : NULL;
+    char text[512] = {0};
+    if (file) {
+        size_t n = fread(text, 1, sizeof text - 1, file);
+        text[n] = '\0';
+        fclose(file);
+        keys_parse(a, text);
+    }
+    free(path);
+#endif
+}
+static void keys_save(const App *a) {
+    /* Only the real game persists; tests and smoke shots never touch it. */
+    if (!a->keys_stored) return;
+    char text[512] = {0};
+    size_t used = 0;
+    for (int i = 0; i < KEY_COUNT && used < sizeof text; i++)
+        if (a->keys[i])
+            used += (size_t)snprintf(text + used, sizeof text - used, "%d %ld\n", i, (long)a->keys[i]);
+#ifdef __EMSCRIPTEN__
+    web_save_keys(text);
+#else
+    char *path = keys_path();
+    FILE *file = path ? fopen(path, "w") : NULL;
+    if (file) {
+        fputs(text, file);
+        fclose(file);
+    }
+    free(path);
+#endif
+}
+/* Give `command` the key; a command already on it takes the old key. */
+static void key_assign(App *a, KeyCommand command, SDL_Keycode key) {
+    SDL_Keycode previous = key_for(a, command);
+    for (int i = 0; i < KEY_COUNT; i++)
+        if (i != (int)command && key_for(a, (KeyCommand)i) == key)
+            a->keys[i] = previous == DEFAULT_KEYS[i] ? 0 : previous;
+    a->keys[command] = key == DEFAULT_KEYS[command] ? 0 : key;
+    keys_save(a);
+}
 static void stop_input(App *a) {
     a->secret_down = a->secret_moved = false;
     a->secret_taps = 0;
@@ -286,6 +416,19 @@ static void interact(App *a) {
         say(a, &line, 1, DONE_NONE);
     }
 }
+/* The dodge follows the held movement (keys or the move drag), else the
+ * current run; with neither, the game steps back from the facing. */
+static Vec2 dodge_direction(const App *a) {
+    const Uint8 *keys = SDL_GetKeyboardState(NULL);
+    Vec2 v = a->pointer_down ? a->pointer_delta : (Vec2){0, 0};
+    if (!a->movement_blocked) {
+        v.x += (float)keys[SDL_SCANCODE_RIGHT] - (float)keys[SDL_SCANCODE_LEFT];
+        v.y += (float)keys[SDL_SCANCODE_DOWN] - (float)keys[SDL_SCANCODE_UP];
+    }
+    if (hypotf(v.x, v.y) > .01f) return v;
+    Vec2 run = a->game.hero.vel;
+    return hypotf(run.x, run.y) > 20 ? run : (Vec2){0, 0};
+}
 static void dispatch(App *a, Action action, int value) {
     Game *g = &a->game;
     switch (action) {
@@ -319,6 +462,10 @@ static void dispatch(App *a, Action action, int value) {
         if (a->width <= a->height) break;
         a->target_set = false;
         game_attack(g);
+        break;
+    case ACT_DODGE:
+        if (a->width <= a->height) break;
+        if (game_dodge(g, dodge_direction(a))) a->target_set = false;
         break;
     case ACT_TECHNIQUE:
         if (a->width <= a->height) break;
@@ -381,6 +528,7 @@ static void dispatch(App *a, Action action, int value) {
         break;
     case ACT_PAUSE:
         if (g->phase == PH_PLAY) {
+            a->key_menu = false;
             g->phase = PH_PAUSED;
             stop_input(a);
         } else
@@ -405,8 +553,30 @@ static void dispatch(App *a, Action action, int value) {
             game_close_panel(g);
         break;
     case ACT_CLOSE:
+        if (a->key_menu) {
+            a->key_menu = false;
+            a->key_waiting = -1;
+            break;
+        }
         game_close_panel(g);
         stop_input(a);
+        break;
+    case ACT_KEY_MENU:
+        if (g->phase == PH_PAUSED) {
+            a->key_menu = true;
+            a->key_waiting = -1;
+        }
+        break;
+    case ACT_KEY_SELECT:
+        if (a->key_menu && value >= 0 && value < KEY_COUNT)
+            a->key_waiting = a->key_waiting == value ? -1 : value;
+        break;
+    case ACT_KEY_RESET:
+        if (a->key_menu) {
+            memset(a->keys, 0, sizeof a->keys);
+            a->key_waiting = -1;
+            keys_save(a);
+        }
         break;
     case ACT_TITLE:
         if (g->training.active) {
@@ -605,7 +775,9 @@ static void draw_quest_tracker(App *a) {
     hud_card(f, r, 196);
     gfx_rect(f, (SDL_FRect){r.x, r.y + 10, 2, r.h - 20}, (SDL_Color){227, 193, 131, 205});
     gfx_text(f, QUESTS[g->quest].title, r.x + 12, r.y + 5, 11, 0, GOLD);
-    gfx_text(f, a->touch_input ? "여정" : "여정 J", r.x + r.w - 54, r.y + 5, 10, 0, MUTED);
+    char journal[32];
+    snprintf(journal, sizeof journal, "여정 %s", key_label(a, KEY_JOURNAL));
+    gfx_text(f, a->touch_input ? "여정" : journal, r.x + r.w - 54, r.y + 5, 10, 0, MUTED);
     char text[160];
     game_objective_brief(g, text, sizeof text);
     float size = 13;
@@ -655,12 +827,127 @@ static SDL_FRect minimap_rect(float w, float h) {
     float mw = roundf(fminf(228, h * .3f)), mh = roundf(mw * 2 / 3);
     return (SDL_FRect){w - 12 - mw, 54, mw, mh};
 }
+static SDL_FRect boss_bar_rect(const App *a) {
+    float bw = fminf(230, a->width * .32f);
+    /* The minimap takes the right column, so the boss bar moves to the top center. */
+    return a->minimap.w > 0 ? (SDL_FRect){(a->width - bw) / 2, 8, bw, 42}
+                            : (SDL_FRect){a->width - bw - 14, 54, bw, 42};
+}
+static bool rects_overlap(SDL_FRect a, SDL_FRect b) {
+    return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+}
+/* First free spot for the hit-chain counter: under the right-hand top stack,
+ * else beside the attack hint, else under the left cards. */
+static SDL_FRect combo_rect(const App *a) {
+    const Game *g = &a->game;
+    bool compact = a->height < MINIMAP_MIN_HEIGHT;
+    float cw = compact ? 96 : 116, ch = compact ? 44 : 52, w = a->width;
+    float top = a->minimap.w > 0 ? a->minimap.y + a->minimap.h + 8 : 54;
+    if (g->quest == Q_COMBAT && a->minimap.w <= 0) {
+        SDL_FRect boss = boss_bar_rect(a);
+        top = boss.y + boss.h + 8;
+    }
+    float left_top = g->training.active ? 210 : 112;
+    SDL_FRect spots[] = {
+        {w - 12 - cw, top, cw, ch},
+        {a->attack_hint.x - 6 - cw, a->attack_hint.y + a->attack_hint.h - ch, cw, ch},
+        {12, left_top, cw, ch},
+    };
+    SDL_FRect taken[BUTTON_MAX + 6];
+    int count = 0;
+    for (int i = 0; i < a->button_count; i++) taken[count++] = a->buttons[i].rect;
+    taken[count++] = a->attack_hint;
+    taken[count++] = a->minimap;
+    taken[count++] = (SDL_FRect){12, 8, 190, 44};
+    if (g->quest == Q_COMBAT) taken[count++] = boss_bar_rect(a);
+    if (g->training.active) taken[count++] = (SDL_FRect){12, 58, 148, 146};
+    for (size_t s = 0; s < sizeof spots / sizeof *spots; s++) {
+        SDL_FRect r = spots[s];
+        bool free = r.x >= 0 && r.y >= 0 && r.x + r.w <= w && r.y + r.h <= a->height;
+        for (int i = 0; free && i < count; i++)
+            free = taken[i].w <= 0 || !rects_overlap(r, taken[i]);
+        if (free) return r;
+    }
+    return (SDL_FRect){0};
+}
+/* Big hit-chain number: pops on every confirmed hit, warms in colour at
+ * 5/10/20, and greys out when the chain breaks. The three pips are the
+ * existing damage tier (different moves, +10%/+20%). */
+static void draw_combo(App *a) {
+    Game *g = &a->game;
+    Gfx *f = &a->gfx;
+    a->combo = (SDL_FRect){0};
+    bool live = g->chain_hits >= 2 && g->combo_time > 0;
+    if (!live && g->chain_fade <= 0) return;
+    SDL_FRect r = combo_rect(a);
+    if (r.w <= 0) return;
+    a->combo = r;
+    int hits = live ? g->chain_hits : g->chain_last;
+    float fade = live ? 1 : g->chain_fade / CHAIN_FADE_SECONDS;
+    SDL_Color ink = !live ? MUTED
+        : hits >= 20 ? (SDL_Color){235, 92, 64, 255}
+        : hits >= 10 ? (SDL_Color){240, 152, 72, 255}
+        : hits >= 5 ? GOLD : PAPER;
+    ink.a = (Uint8)(255 * fade);
+    hud_card(f, r, (Uint8)(190 * fade));
+    bool compact = r.h < 52;
+    float pop = live ? g->chain_pop / CHAIN_POP_SECONDS : 0;
+    float size = (compact ? 24 : 30) * (1 + .3f * pop);
+    char text[16];
+    snprintf(text, sizeof text, "%d", hits);
+    float number_w = gfx_measure(f, text, size);
+    float x = r.x + 10, base = r.y + (compact ? 5 : 6) - (size - (compact ? 24 : 30)) / 2;
+    gfx_text(f, text, x, base, size, 0, ink);
+    SDL_Color label = GOLD;
+    label.a = ink.a;
+    gfx_text(f, "연격", x + number_w + 6, r.y + (compact ? 9 : 11), compact ? 11 : 13, 0, label);
+    for (int i = 0; i < 3; i++) {
+        Vec2 c = {x + number_w + 10 + i * 10, r.y + r.h - (compact ? 14 : 17)};
+        SDL_Color pip = live && i < g->combo_count ? GOLD : (SDL_Color){90, 92, 84, 255};
+        pip.a = ink.a;
+        gfx_disc(f, c, 3, pip, pip);
+    }
+    if (live) {
+        float left = g->combo_time / COMBO_SECONDS;
+        gfx_rect(f, (SDL_FRect){r.x + 10, r.y + r.h - 6, (r.w - 20) * left, 3}, ink);
+    }
+}
+static SDL_FRect dodge_button_rect(const App *a, SDL_FRect attack) {
+    /* Touch: under the attack disc, a short thumb slide away. Keyboard
+     * players use Shift/L; the button sits left of the quick items, or in
+     * their column in training, which has none. */
+    if (a->touch_input) return (SDL_FRect){attack.x + 10, a->height - 52, 68, 44};
+    float x = a->game.training.active ? a->width - 198 : a->width - 282;
+    return (SDL_FRect){x, a->height - 98, 78, 44};
+}
+static void draw_dodge_button(App *a, SDL_FRect attack) {
+    Gfx *f = &a->gfx;
+    const Game *g = &a->game;
+    SDL_FRect r = dodge_button_rect(a, attack);
+    bool ready = g->dodge_charges > 0;
+    button(a, r, "", ACT_DODGE, 0, true, false);
+    SDL_Color ink = ready ? PAPER : MUTED;
+    char label[32];
+    snprintf(label, sizeof label, "보법 %s", key_label(a, KEY_DODGE));
+    gfx_label(f, a->touch_input ? "보법" : label, (SDL_FRect){r.x + 3, r.y + 6, r.w - 6, 20},
+              a->touch_input ? 15 : 12, ink);
+    /* Two charge pips; the refilling one shows its progress. */
+    for (int i = 0; i < DODGE_CHARGES; i++) {
+        SDL_FRect pip = {r.x + r.w / 2 - 17 + i * 18, r.y + r.h - 12, 16, 4};
+        gfx_rect(f, pip, (SDL_Color){62, 70, 66, 255});
+        float fill = i < g->dodge_charges ? 1
+            : i == g->dodge_charges ? 1 - g->dodge_recharge / DODGE_RECHARGE_SECONDS : 0;
+        if (fill > 0)
+            gfx_rect(f, (SDL_FRect){pip.x, pip.y, pip.w * clampf(fill, 0, 1), pip.h},
+                     i < g->dodge_charges ? GOLD : MUTED);
+    }
+}
 static void draw_hud(App *a) {
     Gfx *f = &a->gfx;
     Game *g = &a->game;
     float w = a->width, h = a->height;
     char text[512];
-    a->minimap = (SDL_FRect){0};
+    a->minimap = a->attack_hint = (SDL_FRect){0};
     hud_card(f, (SDL_FRect){12, 8, 190, 44}, 214);
     gfx_text(f, g->training.active ? "비밀 수련장 · 격리된 빈터" : game_map_name(g->map), 24, 13, 11, 0, GOLD);
     health_bar(f, (SDL_FRect){53, 38, 85, 4}, g->hero.hp, a->hero_ghost, g->hero.max_hp, 2.5f,
@@ -699,7 +986,10 @@ static void draw_hud(App *a) {
                 gfx_label(f, weapon, weapon_card, 13, GOLD);
             else {
                 gfx_text(f, weapon, 24, h - 43, 13, 0, GOLD);
-                gfx_text(f, "Z 공격 · Q/R/G/T 무공", 24, h - 26, 10, 0, MUTED);
+                snprintf(text, sizeof text, "%s 공격 · %s/%s/%s/%s 무공", key_label(a, KEY_ATTACK),
+                         key_label(a, KEY_TECH_UP), key_label(a, KEY_TECH_RIGHT),
+                         key_label(a, KEY_TECH_DOWN), key_label(a, KEY_TECH_LEFT));
+                gfx_text(f, text, 24, h - 26, 10, 0, MUTED);
             }
         }
         /* Keep the mobile attack disc far enough from both edges for a
@@ -713,7 +1003,7 @@ static void draw_hud(App *a) {
             icon_count_button(a, (SDL_FRect){item_x, a->touch_input ? h - 66 : h - 54, 78, 44},
                               ICON_BANDAGE, text, ACT_USE, ITEM_BANDAGE, game_can_use(g, ITEM_BANDAGE));
             icon_count_button(a, (SDL_FRect){item_x, a->touch_input ? h - 164 : h - 142, 78, 44},
-                              ICON_TECHNIQUE, a->touch_input ? "" : "K", ACT_TECHNIQUES, 0, true);
+                              ICON_TECHNIQUE, a->touch_input ? "" : key_label(a, KEY_TECHNIQUES), ACT_TECHNIQUES, 0, true);
         }
         SDL_FRect attack = a->touch_input ? (SDL_FRect){w - 160, h - 160, 88, 88}
                                            : (SDL_FRect){w - 116, h - 116, 88, 88};
@@ -725,7 +1015,8 @@ static void draw_hud(App *a) {
         gfx_label(f, "공격", (SDL_FRect){attack.x + 3, attack.y + 16, 82, 30}, 21,
                   a->attack_pointer_down ? INK : PAPER);
         if (g->attack_cooldown > 0) snprintf(text, sizeof text, "%.1f", g->attack_cooldown);
-        else snprintf(text, sizeof text, "%s", a->touch_input ? "탭 / 밀기" : "Z / 밀기");
+        else if (a->touch_input) snprintf(text, sizeof text, "탭 / 밀기");
+        else snprintf(text, sizeof text, "%s / 밀기", key_label(a, KEY_ATTACK));
         gfx_label(f, text, (SDL_FRect){attack.x + 3, attack.y + 48, 82, 20}, 11,
                   a->attack_pointer_down ? INK : GOLD);
         int direction = a->attack_pointer_down ? a->attack_direction : -1;
@@ -740,7 +1031,9 @@ static void draw_hud(App *a) {
         } else if (g->combo_count > 1 && g->combo_time > 0)
             snprintf(text, sizeof text, "명중 %d연계", g->combo_count);
         else snprintf(text, sizeof text, "밀어서 무공");
+        draw_dodge_button(a, attack);
         SDL_FRect attack_hint = {center.x - 54, attack.y - 37, 108, 26};
+        a->attack_hint = attack_hint;
         hud_card(f, attack_hint, 205);
         gfx_label(f, text, attack_hint, 11, GOLD);
         if (a->attack_pointer_down) {
@@ -782,10 +1075,8 @@ static void draw_hud(App *a) {
         }
     }
     if (g->quest == Q_COMBAT) {
-        float bw = fminf(230, w * .32f);
-        /* The minimap takes the right column, so the boss bar moves to the top center. */
-        SDL_FRect r = a->minimap.w > 0 ? (SDL_FRect){(w - bw) / 2, 8, bw, 42}
-                                       : (SDL_FRect){w - bw - 14, 54, bw, 42};
+        SDL_FRect r = boss_bar_rect(a);
+        float bw = r.w;
         hud_card(f, r, 220);
         gfx_text(f, "변이한 백정", r.x + 12, r.y + 7, 14, 0, PAPER);
         snprintf(text, sizeof text, "%d", g->boss.hp);
@@ -797,6 +1088,8 @@ static void draw_hud(App *a) {
         snprintf(text, sizeof text, "출혈 · %.0f초", ceilf(g->hero.bleed));
         gfx_text(f, text, 18, h - 85, 15, 0, (SDL_Color){255, 198, 175, 255});
     }
+    a->combo = (SDL_FRect){0};
+    if (g->phase == PH_PLAY) draw_combo(a);
 }
 static void draw_shop(App *a) {
     Game *g = &a->game;
@@ -961,7 +1254,10 @@ static void draw_techniques(App *a) {
     SDL_FRect p=panel(a,"공격 버튼을 밀어 무공 연결","무공 설정",430);
     float top=p.y+69, bottom=p.y+p.h-42;
     float lw=fminf(200,(p.w-42)*.39f), rx=p.x+18+lw+12, rw=p.x+p.w-18-rx;
-    const char *directions[]={"↑ 위 · Q","→ 오른쪽 · R","↓ 아래 · G","← 왼쪽 · T"};
+    const char *arrows[]={"↑ 위","→ 오른쪽","↓ 아래","← 왼쪽"};
+    char directions[SWIPE_COUNT][40];
+    for(int i=0;i<SWIPE_COUNT;i++)
+        snprintf(directions[i],sizeof directions[i],"%s · %s",arrows[i],key_label(a,(KeyCommand)(KEY_TECH_UP+i)));
     float rowh=(bottom-top)/4;
     for(int i=0;i<SWIPE_COUNT;i++) {
         SDL_FRect r={p.x+18,top+rowh*i,lw,rowh-5};
@@ -987,6 +1283,37 @@ static void draw_techniques(App *a) {
     button(a,(SDL_FRect){p.x+p.w-180,p.y+10,90,44},"기본 배치",ACT_BIND_RESET,0,true,false);
     gfx_text_box(f,"방향 선택 → 기술 선택 · 서로 다른 기술을 이어 쓰면 2/3연계 +10/20%",
                  (SDL_FRect){p.x+18,p.y+p.h-34,p.w-36,26},12,10,MUTED);
+}
+/* Keyboard settings: pick a command, then press its new key. */
+static void draw_keys(App *a) {
+    Gfx *f = &a->gfx;
+    SDL_FRect p = panel(a, "키보드 · 이동은 방향키", "키 설정", 440);
+    int columns = a->height < 330 ? 3 : 2, rows = (KEY_COUNT + columns - 1) / columns;
+    float top = p.y + 69, bottom = p.y + p.h - 40;
+    float cw = (p.w - 36 - (columns - 1) * 8) / columns, rh = (bottom - top) / rows;
+    for (int i = 0; i < KEY_COUNT; i++) {
+        SDL_FRect r = {p.x + 18 + (cw + 8) * (i / rows), top + rh * (i % rows), cw, rh - 4};
+        bool waiting = a->key_waiting == i;
+        gfx_round(f, r, 7, waiting ? (SDL_Color){59, 70, 55, 255} : (SDL_Color){25, 44, 44, 255});
+        if (waiting) gfx_round_border(f, r, 7, GOLD);
+        float size = fminf(13, r.h * .5f);
+        char name[64];
+        if (i >= KEY_TECH_UP && i <= KEY_TECH_LEFT)
+            snprintf(name, sizeof name, "%s %s", KEY_NAMES[i],
+                     TECHNIQUES[a->game.swipe_bindings[i - KEY_TECH_UP]].name);
+        else snprintf(name, sizeof name, "%s", KEY_NAMES[i]);
+        float kw = fminf(66, r.w * .3f);
+        gfx_text_box(f, name, (SDL_FRect){r.x + 8, r.y + (r.h - size) / 2 - 2, r.w - kw - 12, size + 4},
+                     size, 9, PAPER);
+        gfx_label(f, waiting ? "키 입력…" : key_label(a, (KeyCommand)i),
+                  (SDL_FRect){r.x + r.w - kw - 4, r.y, kw, r.h}, size, GOLD);
+        if (a->button_count < BUTTON_MAX)
+            a->buttons[a->button_count++] = (Button){r, ACT_KEY_SELECT, i, true};
+    }
+    button(a, (SDL_FRect){p.x + p.w - 180, p.y + 10, 90, 44}, "기본값", ACT_KEY_RESET, 0, true, false);
+    gfx_text_box(f, a->key_waiting >= 0 ? "새 키를 누르세요 · 이미 쓰는 키면 서로 바뀜 · Esc 취소"
+                                        : "바꿀 동작을 누르세요 · Space·Enter·Esc·방향키·F키는 고정",
+                 (SDL_FRect){p.x + 18, p.y + p.h - 34, p.w - 36, 26}, 12, 10, MUTED);
 }
 static void draw_journal(App *a) {
     Gfx *f = &a->gfx;
@@ -1122,6 +1449,10 @@ static void draw_overlay(App *a) {
         }
         return;
     }
+    if (g->phase == PH_PAUSED && a->key_menu) {
+        draw_keys(a);
+        return;
+    }
     if (g->phase == PH_PAUSED || g->phase == PH_DEAD || g->phase == PH_COMPLETE) {
         gfx_rect(f, (SDL_FRect){0, 0, w, h}, (SDL_Color){7, 22, 26, 237});
         const char *title = g->phase == PH_PAUSED ? "잠시 숨 고르기"
@@ -1129,12 +1460,22 @@ static void draw_overlay(App *a) {
                                                   : "길은 계속된다";
         gfx_heading(f, title, (SDL_FRect){w / 2 - 220, 24, 440, 50}, 42, PAPER);
         if (g->phase == PH_PAUSED) {
-            gfx_center(f, g->training.active ? "공격 버튼 탭 / 연속 밀기 · Z 기본 공격"
-                       : "끌기 / WASD 이동 · 공격 버튼 탭 또는 Z · 누르면 연속 공격", w / 2, 84, 16, MUTED);
-            gfx_center(f, g->training.active ? "Q/R/G/T 무공 · K 방향별 배치"
-                       : "공격 버튼 밀기: ↑ Q · → R · ↓ G · ← T · K 무공 배치", w / 2, 115, 15, MUTED);
-            gfx_center(f, g->training.active ? "훈련 보상 없음 · F8 또는 아래 버튼으로 복귀"
-                       : "I 가방 · J 여정 기록 · 1 탕약 · 2 지혈산 · F11 전체화면", w / 2, 146, 14, MUTED);
+            char line[3][192];
+            snprintf(line[0], sizeof line[0], g->training.active ? "공격 버튼 탭 / 연속 밀기 · %s 기본 공격 · %s 보법"
+                     : "끌기 / 방향키 이동 · %s 공격(누르면 연속) · %s 보법",
+                     key_label(a, KEY_ATTACK), key_label(a, KEY_DODGE));
+            snprintf(line[1], sizeof line[1], "무공 ↑ %s · → %s · ↓ %s · ← %s · %s 무공 배치",
+                     key_label(a, KEY_TECH_UP), key_label(a, KEY_TECH_RIGHT), key_label(a, KEY_TECH_DOWN),
+                     key_label(a, KEY_TECH_LEFT), key_label(a, KEY_TECHNIQUES));
+            if (g->training.active) snprintf(line[2], sizeof line[2], "훈련 보상 없음 · F8 또는 아래 버튼으로 복귀");
+            else snprintf(line[2], sizeof line[2], "%s 대화 · %s 가방 · %s 여정 · %s 탕약 · %s 지혈산 · F11 전체화면",
+                          key_label(a, KEY_INTERACT), key_label(a, KEY_BAG), key_label(a, KEY_JOURNAL),
+                          key_label(a, KEY_TONIC), key_label(a, KEY_BANDAGE));
+            gfx_center(f, line[0], w / 2, 84, 16, MUTED);
+            gfx_center(f, line[1], w / 2, 115, 15, MUTED);
+            gfx_center(f, line[2], w / 2, 146, 14, MUTED);
+            if (!a->touch_input)
+                button(a, (SDL_FRect){w - 116, 12, 104, 44}, "키 설정", ACT_KEY_MENU, 0, true, false);
         } else if (g->phase == PH_DEAD) {
             gfx_center(f, "마을에서 회복하고 다시 떠납니다.", w / 2, 88, 18, MUTED);
             gfx_center(f, "조사한 흔적, 장비와 회수한 물품은 유지됩니다.", w / 2, 122, 16, MUTED);
@@ -1468,6 +1809,18 @@ static void handle_events(App *a) {
             /* The rotate notice covers the game; only display keys act behind it. */
             if (a->width <= a->height && key != SDLK_F11 && key != SDLK_F3)
                 continue;
+            if (a->key_menu && a->game.phase == PH_PAUSED) {
+                /* The settings panel takes every key: Esc cancels a pending
+                 * change or closes the panel; fixed keys are refused. */
+                if (key == SDLK_ESCAPE || key == SDLK_AC_BACK) {
+                    if (a->key_waiting >= 0) a->key_waiting = -1;
+                    else dispatch(a, ACT_CLOSE, 0);
+                } else if (a->key_waiting >= 0 && !key_reserved(key)) {
+                    key_assign(a, (KeyCommand)a->key_waiting, key);
+                    a->key_waiting = -1;
+                }
+                continue;
+            }
             if (key == SDLK_ESCAPE || key == SDLK_AC_BACK)
                 dispatch(a, ACT_PAUSE, 0);
             else if (key == SDLK_F11)
@@ -1483,31 +1836,37 @@ static void handle_events(App *a) {
                     dispatch(a, ACT_NEXT, 0);
                 else if (a->game.phase == PH_PLAY)
                     dispatch(a, ACT_INTERACT, 0);
-            } else if (key == SDLK_q)
-                dispatch(a, ACT_SKILL, 0);
-            else if (key == SDLK_r)
-                dispatch(a, ACT_TECHNIQUE, a->game.swipe_bindings[SWIPE_RIGHT]);
-            else if (key == SDLK_g)
-                dispatch(a, ACT_TECHNIQUE, a->game.swipe_bindings[SWIPE_DOWN]);
-            else if (key == SDLK_t)
-                dispatch(a, ACT_TECHNIQUE, a->game.swipe_bindings[SWIPE_LEFT]);
-            else if (key == SDLK_k)
-                dispatch(a, ACT_TECHNIQUES, 0);
-            else if (key == SDLK_z && a->game.phase == PH_PLAY) {
-                a->attack_key_down = true;
-                dispatch(a, ACT_ATTACK, 0);
-            } else if (key == SDLK_f)
-                dispatch(a, ACT_PICKUP, 0);
-            else if (key == SDLK_e)
-                dispatch(a, ACT_INTERACT, 0);
-            else if (key == SDLK_i)
-                dispatch(a, ACT_BAG, 0);
-            else if (key == SDLK_j)
-                dispatch(a, ACT_JOURNAL, 0);
-            else if (key == SDLK_1)
-                dispatch(a, ACT_USE, ITEM_TONIC);
-            else if (key == SDLK_2)
-                dispatch(a, ACT_USE, ITEM_BANDAGE);
+            } else {
+                int command = -1;
+                for (int i = 0; i < KEY_COUNT && command < 0; i++)
+                    if (key_for(a, (KeyCommand)i) == key) command = i;
+                switch (command) {
+                case KEY_ATTACK:
+                    if (a->game.phase == PH_PLAY) {
+                        a->attack_key_down = true;
+                        dispatch(a, ACT_ATTACK, 0);
+                    }
+                    break;
+                case KEY_TECH_UP: dispatch(a, ACT_SKILL, 0); break;
+                case KEY_TECH_RIGHT:
+                    dispatch(a, ACT_TECHNIQUE, a->game.swipe_bindings[SWIPE_RIGHT]); break;
+                case KEY_TECH_DOWN:
+                    dispatch(a, ACT_TECHNIQUE, a->game.swipe_bindings[SWIPE_DOWN]); break;
+                case KEY_TECH_LEFT:
+                    dispatch(a, ACT_TECHNIQUE, a->game.swipe_bindings[SWIPE_LEFT]); break;
+                case KEY_DODGE:
+                    if (a->game.phase == PH_PLAY) dispatch(a, ACT_DODGE, 0);
+                    break;
+                case KEY_INTERACT: dispatch(a, ACT_INTERACT, 0); break;
+                case KEY_PICKUP: dispatch(a, ACT_PICKUP, 0); break;
+                case KEY_TONIC: dispatch(a, ACT_USE, ITEM_TONIC); break;
+                case KEY_BANDAGE: dispatch(a, ACT_USE, ITEM_BANDAGE); break;
+                case KEY_BAG: dispatch(a, ACT_BAG, 0); break;
+                case KEY_JOURNAL: dispatch(a, ACT_JOURNAL, 0); break;
+                case KEY_TECHNIQUES: dispatch(a, ACT_TECHNIQUES, 0); break;
+                default: break;
+                }
+            }
             if (a->game.phase == PH_JOURNAL) {
                 if (key == SDLK_DOWN)
                     a->journal_scroll++;
@@ -1515,7 +1874,7 @@ static void handle_events(App *a) {
                     a->journal_scroll--;
             }
         }
-        if (e.type == SDL_KEYUP && e.key.keysym.sym == SDLK_z) a->attack_key_down = false;
+        if (e.type == SDL_KEYUP && e.key.keysym.sym == key_for(a, KEY_ATTACK)) a->attack_key_down = false;
         if (e.type == SDL_MOUSEWHEEL && a->game.phase == PH_JOURNAL)
             a->journal_scroll -= (float)e.wheel.y;
         if (e.type == SDL_MOUSEBUTTONDOWN && e.button.which != SDL_TOUCH_MOUSEID &&
@@ -1538,16 +1897,13 @@ static void handle_events(App *a) {
 static Vec2 input(App *a, float dt) {
     const Uint8 *keys = SDL_GetKeyboardState(NULL);
     if (a->movement_blocked) {
-        if (keys[SDL_SCANCODE_D] || keys[SDL_SCANCODE_RIGHT] || keys[SDL_SCANCODE_A] || keys[SDL_SCANCODE_LEFT] ||
-            keys[SDL_SCANCODE_S] || keys[SDL_SCANCODE_DOWN] || keys[SDL_SCANCODE_W] || keys[SDL_SCANCODE_UP])
+        if (keys[SDL_SCANCODE_RIGHT] || keys[SDL_SCANCODE_LEFT] || keys[SDL_SCANCODE_DOWN] || keys[SDL_SCANCODE_UP])
             return (Vec2){0, 0};
         a->movement_blocked = false;
     }
     Vec2 v = a->pointer_delta;
-    v.x += (float)(keys[SDL_SCANCODE_D] || keys[SDL_SCANCODE_RIGHT]) -
-           (float)(keys[SDL_SCANCODE_A] || keys[SDL_SCANCODE_LEFT]);
-    v.y += (float)(keys[SDL_SCANCODE_S] || keys[SDL_SCANCODE_DOWN]) -
-           (float)(keys[SDL_SCANCODE_W] || keys[SDL_SCANCODE_UP]);
+    v.x += (float)keys[SDL_SCANCODE_RIGHT] - (float)keys[SDL_SCANCODE_LEFT];
+    v.y += (float)keys[SDL_SCANCODE_DOWN] - (float)keys[SDL_SCANCODE_UP];
     if (hypotf(v.x, v.y) > .01f) {
         a->target_set = false;
         return v;
@@ -1659,6 +2015,28 @@ static void smoke_scene(App *a, const char *scene) {
         a->game.boss.angle = PI;
         a->game.boss.timer = .4f;
         a->game.toast_time = 0;
+    } else if (!strcmp(scene, "combo")) {
+        /* Review shot of the hit-chain counter mid-fight. */
+        a->game.map=MAP_PASS;
+        a->game.traces[0] = a->game.traces[1] = true;
+        a->game.quest = Q_RECOVER;
+        a->game.hero.pos = (Vec2){a->game.boars[0].pos.x - 60, a->game.boars[0].pos.y};
+        a->game.chain_hits = 12; a->game.combo_count = 2;
+        a->game.combo_time = .7f; a->game.chain_pop = CHAIN_POP_SECONDS / 2;
+    } else if (!strcmp(scene, "dodge")) {
+        /* Review shot of the dash afterimages and a spent charge. */
+        a->game.map=MAP_PASS;
+        a->game.traces[0] = a->game.traces[1] = true;
+        a->game.quest = Q_RECOVER;
+        a->game.hero.pos = (Vec2){a->game.boars[0].pos.x - 110, a->game.boars[0].pos.y};
+        a->touch_input = true;
+        game_dodge(&a->game, (Vec2){1, 0});
+        game_tick(&a->game, .07f, (Vec2){0, 0});
+    } else if (!strcmp(scene, "pause") || !strcmp(scene, "keys")) {
+        /* Review shots of the pause help and the key settings panel. */
+        a->game.phase = PH_PAUSED;
+        a->key_waiting = -1;
+        a->key_menu = !strcmp(scene, "keys");
     } else if (!strcmp(scene, "recover")) {
         a->game.map=MAP_PASS;
         a->game.traces[0] = a->game.traces[1] = true;
@@ -1846,6 +2224,11 @@ int main(int argc, char **argv) {
         return 1;
     }
     a->headless = smoke != NULL;
+    a->key_waiting = -1;
+    if (!a->headless) {
+        keys_load(a);
+        a->keys_stored = true;
+    }
     Uint32 flags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI;
 #ifdef __ANDROID__
     flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
