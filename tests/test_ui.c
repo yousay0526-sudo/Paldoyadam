@@ -292,6 +292,40 @@ static void combo_counter_fits(App *app) {
     }
     app->touch_input = false;
 }
+/* Pause offers key settings to keyboard players; the panel fits every size. */
+static void key_settings_fit(App *app) {
+    const Vec2 sizes[] = {{432,270},{568,320},{844,390},{1280,720},{1920,1080}};
+    for (int view = 0; view < 5; view++) {
+        app->width = sizes[view].x; app->height = sizes[view].y;
+        legacy_reset(&app->game); game_start(&app->game);
+        app->game.phase = PH_PAUSED; app->key_menu = false;
+        app->touch_input = true; app->button_count = 0; draw_overlay(app);
+        for (int i = 0; i < app->button_count; i++) CHECK(app->buttons[i].action != ACT_KEY_MENU);
+        app->touch_input = false; app->button_count = 0; draw_overlay(app);
+        int menu = -1;
+        for (int i = 0; i < app->button_count; i++) if (app->buttons[i].action == ACT_KEY_MENU) menu = i;
+        CHECK(menu >= 0);
+        for (int i = 0; i < app->button_count; i++) CHECK(i == menu || !overlaps(app->buttons[menu].rect, app->buttons[i].rect));
+        dispatch(app, ACT_KEY_MENU, 0);
+        for (int waiting = -1; waiting < 1; waiting++) {
+            app->key_waiting = waiting;
+            app->button_count = 0; draw_overlay(app);
+            int rows = 0;
+            for (int i = 0; i < app->button_count; i++) {
+                SDL_FRect b = app->buttons[i].rect;
+                CHECK(b.x >= 0 && b.y >= 0 && b.x + b.w <= app->width && b.y + b.h <= app->height);
+                if (app->buttons[i].action != ACT_KEY_SELECT) continue;
+                rows++;
+                CHECK(b.h >= 20);
+                for (int j = 0; j < app->button_count; j++) CHECK(j == i || !overlaps(b, app->buttons[j].rect));
+            }
+            CHECK(rows == KEY_COUNT);
+        }
+        CHECK(gfx_measure(&app->gfx, KEY_NAMES[KEY_TECH_RIGHT], 9) < 160);
+        app->key_menu = false; app->key_waiting = -1;
+    }
+    app->touch_input = false;
+}
 static void training_controls_fit(App *app) {
     const Vec2 sizes[] = {{432,270},{480,306},{568,320},{844,390},{1100,650}};
     Game saved;
@@ -373,6 +407,7 @@ int main(int argc,char **argv) {
     hud_art_slots(a,surface);
     minimap_fits(a);
     combo_counter_fits(a);
+    key_settings_fit(a);
     text_stays_inside(a,surface);
     gfx_free(&a->gfx);
     SDL_DestroyRenderer(a->renderer);
