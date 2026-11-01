@@ -172,7 +172,8 @@ bool game_leave_training(Game *game, const Game *saved) {
     game->last_impact = IMPACT_NONE;
     game->combat_request = TRAIN_READY;
     game->hero.attacking = game->hero.skilling = game->hero.walking = game->hero.dodging = false;
-    game->hero.dodge_elapsed = 0;
+    game->hero.dodge_elapsed = 0; game->hero.dodge_perfect = false;
+    game->perfect_slow = game->perfect_bonus = game->perfect_flash = 0;
     game->hero.vel = game->hero.knock = (Vec2){0, 0};
     game->hero.attack_elapsed = game->hero.skill_elapsed = game->hero.walk_cycle = 0;
     game_clear_hit_feedback(game);
@@ -475,7 +476,7 @@ bool game_damage(Game *g, Enemy *e, int amount, EffectKind kind) {
             e->timer = fmaxf(e->timer, .25f);
     }
     float stop = kind == FX_WIND ? HITSTOP_WIND_SECONDS
-        : g->hero.skilling && g->hero.technique == TECH_CLEAVE
+        : g->perfect_bonus > 0 || (g->hero.skilling && g->hero.technique == TECH_CLEAVE)
             ? HITSTOP_HEAVY_SECONDS : HITSTOP_LIGHT_SECONDS;
     /* Simultaneous victims and the wind add-on share a single stop. */
     g->hitstop_time = fmaxf(g->hitstop_time, stop);
@@ -603,6 +604,7 @@ bool game_dodge(Game *g, Vec2 direction) {
     h->attacking = h->skilling = false;
     h->attack_elapsed = h->skill_elapsed = 0;
     h->dodging = true; h->dodge_elapsed = 0; h->dodge_dir = dir;
+    h->dodge_origin = h->pos; h->dodge_perfect = false;
     h->invul = fmaxf(h->invul, DODGE_INVUL_SECONDS);
     if (g->dodge_charges == DODGE_CHARGES) g->dodge_recharge = DODGE_RECHARGE_SECONDS;
     g->dodge_charges--;
@@ -635,8 +637,9 @@ static void reset_fight(Game *g, Vec2 pos) {
     g->hero.attacking = false;
     g->hero.attack_elapsed = 0;
     g->hero.skilling = false; g->hero.skill_elapsed = 0;
-    g->hero.dodging = false; g->hero.dodge_elapsed = 0;
+    g->hero.dodging = false; g->hero.dodge_elapsed = 0; g->hero.dodge_perfect = false;
     g->dodge_charges = DODGE_CHARGES; g->dodge_recharge = 0;
+    g->perfect_slow = g->perfect_bonus = g->perfect_flash = 0;
     g->combo_count = g->input_count = g->chain_hits = g->chain_last = 0;
     g->chain_pop = g->chain_fade = 0;
     g->combo_time = g->input_time = g->buffer_time = g->request_time = 0;
@@ -724,6 +727,38 @@ static int boars_winding_up(const Game *g) {
         n += g->boars[i].hp > 0 && g->boars[i].state == AI_WINDUP;
     return n;
 }
+/* A strike that meets a fresh dodge: true when the hero is early in the dash
+ * and would have been hit where the dash began or where it is now. The
+ * first one per dash slows the world, refills the combo window and a dodge
+ * charge, and empowers the next impact. The dash's invulnerability already
+ * stops the damage either way. */
+static bool gwanpa(Game *g, Vec2 from, bool (*reaches)(const Game *, Vec2, Vec2)) {
+    Hero *h = &g->hero;
+    if (!h->dodging || h->dodge_elapsed > PERFECT_WINDOW_SECONDS ||
+        !(reaches(g, from, h->dodge_origin) || reaches(g, from, h->pos)))
+        return false;
+    if (h->dodge_perfect) return true;
+    h->dodge_perfect = true;
+    g->perfect_slow = PERFECT_SLOW_SECONDS;
+    g->perfect_bonus = PERFECT_BONUS_SECONDS;
+    g->perfect_flash = .7f;
+    g->perfect_count++;
+    if (g->combo_time > 0) g->combo_time = COMBO_SECONDS;
+    if (g->dodge_charges < DODGE_CHARGES) {
+        g->dodge_charges++;
+        g->dodge_recharge = g->dodge_charges < DODGE_CHARGES ? DODGE_RECHARGE_SECONDS : 0;
+    }
+    return true;
+}
+static bool boar_reaches(const Game *g, Vec2 boar, Vec2 target) {
+    (void)g;
+    return distance(boar, target) < BOAR_STRIKE_RANGE && world_segment(boar, target, 0);
+}
+static bool boss_reaches(const Game *g, Vec2 boss, Vec2 target) {
+    float a = atan2f(target.y - boss.y, target.x - boss.x) - g->boss.angle;
+    return distance(boss, target) < BOSS_STRIKE_RANGE && fabsf(atan2f(sinf(a), cosf(a))) < BOSS_STRIKE_HALF &&
+           world_segment(boss, target, 0);
+}
 /* Enemy behaviour numbers in one place (distances in world units, speeds
  * per second, times in seconds). Windup and strike reach live in game.h
  * because drawing shares them. */
@@ -768,7 +803,7 @@ static void tick_boar(Game *g, Enemy *e, float dt) {
         break;
     case AI_WINDUP:
         if (e->timer <= 0) {
-            if (d < BOAR_STRIKE_RANGE && world_segment(e->pos, g->hero.pos, 0))
+            if (!gwanpa(g, e->pos, boar_reaches) && boar_reaches(g, e->pos, g->hero.pos))
                 hurt_from(g, t->damage, false, e->pos, KNOCK_HERO_BOAR);
             e->state = AI_RECOVER;
             e->timer = t->recover;
@@ -813,8 +848,7 @@ static void tick_boss(Game *g, float dt) {
             e->state = AI_SWING;
             e->timer = BOSS_SWING_SECONDS;
             effect(g, (Effect){.kind = FX_BOSS_SWING, .pos = e->pos, .angle = e->angle, .life = .25f});
-            float a = atan2f(g->hero.pos.y - e->pos.y, g->hero.pos.x - e->pos.x) - e->angle;
-            if (d < BOSS_STRIKE_RANGE && fabsf(atan2f(sinf(a), cosf(a))) < BOSS_STRIKE_HALF && world_segment(e->pos, g->hero.pos, 0))
+            if (!gwanpa(g, e->pos, boss_reaches) && boss_reaches(g, e->pos, g->hero.pos))
                 hurt_from(g, t->damage, true, e->pos, KNOCK_HERO_BOSS);
         }
         break;
@@ -879,7 +913,8 @@ static int next_combo(const Game *g, int move) {
 }
 static int combo_damage(const Game *g, int move, int damage) {
     world_select(g->map);
-    return (damage * (100 + 10 * (next_combo(g, move) - 1)) + 50) / 100;
+    int scaled = (damage * (100 + 10 * (next_combo(g, move) - 1)) + 50) / 100;
+    return g->perfect_bonus > 0 ? (scaled * (100 + PERFECT_BONUS_PERCENT) + 50) / 100 : scaled;
 }
 /* Basic attack reach: the blade, and the wind blade that extends it. */
 #define BLADE_RANGE 58.0f
@@ -1030,6 +1065,7 @@ static void break_chain(Game *g) {
 }
 static void finish_impact(Game *game, int move, bool hit) {
     world_select(game->map);
+    game->perfect_bonus = 0;
     if (hit) {
         game->chain_hits = game->combo_time > 0 ? game->chain_hits + 1 : 1;
         game->chain_pop = CHAIN_POP_SECONDS;
@@ -1208,6 +1244,9 @@ void game_tick(Game *g, float dt, Vec2 input) {
         if (dt <= 0) return;
     }
     g->time += dt;
+    /* Gwanpa slow motion: enemies run slower, the hero keeps full speed. */
+    float world_dt = g->perfect_slow > 0 ? dt * PERFECT_SLOW_SCALE : dt;
+    g->perfect_slow = fmaxf(0, g->perfect_slow - dt);
     g->toast_time = fmaxf(0, g->toast_time - dt);
     float length = hypotf(input.x, input.y);
     Vec2 before = g->hero.pos, target = {0, 0};
@@ -1270,9 +1309,9 @@ void game_tick(Game *g, float dt, Vec2 input) {
                            .angle = atan2f(g->hero.dir.y, g->hero.dir.x)});
     knock_back(&g->hero.pos, &g->hero.knock, HERO_RADIUS, dt);
     if (g->map == MAP_CAVE || g->map == MAP_TRAINING)
-        knock_back(&g->boss.pos, &g->boss.knock, BOSS_RADIUS, dt);
+        knock_back(&g->boss.pos, &g->boss.knock, BOSS_RADIUS, world_dt);
     for (int i = 0; (g->map == MAP_PASS || g->map == MAP_TRAINING) && i < BOAR_COUNT; i++)
-        knock_back(&g->boars[i].pos, &g->boars[i].knock, BOAR_RADIUS, dt);
+        knock_back(&g->boars[i].pos, &g->boars[i].knock, BOAR_RADIUS, world_dt);
     g->cooldown = fmaxf(0, g->cooldown - dt);
     for (int i = 0; i < TECH_COUNT; i++)
         g->technique_cooldowns[i] = fmaxf(0, g->technique_cooldowns[i] - dt);
@@ -1281,6 +1320,8 @@ void game_tick(Game *g, float dt, Vec2 input) {
     g->input_time = fmaxf(0, g->input_time - dt);
     g->request_time = fmaxf(0, g->request_time - dt);
     g->chain_pop = fmaxf(0, g->chain_pop - dt);
+    g->perfect_bonus = fmaxf(0, g->perfect_bonus - dt);
+    g->perfect_flash = fmaxf(0, g->perfect_flash - dt);
     if (g->dodge_charges < DODGE_CHARGES) {
         g->dodge_recharge -= dt;
         if (g->dodge_recharge <= 0) {
@@ -1335,11 +1376,11 @@ void game_tick(Game *g, float dt, Vec2 input) {
     }
     if (g->training.active) return;
     if ((g->map == MAP_CAVE || g->map == MAP_TRAINING) && g->quest == Q_COMBAT)
-        tick_boss(g, dt);
+        tick_boss(g, world_dt);
     else if (game_boars_active(g))
         for (int i = 0; i < BOAR_COUNT && g->phase == PH_PLAY; i++)
             if (g->boars[i].hp > 0)
-                tick_boar(g, &g->boars[i], dt);
+                tick_boar(g, &g->boars[i], world_dt);
     separate_bodies(g, dt);
     tick_loot(g, dt);
 }
@@ -1375,7 +1416,8 @@ bool game_travel(Game *g, int index) {
     g->map=MAP_EXITS[index].to;
     g->hero.pos=MAP_EXITS[index].arrival;
     g->hero.attacking=g->hero.skilling=g->hero.walking=g->hero.dodging=false;
-    g->hero.dodge_elapsed=0;
+    g->hero.dodge_elapsed=0;g->hero.dodge_perfect=false;
+    g->perfect_slow=g->perfect_bonus=g->perfect_flash=0;
     g->hero.vel=g->hero.knock=(Vec2){0,0};
     g->hero.attack_elapsed=g->hero.skill_elapsed=g->hero.walk_cycle=0;
     g->hero.attack_target=-1;

@@ -30,6 +30,14 @@
 #define DODGE_INVUL_SECONDS .20f
 #define DODGE_CHARGES 2
 #define DODGE_RECHARGE_SECONDS 1.2f
+/* Gwanpa (perfect dodge): an enemy strike that would have landed resolves
+ * within this long after a dodge starts. The world slows while the hero
+ * keeps full speed, and the next impact soon after hits harder. */
+#define PERFECT_WINDOW_SECONDS .15f
+#define PERFECT_SLOW_SECONDS .4f
+#define PERFECT_SLOW_SCALE .3f
+#define PERFECT_BONUS_SECONDS 1.0f
+#define PERFECT_BONUS_PERCENT 50
 #define CHAIN_FADE_SECONDS .45f
 #define HIT_FLASH_SECONDS .12f
 #define HITSTOP_LIGHT_SECONDS .035f
@@ -146,9 +154,9 @@ typedef struct {
     Technique technique;
     bool skilling, skill_hit;
     /* Dodge dash: fixed heading, eased distance; cancels a swing in progress. */
-    Vec2 dodge_dir;
+    Vec2 dodge_dir, dodge_origin;
     float dodge_elapsed;
-    bool dodging;
+    bool dodging, dodge_perfect;
 } Hero;
 typedef struct {
     Vec2 pos, home;
@@ -229,6 +237,10 @@ typedef struct {
     /* Dodge charges refill one at a time. */
     int dodge_charges;
     float dodge_recharge;
+    /* Gwanpa: world slow-motion left, empowered-impact window left, and the
+     * on-screen callout (presentation only). */
+    float perfect_slow, perfect_bonus, perfect_flash;
+    unsigned perfect_count;
     enum { IMPACT_NONE, IMPACT_HIT, IMPACT_MISS } last_impact;
     enum { TRAIN_READY, TRAIN_STARTED, TRAIN_QUEUED, TRAIN_COOLDOWN,
            TRAIN_INVALID, TRAIN_BLOCKED } combat_request;

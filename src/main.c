@@ -942,6 +942,40 @@ static void draw_dodge_button(App *a, SDL_FRect attack) {
                      i < g->dodge_charges ? GOLD : MUTED);
     }
 }
+/* Gwanpa: ink closes in at the edges while the world is slowed, and a
+ * callout over the hero names the reward. */
+static void draw_gwanpa(App *a) {
+    Gfx *f = &a->gfx;
+    const Game *g = &a->game;
+    float w = a->width, h = a->height;
+    if (g->perfect_slow > 0) {
+        float k = g->perfect_slow / PERFECT_SLOW_SECONDS;
+        Uint8 alpha = (Uint8)(120 * k);
+        float band = fminf(w, h) * .09f;
+        for (int i = 0; i < 4; i++) {
+            float t = band * (1 - i / 4.0f);
+            SDL_Color ink = {6, 12, 14, (Uint8)(alpha / 3)};
+            gfx_rect(f, (SDL_FRect){0, 0, w, t}, ink);
+            gfx_rect(f, (SDL_FRect){0, h - t, w, t}, ink);
+            gfx_rect(f, (SDL_FRect){0, 0, t, h}, ink);
+            gfx_rect(f, (SDL_FRect){w - t, 0, t, h}, ink);
+        }
+    }
+    if (g->perfect_flash <= 0) return;
+    float life = g->perfect_flash / .7f;
+    float pop = life > .8f ? 1 + (life - .8f) * 2.5f : 1;
+    Uint8 alpha = (Uint8)(255 * fminf(1, life * 2.5f));
+    SDL_Color shadow = {5, 15, 18, alpha}, gold = GOLD;
+    gold.a = alpha;
+    float y = h / 2 - fminf(130, h * .3f), size = fminf(40, h * .1f) * pop;
+    gfx_center(f, "간파!", w / 2 + 2, y + 2, size, shadow);
+    gfx_center(f, "간파!", w / 2, y, size, gold);
+    if (g->perfect_bonus > 0) {
+        SDL_Color paper = PAPER;
+        paper.a = alpha;
+        gfx_center(f, "다음 일격 +50%", w / 2, y + size * .9f, fminf(15, h * .04f), paper);
+    }
+}
 static void draw_hud(App *a) {
     Gfx *f = &a->gfx;
     Game *g = &a->game;
@@ -1089,7 +1123,10 @@ static void draw_hud(App *a) {
         gfx_text(f, text, 18, h - 85, 15, 0, (SDL_Color){255, 198, 175, 255});
     }
     a->combo = (SDL_FRect){0};
-    if (g->phase == PH_PLAY) draw_combo(a);
+    if (g->phase == PH_PLAY) {
+        draw_gwanpa(a);
+        draw_combo(a);
+    }
 }
 static void draw_shop(App *a) {
     Game *g = &a->game;
@@ -2037,6 +2074,19 @@ static void smoke_scene(App *a, const char *scene) {
         a->game.phase = PH_PAUSED;
         a->key_waiting = -1;
         a->key_menu = !strcmp(scene, "keys");
+    } else if (!strcmp(scene, "gwanpa")) {
+        /* Review shot right after a perfect dodge of a boar strike. */
+        a->game.map=MAP_PASS;
+        a->game.traces[0] = a->game.traces[1] = true;
+        a->game.quest = Q_RECOVER;
+        Enemy *boar = &a->game.boars[0];
+        a->game.hero.pos = (Vec2){boar->pos.x - 50, boar->pos.y};
+        boar->state = AI_WINDUP; boar->timer = .03f;
+        boar->angle = PI; boar->facing = (Vec2){-1, 0};
+        a->touch_input = true;
+        game_dodge(&a->game, (Vec2){0, 1});
+        game_tick(&a->game, .05f, (Vec2){0, 0});
+        game_tick(&a->game, .05f, (Vec2){0, 0});
     } else if (!strcmp(scene, "recover")) {
         a->game.map=MAP_PASS;
         a->game.traces[0] = a->game.traces[1] = true;

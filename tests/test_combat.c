@@ -278,9 +278,74 @@ static void dodging(void) {
     legacy_reset(&g);
     CHECK(!game_dodge(&g, (Vec2){1, 0}) && g.dodge_charges == DODGE_CHARGES);
 }
+/* Boars active on the old training ground, boar 0 about to strike. */
+static void boar_fixture(Game *g, float windup_left) {
+    legacy_reset(g); game_start(g);
+    g->traces[0] = g->traces[1] = true; g->quest = Q_RECOVER;
+    g->hero.pos = BOSS_HOME; g->hero.dir = (Vec2){1, 0};
+    for (int i = 1; i < BOAR_COUNT; i++) g->boars[i].pos = g->boars[i].home = polar(BOSS_HOME, 0, 900);
+    Enemy *b = &g->boars[0];
+    b->pos = b->home = polar(BOSS_HOME, 0, 50);
+    b->state = AI_WINDUP; b->timer = windup_left; b->angle = 3.14159265f;
+}
+static void gwanpa_dodge(void) {
+    Game g;
+    /* Dodge just before the strike: no damage, slow motion, charge back. */
+    boar_fixture(&g, .05f);
+    CHECK(game_dodge(&g, (Vec2){0, 1}) && g.dodge_charges == 1);
+    advance(&g, 7);
+    CHECK(g.hero.hp == 100 && g.perfect_count == 1 && g.hero.dodge_perfect);
+    CHECK(g.perfect_slow > 0 && g.perfect_bonus > 0 && g.perfect_flash > 0 && g.dodge_charges == 2);
+    /* The world runs at 30%: a boar timer moves ~0.3 s per second of play. */
+    float timer = g.boars[0].timer;
+    advance(&g, 10);
+    CHECK(fabsf((timer - g.boars[0].timer) - .1f * PERFECT_SLOW_SCALE) < .01f);
+    advance(&g, 40);
+    CHECK(g.perfect_slow == 0);
+    /* Bonus expires unused after its window. */
+    advance(&g, 60);
+    CHECK(g.perfect_bonus == 0);
+
+    /* Empowered next impact: +50% on top of the normal damage. */
+    boar_fixture(&g, .05f);
+    CHECK(game_dodge(&g, (Vec2){0, 1})); advance(&g, 25);
+    CHECK(g.perfect_bonus > 0);
+    g.hero.pos = polar(g.boars[0].pos, 3.14159265f, 40);
+    int hp = g.boars[0].hp;
+    CHECK(game_attack(&g)); advance(&g, 20);
+    CHECK(hp - g.boars[0].hp == (9 * 150 + 50) / 100 && g.perfect_bonus == 0);
+    /* Normal hit afterwards. */
+    g.attack_cooldown = 0; g.boars[0].state = AI_RECOVER; g.boars[0].timer = 5;
+    hp = g.boars[0].hp; g.hero.pos = polar(g.boars[0].pos, 3.14159265f, 40);
+    CHECK(game_attack(&g)); advance(&g, 50);
+    CHECK(hp - g.boars[0].hp == 9);
+
+    /* Too early: the dash is over when the strike lands, so no gwanpa;
+     * having left the range it simply misses. */
+    boar_fixture(&g, .40f);
+    CHECK(game_dodge(&g, (Vec2){-1, 0})); advance(&g, 45);
+    CHECK(g.hero.hp == 100 && g.perfect_count == 0 && g.perfect_slow == 0);
+    /* Out of reach anyway: no gwanpa. */
+    boar_fixture(&g, .05f);
+    g.boars[0].pos = polar(BOSS_HOME, 0, 300);
+    CHECK(game_dodge(&g, (Vec2){0, 1})); advance(&g, 10);
+    CHECK(g.perfect_count == 0);
+    /* No dodge: hit as before. */
+    boar_fixture(&g, .05f);
+    advance(&g, 10);
+    CHECK(g.hero.hp < 100 && g.perfect_count == 0);
+
+    /* Boss swing: the cone counts from where the dash began. */
+    legacy_reset(&g); game_start(&g);
+    g.quest = Q_COMBAT; g.map = MAP_TRAINING;
+    g.hero.pos = BOSS_HOME; g.boss.pos = polar(BOSS_HOME, 0, 80);
+    g.boss.state = AI_WINDUP; g.boss.timer = .05f; g.boss.angle = 3.14159265f;
+    CHECK(game_dodge(&g, (Vec2){0, -1})); advance(&g, 10);
+    CHECK(g.hero.hp == 100 && g.perfect_count == 1 && g.hero.bleed == 0);
+}
 int main(void) {
     sectors(); actual_impacts(); confirmed_chains(); reservations(); multiple_targets(); display_chain();
-    dodging();
+    dodging(); gwanpa_dodge();
     printf("PASS: %d directional combat checks.\n", checks);
     return 0;
 }
