@@ -2074,6 +2074,18 @@ static void smoke_scene(App *a, const char *scene) {
         a->game.phase = PH_PAUSED;
         a->key_waiting = -1;
         a->key_menu = !strcmp(scene, "keys");
+    } else if (!strcmp(scene, "charge")) {
+        /* Review shot of two boar charge warnings: one early, one about to land and flashing. */
+        a->game.map=MAP_PASS;
+        a->game.traces[0] = a->game.traces[1] = true;
+        a->game.quest = Q_RECOVER;
+        Enemy *boar = &a->game.boars[0], *other = &a->game.boars[1];
+        a->game.hero.pos = (Vec2){boar->pos.x - 70, boar->pos.y + 10};
+        boar->state = AI_WINDUP; boar->timer = .1f;
+        boar->angle = atan2f(10, -70); boar->facing = (Vec2){-1, 0};
+        other->pos = (Vec2){a->game.hero.pos.x - 20, a->game.hero.pos.y - 85};
+        other->state = AI_WINDUP; other->timer = BOAR_WINDUP_SECONDS * .7f;
+        other->angle = atan2f(85, 20); other->facing = (Vec2){0, 1};
     } else if (!strcmp(scene, "gwanpa")) {
         /* Review shot right after a perfect dodge of a boar strike. */
         a->game.map=MAP_PASS;

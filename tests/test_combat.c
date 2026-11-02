@@ -323,7 +323,7 @@ static void gwanpa_dodge(void) {
     /* Too early: the dash is over when the strike lands, so no gwanpa;
      * having left the range it simply misses. */
     boar_fixture(&g, .40f);
-    CHECK(game_dodge(&g, (Vec2){-1, 0})); advance(&g, 45);
+    CHECK(game_dodge(&g, (Vec2){0, 1})); advance(&g, 45);
     CHECK(g.hero.hp == 100 && g.perfect_count == 0 && g.perfect_slow == 0);
     /* Out of reach anyway: no gwanpa. */
     boar_fixture(&g, .05f);

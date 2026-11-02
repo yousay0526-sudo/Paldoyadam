@@ -44,8 +44,14 @@
 #define HITSTOP_HEAVY_SECONDS .055f
 #define HITSTOP_WIND_SECONDS .020f
 #define HITSTOP_HURT_SECONDS .045f
-/* A boar windup lands within this centre distance; its warning uses the same reach. */
-#define BOAR_STRIKE_RANGE 73.0f
+/* A boar windup ends in a straight charge along the heading fixed when it
+ * began: the hero's centre is hit inside this strip, and the warning draws
+ * the same strip. The boar itself then rushes that far (walls stop it). */
+#define BOAR_CHARGE_LENGTH 110.0f
+#define BOAR_CHARGE_HALF_WIDTH 22.0f
+#define BOAR_CHARGE_SECONDS .18f
+/* Attackers flash white this long before their strike lands. */
+#define ENEMY_TELL_SECONDS .15f
 /* Windup lengths and the butcher's cleaver arc, shared with the warnings. */
 #define BOAR_WINDUP_SECONDS .6f
 #define BOSS_WINDUP_SECONDS .95f
@@ -173,6 +179,8 @@ typedef struct {
     bool walking;
     /* Knockback velocity, decaying; it moves pos through terrain collision. */
     Vec2 knock;
+    /* Distance still to rush in a boar's charge. */
+    float charge_left;
 } Enemy;
 typedef struct {
     Vec2 pos;

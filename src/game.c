@@ -724,7 +724,7 @@ static int boars_winding_up(const Game *g) {
     world_select(g->map);
     int n = 0;
     for (int i = 0; i < BOAR_COUNT; i++)
-        n += g->boars[i].hp > 0 && g->boars[i].state == AI_WINDUP;
+        n += g->boars[i].hp > 0 && (g->boars[i].state == AI_WINDUP || g->boars[i].state == AI_SWING);
     return n;
 }
 /* A strike that meets a fresh dodge: true when the hero is early in the dash
@@ -732,10 +732,10 @@ static int boars_winding_up(const Game *g) {
  * first one per dash slows the world, refills the combo window and a dodge
  * charge, and empowers the next impact. The dash's invulnerability already
  * stops the damage either way. */
-static bool gwanpa(Game *g, Vec2 from, bool (*reaches)(const Game *, Vec2, Vec2)) {
+static bool gwanpa(Game *g, const Enemy *e, bool (*reaches)(const Enemy *, Vec2)) {
     Hero *h = &g->hero;
     if (!h->dodging || h->dodge_elapsed > PERFECT_WINDOW_SECONDS ||
-        !(reaches(g, from, h->dodge_origin) || reaches(g, from, h->pos)))
+        !(reaches(e, h->dodge_origin) || reaches(e, h->pos)))
         return false;
     if (h->dodge_perfect) return true;
     h->dodge_perfect = true;
@@ -750,12 +750,19 @@ static bool gwanpa(Game *g, Vec2 from, bool (*reaches)(const Game *, Vec2, Vec2)
     }
     return true;
 }
-static bool boar_reaches(const Game *g, Vec2 boar, Vec2 target) {
-    (void)g;
-    return distance(boar, target) < BOAR_STRIKE_RANGE && world_segment(boar, target, 0);
+/* Along and across the boar's fixed heading. */
+static float charge_along(const Enemy *e, Vec2 target) {
+    return (target.x - e->pos.x) * cosf(e->angle) + (target.y - e->pos.y) * sinf(e->angle);
 }
-static bool boss_reaches(const Game *g, Vec2 boss, Vec2 target) {
-    float a = atan2f(target.y - boss.y, target.x - boss.x) - g->boss.angle;
+static bool boar_reaches(const Enemy *e, Vec2 target) {
+    float along = charge_along(e, target);
+    float across = -(target.x - e->pos.x) * sinf(e->angle) + (target.y - e->pos.y) * cosf(e->angle);
+    return along >= 0 && along < BOAR_CHARGE_LENGTH && fabsf(across) < BOAR_CHARGE_HALF_WIDTH &&
+           world_segment(e->pos, target, 0);
+}
+static bool boss_reaches(const Enemy *e, Vec2 target) {
+    Vec2 boss = e->pos;
+    float a = atan2f(target.y - boss.y, target.x - boss.x) - e->angle;
     return distance(boss, target) < BOSS_STRIKE_RANGE && fabsf(atan2f(sinf(a), cosf(a))) < BOSS_STRIKE_HALF &&
            world_segment(boss, target, 0);
 }
@@ -767,7 +774,7 @@ typedef struct {
     int damage;
 } EnemyTuning;
 static const EnemyTuning BOAR_TUNING = {.speed = 64, .notice = 180, .give_up = 270, .close_to = 43, .wait_at = 80,
-                                        .strike_from = 65, .recover = BOAR_RECOVER_SECONDS, .rest = .4f, .damage = 9};
+                                        .strike_from = 90, .recover = BOAR_RECOVER_SECONDS, .rest = .4f, .damage = 9};
 static const EnemyTuning BOSS_TUNING = {.speed = 45, .close_to = 57, .strike_from = 138, .recover = 1.25f,
                                         .rest = .9f, .damage = 18};
 static void tick_boar(Game *g, Enemy *e, float dt) {
@@ -803,12 +810,29 @@ static void tick_boar(Game *g, Enemy *e, float dt) {
         break;
     case AI_WINDUP:
         if (e->timer <= 0) {
-            if (!gwanpa(g, e->pos, boar_reaches) && boar_reaches(g, e->pos, g->hero.pos))
+            /* The rush stops short of a hero it hits; otherwise it runs its length. */
+            e->charge_left = BOAR_CHARGE_LENGTH;
+            if (!gwanpa(g, e, boar_reaches) && boar_reaches(e, g->hero.pos)) {
+                e->charge_left = fmaxf(0, charge_along(e, g->hero.pos) - HERO_RADIUS - BOAR_RADIUS);
                 hurt_from(g, t->damage, false, e->pos, KNOCK_HERO_BOAR);
-            e->state = AI_RECOVER;
-            e->timer = t->recover;
+            }
+            e->state = AI_SWING;
+            e->timer = BOAR_CHARGE_SECONDS;
         }
         break;
+    case AI_SWING: {
+        float step = fminf(e->charge_left, BOAR_CHARGE_LENGTH / BOAR_CHARGE_SECONDS * dt);
+        Vec2 before = e->pos;
+        e->pos = world_move(e->pos, (Vec2){cosf(e->angle) * step, sinf(e->angle) * step}, BOAR_RADIUS);
+        e->stride += distance(before, e->pos);
+        e->charge_left = distance(before, e->pos) < step * .5f ? 0 : e->charge_left - step;
+        if (e->timer <= 0) {
+            e->charge_left = 0;
+            e->state = AI_RECOVER;
+            e->timer = t->recover - BOAR_CHARGE_SECONDS;
+        }
+        break;
+    }
     case AI_RECOVER:
         if (e->timer <= 0) {
             e->state = AI_CHASE;
@@ -848,7 +872,7 @@ static void tick_boss(Game *g, float dt) {
             e->state = AI_SWING;
             e->timer = BOSS_SWING_SECONDS;
             effect(g, (Effect){.kind = FX_BOSS_SWING, .pos = e->pos, .angle = e->angle, .life = .25f});
-            if (!gwanpa(g, e->pos, boss_reaches) && boss_reaches(g, e->pos, g->hero.pos))
+            if (!gwanpa(g, e, boss_reaches) && boss_reaches(e, g->hero.pos))
                 hurt_from(g, t->damage, true, e->pos, KNOCK_HERO_BOSS);
         }
         break;
