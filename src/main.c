@@ -749,8 +749,8 @@ static void draw_training_status(App *app) {
     Game *game = &app->game;
     char lines[11][96];
     snprintf(lines[0], sizeof lines[0], "타격 %u · 미스 %u", game->training.hits, game->training.misses);
-    snprintf(lines[1], sizeof lines[1], "피해 %d · 입력 %d/3", game->training.last_damage, game->input_count);
-    snprintf(lines[2], sizeof lines[2], "명중 %d/3 · %.1f초", game->combo_count, game->combo_time);
+    snprintf(lines[1], sizeof lines[1], "피해 %d · 입력 %d/%d", game->training.last_damage, game->input_count, COMBO_MAX);
+    snprintf(lines[2], sizeof lines[2], "명중 %d/%d · %.1f초", game->combo_count, COMBO_MAX, game->combo_time);
     snprintf(lines[3], sizeof lines[3], "예약: %s", move_name(game->queued_move));
     snprintf(lines[4], sizeof lines[4], "%s · %s", move_name(game->input_move), request_name(game));
     snprintf(lines[5], sizeof lines[5], "기본 공격 %.1f초", game->attack_cooldown);
@@ -871,8 +871,8 @@ static SDL_FRect combo_rect(const App *a) {
     return (SDL_FRect){0};
 }
 /* Big hit-chain number: pops on every confirmed hit, warms in colour at
- * 5/10/20, and greys out when the chain breaks. The three pips are the
- * existing damage tier (different moves, +10%/+20%). */
+ * 5/10/20, and greys out when the chain breaks. The five pips are the
+ * damage tier (different moves, +10% per step up to +40%). */
 static void draw_combo(App *a) {
     Game *g = &a->game;
     Gfx *f = &a->gfx;
@@ -901,8 +901,8 @@ static void draw_combo(App *a) {
     SDL_Color label = GOLD;
     label.a = ink.a;
     gfx_text(f, "연격", x + number_w + 6, r.y + (compact ? 9 : 11), compact ? 11 : 13, 0, label);
-    for (int i = 0; i < 3; i++) {
-        Vec2 c = {x + number_w + 10 + i * 10, r.y + r.h - (compact ? 14 : 17)};
+    for (int i = 0; i < COMBO_MAX; i++) {
+        Vec2 c = {x + number_w + 10 + i * 8, r.y + r.h - (compact ? 14 : 17)};
         SDL_Color pip = live && i < g->combo_count ? GOLD : (SDL_Color){90, 92, 84, 255};
         pip.a = ink.a;
         gfx_disc(f, c, 3, pip, pip);
@@ -1057,7 +1057,7 @@ static void draw_hud(App *a) {
         if (g->request_time > 0 && g->combat_request >= TRAIN_QUEUED) {
             snprintf(text, sizeof text, "%s", request_name(g));
         } else if (g->last_impact == IMPACT_MISS && g->input_time > 0) {
-            snprintf(text, sizeof text, "미스 · 명중 0/3");
+            snprintf(text, sizeof text, "미스 · 명중 0/%d", COMBO_MAX);
         } else if (direction >= 0) {
             Technique tech = g->swipe_bindings[direction];
             float cd = game_technique_cooldown(g, tech);
@@ -1318,7 +1318,7 @@ static void draw_techniques(App *a) {
         if(a->button_count<BUTTON_MAX) a->buttons[a->button_count++] = (Button){r,ACT_TECH_BIND,i,true};
     }
     button(a,(SDL_FRect){p.x+p.w-180,p.y+10,90,44},"기본 배치",ACT_BIND_RESET,0,true,false);
-    gfx_text_box(f,"방향 선택 → 기술 선택 · 서로 다른 기술을 이어 쓰면 2/3연계 +10/20%",
+    gfx_text_box(f,"방향 선택 → 기술 선택 · 서로 다른 기술을 이어 쓰면 연계마다 +10%(최대 +40%)",
                  (SDL_FRect){p.x+18,p.y+p.h-34,p.w-36,26},12,10,MUTED);
 }
 /* Keyboard settings: pick a command, then press its new key. */
@@ -2058,7 +2058,7 @@ static void smoke_scene(App *a, const char *scene) {
         a->game.traces[0] = a->game.traces[1] = true;
         a->game.quest = Q_RECOVER;
         a->game.hero.pos = (Vec2){a->game.boars[0].pos.x - 60, a->game.boars[0].pos.y};
-        a->game.chain_hits = 12; a->game.combo_count = 2;
+        a->game.chain_hits = 12; a->game.combo_count = 4;
         a->game.combo_time = .7f; a->game.chain_pop = CHAIN_POP_SECONDS / 2;
     } else if (!strcmp(scene, "dodge")) {
         /* Review shot of the dash afterimages and a spent charge. */

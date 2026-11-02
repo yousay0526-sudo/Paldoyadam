@@ -23,6 +23,10 @@
 #define HERO_SKILL_SECONDS .64f
 #define HERO_SKILL_IMPACT .24f
 #define COMBO_SECONDS 1.05f
+/* Different moves in a row raise the damage tier up to this step (+10% each). */
+#define COMBO_MAX 5
+/* Every landed hit shortens the other techniques' cooldowns by this much. */
+#define COOLDOWN_REFUND_SECONDS .3f
 #define CHAIN_POP_SECONDS .18f
 /* Bobeop: a short dash in the chosen direction with brief invulnerability. */
 #define DODGE_SECONDS .22f

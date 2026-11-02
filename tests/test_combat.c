@@ -127,15 +127,17 @@ static void confirmed_chains(void) {
         CHECK(g.combo_count == (timely ? 2 : 1));
         CHECK(g.training.last_damage == (timely ? 13 : 12));
     }
-    /* Repeat resets, distinct fourth move saturates at three. Cooldowns remain
-     * enforced in other cases; reset here only to isolate the duplicate rule. */
+    /* Distinct moves climb to COMBO_MAX (+40%) and stay there; a repeat resets. */
     fixture(&g);
-    const int moves[] = {MOVE_ATTACK, TECH_SWEEP, TECH_CLEAVE, TECH_RETREAT, TECH_RETREAT};
-    for (int i = 0; i < 5; i++) {
-        if (i == 4) g.technique_cooldowns[TECH_RETREAT] = 0;
+    const int moves[] = {MOVE_ATTACK, TECH_SWEEP, TECH_CLEAVE, TECH_RETREAT, TECH_THRUST,
+                         MOVE_ATTACK, MOVE_ATTACK};
+    const int tiers[] = {1, 2, 3, 4, 5, 5, 1};
+    for (int i = 0; i < 7; i++) {
         g.hero.pos = BOSS_HOME; g.boss.pos = polar(BOSS_HOME, 0, 40);
+        if (i == 6) g.attack_cooldown = 0; /* Isolate the repeat rule from the cooldown. */
         CHECK(request(&g, moves[i])); advance(&g, 65);
-        CHECK(g.combo_count == (i == 4 ? 1 : i < 3 ? i + 1 : 3));
+        CHECK(g.combo_count == tiers[i]);
+        if (i == 5) CHECK(g.training.last_damage == (9 * 140 + 50) / 100);
     }
     advance(&g, 110);
     CHECK(g.combo_count == 0 && g.last_hit_move == MOVE_NONE);
@@ -204,7 +206,7 @@ static void display_chain(void) {
         g.hero.pos = BOSS_HOME; g.boss.pos = polar(BOSS_HOME, 0, 40);
         CHECK(request(&g, moves[i])); advance(&g, 65);
         CHECK(g.chain_hits == i + 1 && g.chain_fade == 0);
-        CHECK(g.combo_count == (i == 4 ? 1 : i < 3 ? i + 1 : 3));
+        CHECK(g.combo_count == (i == 4 ? 1 : i + 1));
     }
     advance(&g, 110);
     CHECK(g.chain_hits == 0 && g.chain_last == 5 && g.chain_fade > 0);
@@ -373,9 +375,28 @@ static void recovery_cancel(void) {
     game_attack(&g);
     CHECK(g.hero.attacking && g.hero.attack_elapsed == elapsed && g.cancel_count == 0);
 }
+/* Stage 6: a landed hit shortens the other techniques' cooldowns by 0.3 s,
+ * never the move that landed; a whiff refunds nothing. */
+static void cooldown_refund(void) {
+    float after[2][TECH_COUNT];
+    for (int hit = 0; hit < 2; hit++) {
+        Game g; fixture(&g);
+        if (!hit) g.boss.pos.x += 300;
+        g.cooldown = 3; g.technique_cooldowns[TECH_THRUST] = 2; g.technique_cooldowns[TECH_RETREAT] = .2f;
+        CHECK(game_technique(&g, TECH_SWEEP)); advance(&g, 40);
+        CHECK(g.training.hits == hit && g.training.misses == 1 - hit);
+        for (int t = 0; t < TECH_COUNT; t++) after[hit][t] = game_technique_cooldown(&g, (Technique)t);
+    }
+    /* The hit run also sat through a short hitstop, which pauses cooldowns. */
+    float stop = HITSTOP_LIGHT_SECONDS + .011f;
+    CHECK(after[1][TECH_SWEEP] >= after[0][TECH_SWEEP] && after[1][TECH_SWEEP] - after[0][TECH_SWEEP] < stop);
+    CHECK(fabsf(after[0][TECH_CLEAVE] - after[1][TECH_CLEAVE] - COOLDOWN_REFUND_SECONDS) < stop);
+    CHECK(fabsf(after[0][TECH_THRUST] - after[1][TECH_THRUST] - COOLDOWN_REFUND_SECONDS) < stop);
+    CHECK(after[1][TECH_RETREAT] == 0 && after[0][TECH_RETREAT] == 0);
+}
 int main(void) {
     sectors(); actual_impacts(); confirmed_chains(); reservations(); multiple_targets(); display_chain();
-    dodging(); gwanpa_dodge(); recovery_cancel();
+    dodging(); gwanpa_dodge(); recovery_cancel(); cooldown_refund();
     printf("PASS: %d directional combat checks.\n", checks);
     return 0;
 }

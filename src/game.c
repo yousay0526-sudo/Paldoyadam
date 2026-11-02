@@ -926,14 +926,14 @@ static void tick_loot(Game *g, float dt) {
 static void chain_move(Game *g, int move) {
     world_select(g->map);
     g->input_count = g->input_time > 0 && g->last_move != move
-        ? (int)fminf(3, g->input_count + 1) : 1;
+        ? (int)fminf(COMBO_MAX, g->input_count + 1) : 1;
     g->last_move = move;
     g->input_time = COMBO_SECONDS;
 }
 static int next_combo(const Game *g, int move) {
     world_select(g->map);
     return g->combo_time > 0 && g->last_hit_move != move
-        ? (int)fminf(3, g->combo_count + 1) : 1;
+        ? (int)fminf(COMBO_MAX, g->combo_count + 1) : 1;
 }
 static int combo_damage(const Game *g, int move, int damage) {
     world_select(g->map);
@@ -1107,6 +1107,12 @@ static void finish_impact(Game *game, int move, bool hit) {
     world_select(game->map);
     game->perfect_bonus = 0;
     if (hit) {
+        /* Skill cycling: a landed hit brings the other techniques back sooner. */
+        for (int t = 0; t < TECH_COUNT; t++) {
+            if (t == move) continue;
+            float *cd = t == TECH_CLEAVE ? &game->cooldown : &game->technique_cooldowns[t];
+            *cd = fmaxf(0, *cd - COOLDOWN_REFUND_SECONDS);
+        }
         game->chain_hits = game->combo_time > 0 ? game->chain_hits + 1 : 1;
         game->chain_pop = CHAIN_POP_SECONDS;
         game->chain_fade = 0;
