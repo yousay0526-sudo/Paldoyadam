@@ -531,19 +531,18 @@ static void techniques_and_combos(void) {
     CHECK(!game_technique(&g,(Technique)TECH_COUNT));
     combat_fixture(&g); CHECK(game_attack(&g));
     CHECK(game_technique(&g,TECH_SWEEP) && g.queued_move==TECH_SWEEP);
-    /* Early input waits for the previous attack's impact and recovery. */
-    advance(&g,5); CHECK(g.boss.hp==231 && g.hero.attacking);
-    CHECK(game_technique(&g,TECH_SWEEP) && g.queued_move==TECH_SWEEP);
-    advance(&g,4); CHECK(g.hero.skilling && g.hero.technique==TECH_SWEEP && g.input_count==2);
-    advance(&g,9); CHECK(g.boss.hp==218); /* 12 * 1.1 rounds to 13. */
+    /* Early input waits for the previous attack's impact, then cuts its recovery. */
+    advance(&g,5); CHECK(g.boss.hp==231 && !g.hero.attacking);
+    CHECK(g.hero.skilling && g.hero.technique==TECH_SWEEP && g.input_count==2 && g.queued_move==MOVE_NONE);
+    advance(&g,4); CHECK(g.boss.hp==218); /* 12 * 1.1 rounds to 13. */
     CHECK(game_technique(&g,TECH_CLEAVE)); advance(&g,4);
     CHECK(g.hero.technique==TECH_CLEAVE && g.input_count==3);
     advance(&g,5); CHECK(g.boss.hp==187); /* 26 * 1.2 rounds to 31. */
     CHECK(!game_technique(&g,TECH_CLEAVE));
     advance(&g,35); CHECK(g.combo_time==0);
     CHECK(game_technique(&g,TECH_THRUST) && g.input_count==1);
-    combat_fixture(&g); CHECK(game_attack(&g)); advance(&g,5);
-    CHECK(game_technique(&g,TECH_SWEEP));
+    combat_fixture(&g); CHECK(game_attack(&g)); advance(&g,1);
+    CHECK(game_technique(&g,TECH_SWEEP) && g.queued_move==TECH_SWEEP);
     g.phase=PH_BAG; advance(&g,1);
     CHECK(g.queued_move==MOVE_NONE); game_close_panel(&g); advance(&g,10);
     CHECK(!g.hero.skilling && g.boss.hp==231);
@@ -573,7 +572,7 @@ static void all_directional_pair_combos(void) {
 static void continuous_input_buffer(void) {
     Game g; combat_fixture(&g);
     CHECK(game_technique(&g,TECH_CLEAVE));
-    advance(&g,8); /* An early next direction is deliberately buffered. */
+    advance(&g,2); /* A direction before the impact is deliberately buffered. */
     CHECK(game_technique(&g,TECH_RETREAT) && g.queued_move==TECH_RETREAT);
     CHECK(g.buffer_time>.24f);
     advance(&g,1);
@@ -583,7 +582,8 @@ static void continuous_input_buffer(void) {
     float lifetime=g.buffer_time;
     CHECK(!game_technique(&g,TECH_CLEAVE));
     CHECK(g.queued_move==TECH_THRUST && g.buffer_time==lifetime);
-    advance(&g,4);
+    /* It fires the moment the cleave has landed and its stop is over. */
+    for(int i=0;i<10 && g.hero.technique!=TECH_THRUST;i++) advance(&g,1);
     CHECK(g.hero.skilling && g.hero.technique==TECH_THRUST && g.hero.skill_elapsed==0);
     CHECK(g.queued_move==MOVE_NONE && g.buffer_time==0 && g.input_count==2);
     CHECK(game_technique_cooldown(&g,TECH_RETREAT)==0);
@@ -595,7 +595,7 @@ static void continuous_input_buffer(void) {
     CHECK(!g.hero.skilling && !g.hero.attacking && g.queued_move==MOVE_NONE);
 
     /* Keyboard/basic and directional requests share one buffer; no hidden queue. */
-    combat_fixture(&g); CHECK(game_technique(&g,TECH_CLEAVE)); advance(&g,9);
+    combat_fixture(&g); CHECK(game_technique(&g,TECH_CLEAVE)); advance(&g,2);
     CHECK(game_technique(&g,TECH_SWEEP));
     CHECK(game_attack(&g) && g.queued_move==MOVE_ATTACK);
     CHECK(game_technique(&g,TECH_RETREAT) && g.queued_move==TECH_RETREAT);
@@ -606,7 +606,7 @@ static void continuous_input_buffer(void) {
 
     const Phase panels[]={PH_BAG,PH_DIALOGUE,PH_PAUSED,PH_TECHNIQUES,PH_JOURNAL};
     for(size_t i=0;i<sizeof panels/sizeof *panels;i++) {
-        combat_fixture(&g); CHECK(game_technique(&g,TECH_CLEAVE)); advance(&g,9);
+        combat_fixture(&g); CHECK(game_technique(&g,TECH_CLEAVE)); advance(&g,2);
         CHECK(game_technique(&g,TECH_RETREAT));
         g.phase=panels[i]; advance(&g,1);
         CHECK(g.queued_move==MOVE_NONE && g.buffer_time==0);

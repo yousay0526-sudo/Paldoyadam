@@ -240,7 +240,7 @@ typedef struct {
     /* Gwanpa: world slow-motion left, empowered-impact window left, and the
      * on-screen callout (presentation only). */
     float perfect_slow, perfect_bonus, perfect_flash;
-    unsigned perfect_count;
+    unsigned perfect_count, cancel_count;
     enum { IMPACT_NONE, IMPACT_HIT, IMPACT_MISS } last_impact;
     enum { TRAIN_READY, TRAIN_STARTED, TRAIN_QUEUED, TRAIN_COOLDOWN,
            TRAIN_INVALID, TRAIN_BLOCKED } combat_request;

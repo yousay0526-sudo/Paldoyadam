@@ -36,7 +36,9 @@ static void stop_and_resume(void) {
     float run_up = speed * (resumed - HERO_ACCEL_SECONDS * (1 - expf(-resumed / HERO_ACCEL_SECONDS)));
     CHECK(g.hitstop_time == 0 && near(g.hero.pos.x - before.hero.pos.x, run_up));
     CHECK(near(g.time - before.time, resumed) && near(g.combo_time, before.combo_time - resumed));
-    CHECK(near(g.buffer_time, buffer - resumed) && g.queued_move == TECH_SWEEP);
+    /* The stop is over and the swing has landed: the follow-up cuts its recovery. */
+    (void)buffer;
+    CHECK(g.queued_move == MOVE_NONE && g.hero.skilling && g.hero.technique == TECH_SWEEP);
     CHECK(g.training.hits == 1 && g.combo_count == 1);
     real_frames(&g, 90);
     CHECK(g.training.hits == 2 && g.training.misses == 0 && g.combo_count == 2);

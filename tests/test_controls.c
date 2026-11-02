@@ -186,7 +186,8 @@ static void held_attack_keeps_queued_technique(App *a) {
     CHECK(a->game.queued_move==TECH_CLEAVE);
     for(int i=0;i<6;i++) {
         combat_frames(a,1);
-        CHECK(a->game.queued_move==TECH_CLEAVE);
+        CHECK(a->game.queued_move==TECH_CLEAVE ||
+              (a->game.hero.skilling && a->game.hero.technique==TECH_CLEAVE));
     }
     CHECK(a->game.attack_cooldown==0); /* The repeat was eligible but held back. */
     for(int i=0;i<20 && a->game.hero.technique!=TECH_CLEAVE;i++) combat_frames(a,1);
@@ -271,13 +272,14 @@ static void continuous_swipes(App *a) {
     CHECK(a->attack_pointer_down && a->game.queued_move==MOVE_NONE);
     Vec2 down={up.x,up.y+40};
     touch(a,SDL_FINGERMOTION,21,down);
-    CHECK(a->game.queued_move==TECH_RETREAT && a->game.hero.technique==TECH_CLEAVE);
+    /* The cleave has landed, so the new direction cuts its recovery at once. */
+    CHECK(a->game.queued_move==MOVE_NONE && a->game.hero.technique==TECH_RETREAT);
     combat_frames(a,4);
     CHECK(a->game.hero.skilling && a->game.hero.technique==TECH_RETREAT && a->game.input_count==2);
     combat_frames(a,9);
     Vec2 left={down.x-40,down.y};
     touch(a,SDL_FINGERMOTION,21,left);
-    CHECK(a->game.queued_move==TECH_THRUST);
+    CHECK(a->game.queued_move==TECH_THRUST || a->game.hero.technique==TECH_THRUST);
     combat_frames(a,4);
     CHECK(a->attack_pointer_down && a->game.hero.technique==TECH_THRUST && a->game.input_count==3);
     touch(a,SDL_FINGERUP,20,move);
@@ -293,7 +295,7 @@ static void continuous_swipes(App *a) {
     touch(a,SDL_FINGERDOWN,21,p); touch(a,SDL_FINGERMOTION,21,up);
     touch(a,SDL_FINGERMOTION,21,p); /* Early down now waits for the next action. */
     CHECK(a->game.queued_move==TECH_RETREAT);
-    combat_frames(a,9);
+    combat_frames(a,2); /* Still before the cleave's impact. */
     touch(a,SDL_FINGERMOTION,21,(Vec2){p.x,p.y+35}); /* Same direction is not re-requested. */
     CHECK(a->game.queued_move==TECH_RETREAT);
     Vec2 right={p.x+40,p.y+35}, back={p.x,p.y+35};
@@ -304,7 +306,7 @@ static void continuous_swipes(App *a) {
     touch(a,SDL_FINGERMOTION,21,(Vec2){back.x,back.y-40}); /* Cleave still cooling down. */
     CHECK(a->game.queued_move==TECH_THRUST);
     touch(a,SDL_FINGERUP,21,(Vec2){back.x,back.y-40});
-    combat_frames(a,4);
+    for(int i=0;i<10 && a->game.hero.technique!=TECH_THRUST;i++) combat_frames(a,1);
     CHECK(a->game.hero.technique==TECH_THRUST && a->game.input_count==2);
     combat_frames(a,120);
     CHECK(!a->game.hero.skilling && a->game.queued_move==MOVE_NONE);
@@ -353,9 +355,10 @@ static void swipe_thresholds(App *a) {
     pointer_move(a,1,(Vec2){p.x,p.y-32});
     /* Small forward drift cannot continually reset a predominantly lateral turn. */
     for(int i=1;i<=9;i++) pointer_move(a,1,(Vec2){p.x-i*4,p.y-32-i*.25f});
-    CHECK(a->game.queued_move==TECH_THRUST);
+    /* The cleave has landed, so the turn cuts its recovery at once. */
+    CHECK(a->game.queued_move==MOVE_NONE && a->game.hero.technique==TECH_THRUST);
     pointer_up(a,1,(Vec2){p.x-36,p.y-34.25f});
-    CHECK(a->game.queued_move==TECH_THRUST && !a->game.hero.attacking);
+    CHECK(a->game.hero.technique==TECH_THRUST && !a->game.hero.attacking);
 
     p=attack_fixture(a); pointer_down(a,1,p);
     pointer_move(a,1,(Vec2){p.x+50,p.y+50});
@@ -368,7 +371,8 @@ static void swipe_thresholds(App *a) {
     p=attack_fixture(a); pointer_down(a,1,p); combat_frames(a,10);
     CHECK(a->game.hero.attacking && a->attack_repeated);
     pointer_move(a,1,(Vec2){p.x+60,p.y});
-    CHECK(a->game.queued_move==TECH_SWEEP);
+    CHECK(a->game.queued_move==TECH_SWEEP ||
+          (a->game.hero.skilling && a->game.hero.technique==TECH_SWEEP));
     combat_frames(a,4);
     CHECK(a->game.hero.skilling && a->game.hero.technique==TECH_SWEEP);
     combat_frames(a,40);
@@ -390,7 +394,7 @@ static void swipe_cancellation(App *a) {
         touch(a,SDL_FINGERDOWN,20,(Vec2){100,220});
         touch(a,SDL_FINGERMOTION,20,(Vec2){135,220});
         touch(a,SDL_FINGERDOWN,21,p); touch(a,SDL_FINGERMOTION,21,up);
-        combat_frames(a,9); touch(a,SDL_FINGERMOTION,21,p);
+        combat_frames(a,2); touch(a,SDL_FINGERMOTION,21,p); /* Before the impact. */
         CHECK(a->game.queued_move==TECH_RETREAT);
         if(reason==0) key(a,SDLK_i,false);
         else if(reason==1) { a->game.hero.pos=NPCS[ELDER].pos; key(a,SDLK_SPACE,false); }
@@ -476,7 +480,7 @@ static void training_entry_and_inputs(App *app) {
                 combat_frames(app, 14);
                 point.x += strokes[third].x; point.y += strokes[third].y;
                 touch(app, SDL_FINGERMOTION, 81, point);
-                combat_frames(app, 28);
+                combat_frames(app, 12); /* The finisher cut in right away. */
                 touch(app, SDL_FINGERUP, 81, point);
                 CHECK(app->game.training.hits == 3 && app->game.training.misses == 0);
                 CHECK(app->game.combo_count == 3 && !app->game.hero.attacking);

@@ -107,14 +107,14 @@ static void actual_impacts(void) {
 static void confirmed_chains(void) {
     Game g; fixture(&g);
     CHECK(game_attack(&g)); g.boss.pos.x += 300;
-    CHECK(game_technique(&g, TECH_SWEEP)); advance(&g, 45);
+    CHECK(game_technique(&g, TECH_SWEEP)); advance(&g, 30);
     CHECK(g.input_count == 2 && g.combo_count == 0 && g.training.misses == 1);
     g.boss.pos = (Vec2){g.hero.pos.x + 40, g.hero.pos.y}; advance(&g, 25);
     CHECK(g.combo_count == 1 && g.training.last_damage == 12);
     CHECK(game_technique(&g, TECH_CLEAVE));
-    advance(&g, 40); g.boss.pos.x += 300; advance(&g, 25);
+    advance(&g, 10); g.boss.pos.x += 300; advance(&g, 25);
     CHECK(g.combo_count == 0 && g.training.misses == 2 && g.input_count == 3);
-    CHECK(game_attack(&g)); advance(&g, 40);
+    CHECK(game_attack(&g)); advance(&g, 5);
     g.boss.pos = (Vec2){g.hero.pos.x + 40, g.hero.pos.y}; advance(&g, 20);
     CHECK(g.combo_count == 1 && g.training.last_damage == 9);
 
@@ -162,7 +162,7 @@ static void reservations(void) {
     CHECK(g.combat_request == TRAIN_INVALID && g.queued_move == MOVE_ATTACK && g.buffer_time == lifetime);
     game_invalid_direction(&g);
     CHECK(g.queued_move == MOVE_ATTACK && g.buffer_time == lifetime);
-    CHECK(game_technique(&g, TECH_THRUST)); advance(&g, 65);
+    CHECK(game_technique(&g, TECH_THRUST)); advance(&g, 35);
     CHECK(g.hero.technique == TECH_THRUST && g.queued_move == MOVE_NONE);
     CHECK(g.combo_count == 1 && g.input_count == 2);
     advance(&g, 150);
@@ -343,9 +343,39 @@ static void gwanpa_dodge(void) {
     CHECK(game_dodge(&g, (Vec2){0, -1})); advance(&g, 10);
     CHECK(g.hero.hp == 100 && g.perfect_count == 1 && g.hero.bleed == 0);
 }
+/* Stage 4: once a swing has landed and its stop is over, a different move cuts
+ * the remaining recovery. Before the impact, or for the same move, it waits. */
+static void recovery_cancel(void) {
+    Game g; fixture(&g);
+    CHECK(game_attack(&g)); advance(&g, 5);
+    CHECK(!g.hero.attack_hit && game_technique(&g, TECH_SWEEP));
+    CHECK(g.queued_move == TECH_SWEEP && g.hero.attacking && g.cancel_count == 0);
+    int frames = 0;
+    while (!g.hero.attack_hit && frames++ < 40) advance(&g, 1);
+    CHECK(g.hero.attack_hit && g.hitstop_time > 0);
+    CHECK(g.hero.attacking && g.queued_move == TECH_SWEEP); /* The stop holds it. */
+    for (frames = 0; g.hitstop_time > 0 && frames < 40; frames++) advance(&g, 1);
+    advance(&g, 1);
+    CHECK(!g.hero.attacking && g.hero.skilling && g.hero.technique == TECH_SWEEP);
+    CHECK(g.cancel_count == 1 && g.queued_move == MOVE_NONE);
+    CHECK(g.hero.attack_elapsed < HERO_ATTACK_SECONDS * .7f);
+
+    /* A direct request after the landing cancels on the spot. */
+    while (!g.hero.skill_hit && frames++ < 200) advance(&g, 1);
+    while (g.hitstop_time > 0 && frames++ < 200) advance(&g, 1);
+    CHECK(game_technique(&g, TECH_THRUST));
+    CHECK(g.hero.technique == TECH_THRUST && g.hero.skill_elapsed == 0 && g.cancel_count == 2);
+
+    /* The same move never cancels itself. */
+    fixture(&g); CHECK(game_attack(&g));
+    for (frames = 0; (!g.hero.attack_hit || g.hitstop_time > 0) && frames < 60; frames++) advance(&g, 1);
+    float elapsed = g.hero.attack_elapsed;
+    game_attack(&g);
+    CHECK(g.hero.attacking && g.hero.attack_elapsed == elapsed && g.cancel_count == 0);
+}
 int main(void) {
     sectors(); actual_impacts(); confirmed_chains(); reservations(); multiple_targets(); display_chain();
-    dodging(); gwanpa_dodge();
+    dodging(); gwanpa_dodge(); recovery_cancel();
     printf("PASS: %d directional combat checks.\n", checks);
     return 0;
 }

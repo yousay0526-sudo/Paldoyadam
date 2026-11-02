@@ -1,12 +1,17 @@
 # CURRENT_STATE.md — 팔도야담 개발 상태
 
-최종 갱신: 2026-10-28
+최종 갱신: 2026-11-02
 
 ## 기준
 - GitHub 저장소: `yousay0526-sudo/Paldoyadam`
 - 현재 버전: `0.8.0` (C11/SDL2 기반 게임 및 Emscripten 웹 빌드)
 - 정본: `src/*.c`, `src/*.h`; 주요 문서: `README.md`, `docs/CONTROLS.md`, `docs/VALIDATION.md`, `docs/WEB.md`
 
+
+## 2026-11-02 · 전투감 4단계: 캔슬 연계 · PR #49에 추가
+- 사용자 "일단 쭉 진행 해보자"로 4·5·6단계를 같은 브랜치·PR #49에 단계별 커밋으로 올린다.
+- `src/game.h/c`: `cancels_recovery` — 평타·무공의 타격 판정이 난 뒤, 히트스톱이 끝났고 다른 동작이면 남은 후딜을 끊고 즉시 시작(`request_move`에서 바로, 예약은 `game_tick`에서 판정 직후). 같은 동작은 기존처럼 동작 종료 후. 끊을 때 주인공 위치에 작은 불꽃, `cancel_count` 증가. 피해·쿨타임·콤보 단계 규칙은 그대로.
+- 테스트: `test_combat` `recovery_cancel`(타격 전 예약 유지, 히트스톱 중 대기, 끝나면 즉시 전환, 직접 입력 즉시 캔슬, 같은 동작은 끊지 않음). 예약이 동작 끝까지 기다린다고 가정한 기존 검사(test_game·test_training·test_combat·test_feedback·test_controls)를 새 타이밍에 맞게 고쳤다(빠른 입력은 타격 전으로, 대기 시간은 짧게). CTest 12/12. 실기기 손맛 미검증.
 
 ## 2026-11-01 · 전투감 3단계: 간파(완벽 회피) · PR #49에 추가
 - 사용자 "다음 단계 가보자"로 설계안 3단계를 같은 브랜치·PR #49에 별도 커밋으로 올렸다.

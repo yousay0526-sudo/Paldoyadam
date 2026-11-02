@@ -1020,6 +1020,14 @@ static void begin_technique(Game *g, Technique technique) {
         h->invul = fmaxf(h->invul, .38f);
     chain_move(g, technique);
 }
+/* After its impact, a swing's recovery can be cut by a different move. The
+ * same move repeated still waits, so mixing moves is the faster chain. */
+static bool cancels_recovery(const Game *g, int move) {
+    const Hero *h = &g->hero;
+    return g->hitstop_time <= 0 &&
+           ((h->attacking && h->attack_hit && move != MOVE_ATTACK) ||
+            (h->skilling && h->skill_hit && move != (int)h->technique));
+}
 static bool request_move(Game *g, int move) {
     world_select(g->map);
     if (move != MOVE_ATTACK && (move < 0 || move >= TECH_COUNT)) {
@@ -1034,6 +1042,14 @@ static bool request_move(Game *g, int move) {
                             : game_technique_cooldown(g, (Technique)move) > 0) {
         combat_feedback(g, move, TRAIN_COOLDOWN);
         return false;
+    }
+    if (cancels_recovery(g, move)) {
+        Hero *h = &g->hero;
+        h->attacking = h->skilling = false;
+        h->attack_elapsed = h->skill_elapsed = 0;
+        effect(g, (Effect){.kind = FX_HIT, .pos = h->pos, .life = .15f,
+                           .target = {h->pos.x + h->dir.x * 18, h->pos.y + h->dir.y * 18 - 20}});
+        g->cancel_count++;
     }
     float remaining = g->hero.skilling ? HERO_SKILL_SECONDS - g->hero.skill_elapsed
         : g->hero.attacking ? HERO_ATTACK_SECONDS - g->hero.attack_elapsed
@@ -1369,7 +1385,8 @@ void game_tick(Game *g, float dt, Vec2 input) {
     }
     tick_attack(g, dt);
     tick_technique(g, dt);
-    if (!g->hero.attacking && !g->hero.skilling && !g->hero.dodging && g->queued_move != MOVE_NONE) {
+    if (g->queued_move != MOVE_NONE && !g->hero.dodging &&
+        ((!g->hero.attacking && !g->hero.skilling) || cancels_recovery(g, g->queued_move))) {
         int next = g->queued_move;
         g->queued_move = MOVE_NONE; g->buffer_time = 0;
         request_move(g, next);
