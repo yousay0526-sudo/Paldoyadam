@@ -8,6 +8,18 @@
 - 정본: `src/*.c`, `src/*.h`; 주요 문서: `README.md`, `docs/CONTROLS.md`, `docs/VALIDATION.md`, `docs/WEB.md`
 
 
+## 2026-11-03 · 자동저장·이어하기 · 사용자 병합·자동 Pages 배포 승인
+
+- 사용자가 "배포 합시다"로 PR #51의 main 병합과 자동 Pages 배포를 승인했다. 구현 커밋 `412e6b7dbe377ed331307d341fa77c11ddc17d19`의 [최종 PR CI](https://github.com/yousay0526-sudo/Paldoyadam/actions/runs/41577677652)는 네이티브 검사·일반 웹·단일 HTML 빌드 모두 성공했다. 이 승인 기록 커밋은 문서만 변경한다. 병합 SHA·Pages 게시 결과는 [PR #51](https://github.com/yousay0526-sudo/Paldoyadam/pull/51)과 [main 배포 기록](https://github.com/yousay0526-sudo/Paldoyadam/actions/workflows/web.yml?query=branch%3Amain)을 정본으로 확인한다. 배포 완료 판정은 Pages 게시 단계와 실제 서비스 응답 확인 후에만 한다.
+- 사용자 후속 "진행해줘" 승인에 따라 #49가 병합된 main `afcee8b`를 독립 브랜치 `feat/autosave-continue-20261103`에 통합했다. [PR #51](https://github.com/yousay0526-sudo/Paldoyadam/pull/51). 다른 작업 트리를 보존하고 main에 이미 들어간 전투/조작/수치·키 설정을 유지했다. `src/game.c/h`, `src/draw.c`, 기존 전투/입력 테스트는 origin/main과 동일하다.
+- `src/save.c/h`: 명시적 저장 형식 v2(224바이트)에 보법 충전·재충전 시간을 추가. v1(216바이트) 이행을 지원하며 기존 진행을 유지한다. 대시/무적·간파/연격 등 진행 중 전투 상태는 취소한다. 기존 퀘스트·자원·보상·미회수 약재 불변식, 대화/증강/보스/사망 복원과 수련 격리 정책을 유지한다.
+- `src/main.c`: 저장 안내가 연격·보법·출혈·간파 표시와 겹치지 않도록 빈 공간에 배치한다. 짧은 화면은 한 줄로 압축한다. 읽기 전용 웹 테스트 훅을 확장했으며 릴리스 빌드에는 포함하지 않는다.
+- Windows 전체 빌드/CTest **18/18 통과(51.11초)**. 저장/마이그레이션/오류 검사 **1,144조건**, App 쓰기 14/복원·레이아웃 **1,379조건**. 새 PC 검사는 정식 main 루프에서 SDL 입력으로 의뢰 수락·키 변경·저장 후 별도 OS 프로세스에서 이어하기를 검증했다(SDL dummy·전용 경로). 기존 전투·입력·수련 회귀 포함.
+- 실제 설치 Chrome의 격리 프로필에서 **새로고침·새 탭 재접속·브라우저 프로세스 종료 후 재실행** 통과. 퀘스트/위치/체력/소지금과 변경한 공격 키 복원, 수련 공격 중 본편 저장 불변, 새 여정 확인·취소·서장 재개·키 파일 분리 확인. Emscripten 3.1.74 일반 웹/단일 HTML 빌드 성공. [실행 로그](docs/save-validation.txt), [정책/형식](docs/SAVE_SYSTEM.md), [실제 브라우저 복원 화면](docs/save-browser-restored.png).
+- 문제/복구: 작은 터치 화면에서 저장 안내의 빈 공간이 부족한 실패를 재현해 한 줄 표시와 배치를 보완했다. 브라우저 도구의 localhost 연결 시간 초과는 기존 Playwright CLI 방식으로 대체했다. 첫 브라우저 검사의 확인창 단정은 다음 렌더 프레임 전 조회하는 테스트 경합이어서 상태를 기다리도록 수정 후 전 항목 재통과했다.
+- 남은 검증: 실제 Windows 창의 수동 조작/GPU, iPhone/Android/APK·실기기 백그라운드, Safari/Firefox, 실제 디스크 가득 참·정전 내구성, ASan/UBSan·장시간 성능. 자동화 결과와 실기기 검증을 구분한다. 정상 저장소에서 강제 종료 시 최대 약 1초 진행 손실 가능.
+- CURRENT_STATE·저장 정책·검증·웹 문서 갱신. GAME_BIBLE.md 없음/새 게임 설정 없음. 이번 명시적 승인 범위에서 PR 병합과 기존 Pages 워크플로 배포를 진행한다. 자동 병합 예약·정식 버전 변경은 하지 않는다. 후속 독립 작업은 승인 대기.
+
 ## 2026-11-03 · 승인된 HUD 아이콘 3종 적용 · PR #50 병합·배포 승인
 - 사용자가 이 채팅의 보따리·탕약·지혈산 원화를 승인하고 게임 적용을 요청했다. 기준 main `80e632fe547c7dee5c764c23a9dc4b8bd147c3d2`, 독립 브랜치 `art/approved-hud-icons-20261103`.
 - `assets/ui/icon-bag.png`, `icon-tonic.png`, `icon-bandage.png`를 승인된 PNG와 바이트 동일하게 추가했다. 각 128×128 RGBA, 알파 0..255, 사방 완전 투명 여백 최소 각각 9px·6px·8px. 내장 ImageGen 생성 원본은 각 1254×1254이며 승인된 원본·프롬프트·검수판은 이 채팅의 `hud-icons-review-20261103.zip`에 보존되어 있다.

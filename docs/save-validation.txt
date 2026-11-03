@@ -1,0 +1,89 @@
+2026-11-03: autosave/continue integration validation
+Base main: afcee8bedbf9e58d4253451d5e2e50dbad64b1ca (PR #49 already merged upstream).
+User authorized compatibility integration in the follow-up turn.
+Existing src/game.c, src/game.h, src/draw.c and combat/control tests are byte-identical to origin/main.
+No main merge, auto-merge, deployment, game version or workflow change.
+
+Windows / Zig 0.14.1 (Clang 19.1.7) / SDL 2.32.10:
+cmake --build build-save --parallel 2 => PASS
+Local toolchain/archive rules, SDL paths and SDL_MAIN_HANDLED supplied as before.
+Existing local macro redefinition warnings in test translation units only.
+
+ctest --test-dir build-save --output-on-failure:
+Test project C:/Users/dh/.codex/.chatgpt-projects/g-p-6ad186c002288191a04be8c82a2afb36/Paldoyadam-autosave-20261103/build-save
+      Start  1: autosave_progress
+ 1/18 Test  #1: autosave_progress ................   Passed    0.91 sec
+      Start  2: browser_storage_backend
+ 2/18 Test  #2: browser_storage_backend ..........   Passed    0.66 sec
+      Start  3: map_travel
+ 3/18 Test  #3: map_travel .......................   Passed    0.97 sec
+      Start  4: gameplay
+ 4/18 Test  #4: gameplay .........................   Passed    0.66 sec
+      Start  5: world_navigation
+ 5/18 Test  #5: world_navigation .................   Passed    0.71 sec
+      Start  6: isolated_training
+ 6/18 Test  #6: isolated_training ................   Passed    0.67 sec
+      Start  7: directional_combat
+ 7/18 Test  #7: directional_combat ...............   Passed    0.60 sec
+      Start  8: hit_feedback
+ 8/18 Test  #8: hit_feedback .....................   Passed    0.66 sec
+      Start  9: native_main_save
+ 9/18 Test  #9: native_main_save .................   Passed    3.03 sec
+      Start 10: native_main_restart
+10/18 Test #10: native_main_restart ..............   Passed    5.14 sec
+      Start 11: native_save_session_write
+11/18 Test #11: native_save_session_write ........   Passed    3.86 sec
+      Start 12: native_save_session_restart
+12/18 Test #12: native_save_session_restart ......   Passed    2.71 sec
+      Start 13: map_backgrounds
+13/18 Test #13: map_backgrounds ..................   Passed    3.61 sec
+      Start 14: native_render
+14/18 Test #14: native_render ....................   Passed    1.63 sec
+      Start 15: player_controls
+15/18 Test #15: player_controls ..................   Passed    0.78 sec
+      Start 16: responsive_ui
+16/18 Test #16: responsive_ui ....................   Passed    4.50 sec
+      Start 17: hero_animation
+17/18 Test #17: hero_animation ...................   Passed   10.24 sec
+      Start 18: monster_animation
+18/18 Test #18: monster_animation ................   Passed    9.64 sec
+
+100% tests passed out of 18
+
+Total Test time (real) =  51.11 sec
+
+Detailed save/v1 migration/v2 dodge/bounds/storage suite: 1144 checks PASS
+App session write: 14 checks PASS
+App restart/title/confirmation/HUD/key isolation: 1379 checks PASS
+New native_main_save/native_main_restart execute the production main loop in separate OS processes.
+SDL dummy software renderer and a dedicated fixture profile; SDL mouse/key/quit events perform the elder quest and change the attack key. No direct Game writes.
+Re-execution restores quest, coordinates, HP, coins and the custom attack key.
+
+Emscripten 3.1.74:
+python scripts/build_web.py --test-hooks => PASS
+python scripts/build_web.py => PASS
+python scripts/build_web.py --single-file --output dist/offline => PASS
+Release/offline outputs are newer than the final C sources; offline HTML complete and contains the journey backend, without test-hook exports.
+
+Actual installed Chrome / Playwright / isolated persistent profile:
+Build with --test-hooks, then node tests/browser_save.cjs dist/web build-save/browser-qa.
+PALDO_BROWSER selects installed Chrome; NODE_PATH selects existing runtime Playwright dependency.
+Headless Chrome, chromiumSandbox=true, no --no-sandbox. Mouse/key events only for gameplay; hooks read state/buttons.
+PASS real browser refresh, quest and key settings restored
+PASS tab reconnection, confirmation cancel, training isolation
+PASS full browser process restart, same origin/profile and saved progress
+PASS confirmed new journey writes v2, restarts prologue and preserves separate keys
+PASS browser_save: no page errors; profile and screenshots: <checkout>\build-save\browser-qa
+
+Screenshots: docs/save-browser-restored.png (actual restored game, custom B attack key).
+
+Failure reproduction and recovery:
+- Short touch HUD originally had no 24px notice slot around the chain card/dodge/interaction controls. Compact one-line notice and collision-aware placement added. Final test covers 8 sizes x PC/touch x normal/boss/training x bleeding/perfect-dodge callout, keeping existing HUD positions intact.
+- First browser test checked newConfirm before the next C render frame; test now waits for the rendered control/state. Full browser persistence run then passed.
+- Connected Browser Use could not reach localhost (connection timed out). Used the existing repository Playwright CLI testing approach with an isolated browser profile, not the user browser.
+- Windows UI helper could not launch. PC verification uses the real production main loop with SDL software rendering and fixture storage; manual/GPU window interaction is not claimed.
+
+NOT VERIFIED:
+Physical iPhone/Android/APK/backgrounding, Safari/Firefox, manual Windows GPU window interaction, actual full disk/power-cut durability, ASan/UBSan, long-running performance.
+Quota/security errors and file-write failures use reproducible failure injection.
+Normal storage can lose up to roughly 1 second on abrupt termination; persistent storage failures cannot provide that bound and remain visibly reported.

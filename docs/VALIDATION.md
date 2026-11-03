@@ -1,3 +1,11 @@
+## 2026-11-03 · 자동저장·이어하기, 현재 main 결합 검증
+
+사용자 승인으로 main `afcee8b`(#49 포함)을 보존하며 통합했다. Windows 전체 CTest **18/18**,
+Emscripten 3.1.74 일반 웹·단일 HTML, 실제 격리 Chrome의 새로고침·탭 재접속·브라우저 프로세스 재실행 통과.
+PC는 실제 main 루프의 별도 프로세스/SDL dummy/전용 저장 경로에서 저장·재실행을 확인했다.
+상세 명령·실패 복구·수치는 [save-validation.txt](save-validation.txt), 형식 v2/v1 이행과 복원 정책은 [SAVE_SYSTEM.md](SAVE_SYSTEM.md).
+실제 사용자 창의 수동 조작/GPU와 실기기 모바일·Safari/Firefox·정전 내구성은 미검증이다.
+
 ## 2026-10-21 · 승인된 몬스터 8방향 게임 연결
 
 2026-10-27: 마을·두 사냥터 연결의 Windows 전체 CTest 12/12 및 실제 SDL 화면 검증은 [맵 연결 기록](MAP_INTEGRATION.md)과 [로그](map-validation.txt)에 기록했다. 브라우저/실기기/ASan 검증과 구분한다.
