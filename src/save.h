@@ -3,7 +3,7 @@
 #include "game.h"
 #include <stdint.h>
 
-#define SAVE_VERSION 1u
+#define SAVE_VERSION 2u
 #define SAVE_CAPACITY 512
 typedef enum {
     SAVE_OK, SAVE_MISSING, SAVE_CORRUPT, SAVE_VERSION_NEW,

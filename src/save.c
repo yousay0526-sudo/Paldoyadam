@@ -34,7 +34,9 @@ static bool valid(const Game *g) {
         (g->sword && !g->owned_sword) || (g->armor && !g->owned_armor) ||
         !bounded(g->hero.bleed, 5) || !bounded(g->hero.bleed_tick, 1) ||
         !bounded(g->cooldown, 5.5f) || !bounded(g->attack_cooldown, .75f) ||
-        !bounded(g->item_cooldown, 1)) return false;
+        !bounded(g->item_cooldown, 1) || g->dodge_charges < 0 || g->dodge_charges > DODGE_CHARGES ||
+        !bounded(g->dodge_recharge, DODGE_RECHARGE_SECONDS) ||
+        (g->dodge_charges == DODGE_CHARGES && g->dodge_recharge != 0)) return false;
     for (int i = 0; i < TECH_COUNT; i++)
         if (!bounded(g->technique_cooldowns[i], TECHNIQUES[i].cooldown)) return false;
     unsigned seen = 0;
@@ -92,6 +94,7 @@ SaveResult save_encode(const Game *g, unsigned char *b, size_t *size) {
         I(g->boars[i].hp); I(g->drops[i].exists); I(g->drops[i].collected);
         F(g->drops[i].pos.x); F(g->drops[i].pos.y);
     }
+    I(g->dodge_charges); F(g->dodge_recharge);
     size_t p = 8; put(b, &p, (uint32_t)(n + 4));
     uint32_t sum = checksum(b, n); I(sum);
 #undef I
@@ -108,12 +111,13 @@ static bool reachable(Vec2 home, Vec2 p, float radius) {
         distance(route.points[route.count - 1], p) < 2;
 }
 SaveResult save_decode(Game *out, const unsigned char *b, size_t size) {
-    /* Exact v1 record size bounds every subsequent read, including hostile input. */
+    /* Versioned record sizes bound every read, including hostile input. */
     if (!out || !b || size < 16 || size > SAVE_CAPACITY) return SAVE_CORRUPT;
     size_t n = 0;
     if (get(b, &n) != 0x31594450u) return SAVE_CORRUPT;
-    if (get(b, &n) != SAVE_VERSION) return SAVE_VERSION_NEW;
-    if (get(b, &n) != size || size != 216) return SAVE_CORRUPT;
+    uint32_t version = get(b, &n);
+    if (version != 1 && version != SAVE_VERSION) return SAVE_VERSION_NEW;
+    if (get(b, &n) != size || size != (version == 1 ? 216u : 224u)) return SAVE_CORRUPT;
     size_t end = size - 4;
     if (get(b, &end) != checksum(b, size - 4)) return SAVE_CORRUPT;
     MapId previous = world_selected();
@@ -137,6 +141,8 @@ SaveResult save_decode(Game *out, const unsigned char *b, size_t size) {
         g.boars[i].state = g.boars[i].hp == 0 ? AI_DEAD : AI_IDLE;
         g.drops[i].age = DROP_REST_SECONDS;
     }
+    /* v1 predates dodge charge persistence; reset defaults migrate it safely. */
+    if (version >= 2) { I(g.dodge_charges); F(g.dodge_recharge); }
 #undef I
 #undef F
 #undef B
@@ -167,7 +173,7 @@ const char *save_result_text(SaveResult r) {
     case SAVE_VERSION_NEW: return "지원하지 않는 저장 버전";
     case SAVE_UNAVAILABLE: return "저장소 사용 불가";
     case SAVE_FULL: return "저장 공간 부족";
-    case SAVE_INVALID: return "저장 실패 · 진행 상태 확인 필요";
-    default: return "저장 실패 · 다시 시도합니다";
+    case SAVE_INVALID: return "저장 실패 · 상태 오류";
+    default: return "저장 실패 · 재시도";
     }
 }

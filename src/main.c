@@ -136,7 +136,7 @@ static void combat_tick(App *a, float dt);
 #if defined(__EMSCRIPTEN__) && defined(PALDO_WEB_TESTING)
 static App *web_test_app;
 EMSCRIPTEN_KEEPALIVE const char *paldo_test_state(void) {
-    static char state[1024];
+    static char state[2048];
     App *a = web_test_app;
     if (!a)
         return "{}";
@@ -147,7 +147,9 @@ EMSCRIPTEN_KEEPALIVE const char *paldo_test_state(void) {
              "\"heroFrame\":%d,\"walkCycle\":%.6f,\"face\":%d,"
              "\"training\":%s,\"hits\":%u,\"misses\":%u,\"damage\":%d,\"combo\":%d,"
              "\"queued\":%d,\"hp\":%d,\"coins\":%d,\"dummyHp\":%d,\"attackDown\":%s,"
-             "\"secretTaps\":%d,\"pointerX\":%.2f,\"pointerY\":%.2f,\"secretDown\":%s}",
+             "\"secretTaps\":%d,\"pointerX\":%.2f,\"pointerY\":%.2f,\"secretDown\":%s,"
+             "\"map\":%d,\"saveAvailable\":%s,\"saveResult\":%d,\"newConfirm\":%d,"
+             "\"dodgeCharges\":%d,\"keyAttack\":%ld}",
              a->game.phase, a->game.quest, a->story_index, a->game.hero.pos.x, a->game.hero.pos.y,
              a->width, a->height, a->density,
              world_clear(a->game.hero.pos, HERO_RADIUS) ? "true" : "false",
@@ -156,8 +158,38 @@ EMSCRIPTEN_KEEPALIVE const char *paldo_test_state(void) {
              a->game.training.active ? "true" : "false", a->game.training.hits, a->game.training.misses,
              a->game.training.last_damage, a->game.combo_count, a->game.queued_move, a->game.hero.hp,
              a->game.coins, a->game.boss.hp, a->attack_pointer_down ? "true" : "false",
-             a->secret_taps, a->pointer_start.x, a->pointer_start.y, a->secret_down ? "true" : "false");
+             a->secret_taps, a->pointer_start.x, a->pointer_start.y, a->secret_down ? "true" : "false",
+             a->game.map, a->save_available ? "true" : "false", a->save_result, a->new_confirm,
+             a->game.dodge_charges, (long)(a->keys[KEY_ATTACK] ? a->keys[KEY_ATTACK] : DEFAULT_KEYS[KEY_ATTACK]));
     return state;
+}
+/* Read-only descriptions of rendered controls. Browser tests still use real
+ * mouse/key events; they never dispatch game actions or edit Game memory. */
+EMSCRIPTEN_KEEPALIVE const char *paldo_test_buttons(void) {
+    static char text[8192]; size_t used = 0;
+    App *a = web_test_app;
+    used += (size_t)snprintf(text, sizeof text, "[");
+    for (int i = 0; a && i < a->button_count; i++) {
+        Button b = a->buttons[i]; const char *name = NULL;
+        switch (b.action) {
+        case ACT_CONTINUE: name = "continue"; break;
+        case ACT_START: name = "start"; break;
+        case ACT_SKIP: name = "skip"; break;
+        case ACT_NEW_CONFIRM: name = "confirm"; break;
+        case ACT_NEW_CANCEL: name = "cancel"; break;
+        case ACT_TITLE: name = "title"; break;
+        case ACT_CLOSE: name = "close"; break;
+        case ACT_KEY_MENU: name = "keys"; break;
+        case ACT_KEY_SELECT: name = "key"; break;
+        default: break;
+        }
+        if (!name || !b.enabled) continue;
+        used += (size_t)snprintf(text + used, sizeof text - used,
+            "%s{\"action\":\"%s\",\"value\":%d,\"x\":%.2f,\"y\":%.2f,\"w\":%.2f,\"h\":%.2f}",
+            used > 1 ? "," : "", name, b.value, b.rect.x, b.rect.y, b.rect.w, b.rect.h);
+    }
+    snprintf(text + used, sizeof text - used, "]");
+    return text;
 }
 #endif
 
@@ -1715,11 +1747,50 @@ static Vec2 view_camera(const App *a, float w, float h, float scale) {
     return camera;
 }
 static SDL_FRect save_status_rect(const App *a) {
-    /* Below quest/toast, left of the compact quick-item column; no HUD
-     * controls or the down/right attack gesture are covered. */
-    if (a->game.phase == PH_PLAY)
-        return (SDL_FRect){12, 144, fminf(250, a->width * .36f), 24};
-    return (SDL_FRect){0, a->height - 24, a->width, 24};
+    if (a->game.phase != PH_PLAY)
+        return (SDL_FRect){0, a->height - 24, a->width, 24};
+    float height = a->height < MINIMAP_MIN_HEIGHT ? 14 : 24;
+    /* The hit-chain card and dodge button can occupy the old fixed spot.
+     * Fit only this notice around the existing HUD, leaving controls intact. */
+    SDL_FRect taken[BUTTON_MAX + 10];
+    int count = 0;
+    for (int i = 0; i < a->button_count; i++) taken[count++] = a->buttons[i].rect;
+    taken[count++] = a->combo;
+    taken[count++] = a->attack_hint;
+    taken[count++] = a->minimap;
+    taken[count++] = (SDL_FRect){12, 8, 190, 44};
+    taken[count++] = a->game.training.active ? (SDL_FRect){12, 58, 148, 146}
+                                           : (SDL_FRect){12, 62, fminf(250, a->width * .52f), 76};
+    taken[count++] = (SDL_FRect){12, a->height - 44, a->width < 800 ? 104 : 218, 32};
+    if (a->game.quest == Q_COMBAT) taken[count++] = boss_bar_rect(a);
+    if (a->game.hero.bleed > 0) taken[count++] = (SDL_FRect){18, a->height - 85, 120, 20};
+    if (a->game.perfect_flash > 0)
+        taken[count++] = (SDL_FRect){a->width / 2 - 100, a->height / 2 - fminf(130, a->height * .3f), 200, 66};
+    const float rows[] = {144, 156, 54, 112, 170, 198, 222};
+    for (int small = 0; small < 2; small++) {
+        float width = fminf(small ? 160 : 250, a->width * (small ? .28f : .36f));
+        const float xs[] = {12, (a->width - width) / 2, a->width - width - 12};
+        for (size_t y = 0; y < sizeof rows / sizeof *rows; y++)
+            for (int x = 0; x < 3; x++) {
+                SDL_FRect r = {xs[x], rows[y], width, height};
+                bool free = r.y + r.h <= a->height - 8;
+                for (int i = 0; free && i < count; i++)
+                    free = taken[i].w <= 0 || !rects_overlap(r, taken[i]);
+                if (free) return r;
+            }
+    }
+    /* Dense short screens sometimes leave space between columns, rather
+     * than at their anchors. Search that remaining world area only. */
+    float width = fminf(160, a->width * .28f);
+    for (float y = 54; y + height <= a->height - 8; y += 4)
+        for (float x = 12; x + width <= a->width - 12; x += 4) {
+            SDL_FRect r = {x, y, width, height};
+            bool free = true;
+            for (int i = 0; free && i < count; i++)
+                free = taken[i].w <= 0 || !rects_overlap(r, taken[i]);
+            if (free) return r;
+        }
+    return (SDL_FRect){0};
 }
 static void draw(App *a) {
     world_select(a->game.map);

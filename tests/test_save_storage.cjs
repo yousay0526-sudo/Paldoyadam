@@ -11,7 +11,7 @@ const context = { Module: {}, HEAPU8: new Uint8Array(1024), localStorage: {
 vm.runInNewContext(readFileSync('web/save-storage.js', 'utf8'), context);
 const store = context.Module.paldoSaveStore;
 const key = 'paldoyadam.journey.autosave';
-values.set('paldoyadam.keys', 'KEEP');
+values.set('paldo-keys', 'KEEP');
 assert.equal(store.read(0, 0, 512), -1);
 context.HEAPU8.set([1, 2, 3, 4], 0);
 assert.equal(store.write(0, 4, 0), 0);
@@ -31,5 +31,5 @@ values.set(key, '1'); assert.equal(store.read(0, 0, 512), -2);
 values.set(key, '00'.repeat(513)); assert.equal(store.read(0, 0, 512), -2);
 values.set(key, 'abcdef'); assert.equal(store.read(0, 10, 512), 3);
 assert.deepEqual(Array.from(context.HEAPU8.slice(10, 13)), [171, 205, 239]);
-assert.equal(values.get('paldoyadam.keys'), 'KEEP');
+assert.equal(values.get('paldo-keys'), 'KEEP');
 console.log('PASS: browser storage atomic replacement, backup, quota, security, bounds, key isolation');

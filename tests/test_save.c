@@ -19,7 +19,7 @@ static size_t size;
 static Game roundtrip(const Game *g) {
     Game loaded;
     CHECK(save_encode(g, bytes, &size) == SAVE_OK);
-    CHECK(size == 216);
+    CHECK(size == 224);
     MapId before = world_selected();
     CHECK(save_decode(&loaded, bytes, size) == SAVE_OK);
     CHECK(world_selected() == before);
@@ -110,6 +110,32 @@ static void sum_again(void) {
     for (size_t i = 0; i < size - 4; i++) h = (h ^ bytes[i]) * 16777619u;
     for (int i = 0; i < 4; i++) bytes[size - 4 + i] = (unsigned char)(h >> (8 * i));
 }
+static void combat_state_and_v1(void) {
+    Game g; begin(&g);
+    CHECK(game_dodge(&g, (Vec2){1, 0}));
+    g.perfect_bonus = .7f; g.perfect_slow = .2f; g.perfect_flash = .5f;
+    g.chain_hits = 12; g.chain_last = 7; g.combo_count = 3; g.cancel_count = 9;
+    Game loaded = roundtrip(&g);
+    CHECK(loaded.dodge_charges == 1 && loaded.dodge_recharge == DODGE_RECHARGE_SECONDS);
+    CHECK(!loaded.hero.dodging && loaded.hero.dodge_elapsed == 0 && loaded.hero.invul == 0);
+    CHECK(loaded.perfect_bonus == 0 && loaded.perfect_slow == 0 && loaded.perfect_flash == 0);
+    CHECK(loaded.chain_hits == 0 && loaded.combo_count == 0 && loaded.cancel_count == 0);
+    loaded.hero.pos = MAP_EXITS[0].arrival;
+    CHECK(game_dodge(&loaded, (Vec2){1, 0}));
+    loaded = roundtrip(&loaded); CHECK(loaded.dodge_charges == 0 && !game_dodge(&loaded, (Vec2){1, 0}));
+    g.dodge_charges = 3; CHECK(save_encode(&g, bytes, &size) == SAVE_INVALID);
+    g.dodge_charges = 0; g.dodge_recharge = NAN;
+    CHECK(save_encode(&g, bytes, &size) == SAVE_INVALID);
+    g.dodge_recharge = .7f; CHECK(save_encode(&g, bytes, &size) == SAVE_OK);
+    /* Exact old v1 layout: delete the two appended fields, then re-sign it. */
+    size = 216; bytes[4] = 1; bytes[8] = 216; sum_again();
+    CHECK(save_decode(&loaded, bytes, size) == SAVE_OK);
+    CHECK(loaded.quest == g.quest && loaded.coins == g.coins && loaded.hero.hp == g.hero.hp);
+    CHECK(loaded.dodge_charges == DODGE_CHARGES && loaded.dodge_recharge == 0);
+    CHECK(save_encode(&loaded, bytes, &size) == SAVE_OK && bytes[4] == SAVE_VERSION && size == 224);
+    bytes[212] = 3; sum_again();
+    CHECK(save_decode(&loaded, bytes, size) == SAVE_CORRUPT);
+}
 static void invalid_input(void) {
     Game g; begin(&g); g.hero.pos = (Vec2){NAN, INFINITY};
     Game out = roundtrip(&g); CHECK(distance(out.hero.pos, MAP_EXITS[0].arrival) == 0);
@@ -126,7 +152,7 @@ static void invalid_input(void) {
         unsigned char old = bytes[i]; bytes[i] ^= 128;
         CHECK(save_decode(&out, bytes, size) != SAVE_OK); CHECK(!memcmp(&out, &sentinel, sizeof out)); bytes[i] = old;
     }
-    bytes[4] = 2; CHECK(save_decode(&out, bytes, size) == SAVE_VERSION_NEW);
+    bytes[4] = 99; CHECK(save_decode(&out, bytes, size) == SAVE_VERSION_NEW);
     CHECK(!memcmp(&out, &sentinel, sizeof out));
     CHECK(save_encode(&g, bytes, &size) == SAVE_OK);
     bytes[48] = 255; bytes[49] = 255; bytes[50] = 255; bytes[51] = 127; sum_again();
@@ -181,6 +207,6 @@ static void storage(const char *dir) {
     for (int i = 0; i < 4; i++) { file_path(path, dir, names[i]); remove(path); }
 }
 int main(int argc, char **argv) {
-    chapter(); invalid_input(); storage(argc > 1 ? argv[1] : "save-fixtures");
+    chapter(); combat_state_and_v1(); invalid_input(); storage(argc > 1 ? argv[1] : "save-fixtures");
     printf("PASS: %d save/quest/recovery/storage checks\n", checks); return 0;
 }

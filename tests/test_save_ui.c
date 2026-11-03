@@ -62,18 +62,37 @@ int main(int argc, char **argv) {
         dispatch(a, ACT_NEW_CANCEL, 0); CHECK(!a->new_confirm);
         dispatch(a, ACT_SKIP, 0); CHECK(a->new_confirm == 2);
         dispatch(a, ACT_PAUSE, 0); CHECK(!a->new_confirm);
+        key_assign(a, KEY_ATTACK, SDLK_b);
         dispatch(a, ACT_CONTINUE, 0);
         CHECK(a->game.phase == PH_PLAY && a->game.quest == Q_TRACES && a->game.coins == 41);
-        const Vec2 screens[] = {{432,270}, {568,320}, {844,390}, {1280,720}};
-        for (int i = 0; i < 4; i++) for (int touch = 0; touch < 2; touch++) {
+        CHECK(key_for(a, KEY_ATTACK) == SDLK_b);
+        Game journey = a->game;
+        const Vec2 screens[] = {{432,270}, {480,306}, {568,320}, {667,375}, {844,390}, {1100,650}, {1280,720}, {1920,1080}};
+        for (int i = 0; i < 8; i++) for (int touch = 0; touch < 2; touch++) for (int scene = 0; scene < 3; scene++) for (int hurt = 0; hurt < 2; hurt++) {
+            a->game = journey;
+            if (scene == 1) { a->game.quest = Q_COMBAT; a->game.map = MAP_CAVE; }
+            if (scene == 2) { Game ignored; CHECK(game_enter_training(&a->game, &ignored)); }
+            a->game.chain_hits = 12; a->game.combo_count = 3; a->game.combo_time = COMBO_SECONDS;
+            if (hurt) { a->game.hero.bleed = 2; a->game.perfect_flash = .7f; }
             a->width = screens[i].x; a->height = screens[i].y; a->touch_input = touch != 0;
             a->button_count = 0; draw_hud(a);
             SDL_FRect r = save_status_rect(a);
+            if (r.w <= 0) fprintf(stderr, "No notice room: %.0fx%.0f touch=%d scene=%d hurt=%d\n", a->width, a->height, touch, scene, hurt);
+            CHECK(r.w > 0 && r.x >= 0 && r.y >= 0 && r.x + r.w <= a->width && r.y + r.h <= a->height);
+            CHECK(a->combo.w <= 0 || !rects_overlap(r, a->combo));
+            CHECK(!rects_overlap(r, a->attack_hint));
+            CHECK(a->minimap.w <= 0 || !rects_overlap(r, a->minimap));
+            if (scene == 1) CHECK(!rects_overlap(r, boss_bar_rect(a)));
+            if (hurt) {
+                CHECK(!rects_overlap(r, (SDL_FRect){18, a->height - 85, 120, 20}));
+                CHECK(!rects_overlap(r, (SDL_FRect){a->width / 2 - 100, a->height / 2 - fminf(130, a->height * .3f), 200, 66}));
+            }
             for (int j = 0; j < a->button_count; j++) {
                 SDL_FRect b = a->buttons[j].rect;
                 CHECK(r.x >= b.x + b.w || b.x >= r.x + r.w || r.y >= b.y + b.h || b.y >= r.y + r.h);
             }
         }
+        a->game = journey;
         SaveStore real_store = a->save_store;
         save_store_init(&a->save_store, NULL); a->game.coins = 40; autosave(a, true);
         CHECK(a->save_result == SAVE_UNAVAILABLE);
@@ -90,6 +109,7 @@ int main(int argc, char **argv) {
         CHECK(save_store_load(&a->save_store, &loaded, &recovered) == SAVE_OK && loaded.coins == 37);
         dispatch(a, ACT_TITLE, 0); dispatch(a, ACT_START, 0); dispatch(a, ACT_NEW_CONFIRM, 0);
         CHECK(a->game.phase == PH_PROLOGUE && a->game.quest == Q_MEET && a->game.coins == 55);
+        CHECK(key_for(a, KEY_ATTACK) == SDLK_b);
         CHECK(save_store_load(&a->save_store, &loaded, &recovered) == SAVE_OK && loaded.phase == PH_PROLOGUE);
     }
     gfx_free(&a->gfx); SDL_DestroyRenderer(a->renderer); SDL_FreeSurface(surface); free(a); SDL_Quit();

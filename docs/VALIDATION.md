@@ -1,9 +1,10 @@
-## 2026-11-03 · 자동저장·이어하기
+## 2026-11-03 · 자동저장·이어하기, 현재 main 결합 검증
 
-Windows 전체 CTest 16/16, 일반 웹/단일 HTML Emscripten 3.1.74 컴파일 성공.
-저장 형식·복원/오류 정책·검사 범위는 [SAVE_SYSTEM.md](SAVE_SYSTEM.md), 실제 명령/결과는 [save-validation.txt](save-validation.txt).
-실제 PC 창 재실행, 브라우저 새로고침·재접속, 실제 모바일·전원 중단 내구성은 미검증이다.
-이 작업에서 제외한 PR #49와 전투 변경은 포함하지 않았다. PR 생성 중 #49가 외부 main(`afcee8b`)에 병합된 것을 확인했으며, 텍스트 병합은 가능하지만 해당 main과의 결합 회귀는 미완료다. 검증 결과는 명시한 `026ce7c` 기반에 한한다.
+사용자 승인으로 main `afcee8b`(#49 포함)을 보존하며 통합했다. Windows 전체 CTest **18/18**,
+Emscripten 3.1.74 일반 웹·단일 HTML, 실제 격리 Chrome의 새로고침·탭 재접속·브라우저 프로세스 재실행 통과.
+PC는 실제 main 루프의 별도 프로세스/SDL dummy/전용 저장 경로에서 저장·재실행을 확인했다.
+상세 명령·실패 복구·수치는 [save-validation.txt](save-validation.txt), 형식 v2/v1 이행과 복원 정책은 [SAVE_SYSTEM.md](SAVE_SYSTEM.md).
+실제 사용자 창의 수동 조작/GPU와 실기기 모바일·Safari/Firefox·정전 내구성은 미검증이다.
 
 ## 2026-10-21 · 승인된 몬스터 8방향 게임 연결
 
