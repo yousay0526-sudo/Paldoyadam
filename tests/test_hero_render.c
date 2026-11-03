@@ -210,8 +210,8 @@ static void feedback_pixels(Gfx *gfx, SDL_Surface *surface, Uint32 *pixels, Uint
         SDL_SetTextureColorMod(picture->texture, 255,255,255); SDL_SetTextureAlphaMod(picture->texture, 255);
     }
 }
-/* The boar windup warning must cover exactly the reach that can hurt the
- * hero: tinted just inside BOAR_STRIKE_RANGE and untouched just outside. */
+/* The boar windup warning must cover exactly the charge strip that can hurt
+ * the hero: tinted just inside it and untouched just outside. */
 static void boar_warning_reach(Gfx *gfx, SDL_Surface *surface, Uint32 *pixels, Uint32 *baseline) {
     SDL_RenderSetScale(gfx->renderer, 1, 1);
     Game game; legacy_reset(&game); game_start(&game);
@@ -219,21 +219,23 @@ static void boar_warning_reach(Gfx *gfx, SDL_Surface *surface, Uint32 *pixels, U
     game.hero.pos = (Vec2){200, 200};
     Vec2 center = {surface->w / 2.0f, surface->h / 2.0f};
     Vec2 camera = {game.boars[0].pos.x - center.x, game.boars[0].pos.y - center.y};
-    const float radii[] = {BOAR_STRIKE_RANGE - 2, BOAR_STRIKE_RANGE + 3};
+    game.boars[0].angle = 1.57079633f; /* Charging straight down, clear of the sprite. */
     for (int windup = 0; windup < 2; windup++) {
         game.boars[0].state = windup ? AI_WINDUP : AI_CHASE;
         gfx_world(gfx, &game, (float)surface->w, (float)surface->h, camera, false, (Vec2){0, 0});
         CHECK(SDL_RenderReadPixels(gfx->renderer, NULL, surface->format->format,
                                   windup ? pixels : baseline, surface->pitch) == 0);
     }
-    /* Sample below and beside the feet, clear of the sprite above them. */
-    const float angles[] = {0, .785398163f, 1.57079633f, 2.35619449f, 3.14159265f};
-    for (size_t a = 0; a < sizeof angles / sizeof *angles; a++)
-        for (int r = 0; r < 2; r++) {
-            int x = (int)lroundf(center.x + cosf(angles[a]) * radii[r]);
-            int y = (int)lroundf(center.y + sinf(angles[a]) * radii[r]);
+    /* Sample below the feet, clear of the sprite above them: {across, along}. */
+    const float L = BOAR_CHARGE_LENGTH, W = BOAR_CHARGE_HALF_WIDTH;
+    const Vec2 inside[] = {{0, 30}, {0, L - 3}, {W - 3, 60}, {-(W - 3), 60}};
+    const Vec2 outside[] = {{0, L + 14}, {W + 4, 60}, {-(W + 4), 60}, {W + 4, 20}};
+    for (int set = 0; set < 2; set++)
+        for (int k = 0; k < 4; k++) {
+            Vec2 o = set ? outside[k] : inside[k];
+            int x = (int)lroundf(center.x + o.x), y = (int)lroundf(center.y + o.y);
             bool tinted = pixels[y * surface->w + x] != baseline[y * surface->w + x];
-            CHECK(tinted == (r == 0));
+            CHECK(tinted == (set == 0));
         }
     /* The fill grows from the boar and reaches the rim at impact, without
      * ever leaving the real reach. Midway pixels change as the strike nears. */
@@ -246,12 +248,10 @@ static void boar_warning_reach(Gfx *gfx, SDL_Surface *surface, Uint32 *pixels, U
         CHECK(SDL_RenderReadPixels(gfx->renderer, NULL, surface->format->format,
                                   late ? pixels : early, surface->pitch) == 0);
     }
-    for (size_t a = 0; a < sizeof angles / sizeof *angles; a++) {
-        Vec2 d = {cosf(angles[a]), sinf(angles[a])};
-        int mid = (int)lroundf(center.y + d.y * BOAR_STRIKE_RANGE * .6f) * surface->w +
-                  (int)lroundf(center.x + d.x * BOAR_STRIKE_RANGE * .6f);
-        int out = (int)lroundf(center.y + d.y * (BOAR_STRIKE_RANGE + 3)) * surface->w +
-                  (int)lroundf(center.x + d.x * (BOAR_STRIKE_RANGE + 3));
+    for (int k = -1; k <= 1; k++) {
+        int x = (int)lroundf(center.x + k * W * .5f);
+        int mid = (int)lroundf(center.y + L * .6f) * surface->w + x;
+        int out = (int)lroundf(center.y + L + 14) * surface->w + x;
         CHECK(early[mid] != baseline[mid] && pixels[mid] != early[mid]);
         CHECK(early[out] == baseline[out] && pixels[out] == baseline[out]);
     }

@@ -620,7 +620,7 @@ SDL_FRect gfx_enemy(Gfx *f, const Enemy *e, Vec2 feet, bool boss, float time, bo
     } else if (e->state == AI_SWING || (e->state == AI_RECOVER && !boss &&
                                         e->timer > BOAR_RECOVER_SECONDS - .15f)) {
         /* Snap forward on the strike, then settle back. */
-        float t = e->state == AI_SWING ? clampf(e->timer / BOSS_SWING_SECONDS, 0, 1)
+        float t = e->state == AI_SWING ? clampf(e->timer / (boss ? BOSS_SWING_SECONDS : BOAR_CHARGE_SECONDS), 0, 1)
                                        : clampf((e->timer - (BOAR_RECOVER_SECONDS - .15f)) / .15f, 0, 1);
         dx += aim.x * 9 * t;
         dy += aim.y * 5 * t;
@@ -647,6 +647,10 @@ SDL_FRect gfx_enemy(Gfx *f, const Enemy *e, Vec2 feet, bool boss, float time, bo
     SDL_SetTextureAlphaMod(p->texture, previous_alpha);
     if (live && e->hp > 0)
         hit_flash(f, p, &source, &dest, tilt, &pivot, SDL_FLIP_NONE, e->hit_time);
+    /* The tell: a bright flash right before the strike lands, twice for a hot white. */
+    if (live && e->hp > 0 && e->state == AI_WINDUP && e->timer < ENEMY_TELL_SECONDS)
+        for (int pass = 0; pass < 2; pass++)
+            hit_flash(f, p, &source, &dest, tilt, &pivot, SDL_FLIP_NONE, HIT_FLASH_SECONDS);
     /* Include every corner when restoring roofs over a rotated dying actor. */
     float cs = cosf((float)tilt * PI / 180), sn = sinf((float)tilt * PI / 180);
     float left = 1e6f, top = 1e6f, right = -1e6f, bottom = -1e6f;
@@ -793,8 +797,22 @@ void gfx_hero(Gfx *f, const Game *g, Vec2 feet) {
         dest = (SDL_FRect){feet.x - root_x * size,
                            feet.y - roots[attack].y / 512 * size, size, size};
     }
-    SDL_SetTextureAlphaMod(p->texture,
-        g->hero.hurt_time <= 0 && g->hero.invul > 0 && ((int)(g->time * 18) % 2) ? 110 : 255);
+    if (g->hero.dodging) {
+        /* Two fading afterimages trail the dash; the hero itself stays solid. */
+        float t = g->hero.dodge_elapsed / DODGE_SECONDS;
+        for (int k = 2; k >= 1; k--) {
+            float back = k * 16 * (1 - t * .5f);
+            SDL_FRect ghost = {dest.x - g->hero.dodge_dir.x * back, dest.y - g->hero.dodge_dir.y * back,
+                               dest.w, dest.h};
+            SDL_SetTextureColorMod(p->texture, 190, 220, 230);
+            SDL_SetTextureAlphaMod(p->texture, (Uint8)((k == 1 ? 120 : 60) * (1 - t)));
+            SDL_RenderCopyExF(f->renderer, p->texture, &source, &ghost, 0,
+                             NULL, flip ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE);
+        }
+        SDL_SetTextureColorMod(p->texture, 255, 255, 255);
+    }
+    SDL_SetTextureAlphaMod(p->texture, !g->hero.dodging && g->hero.hurt_time <= 0 &&
+        g->hero.invul > 0 && ((int)(g->time * 18) % 2) ? 110 : 255);
     SDL_RenderCopyExF(f->renderer, p->texture, &source, &dest, 0,
                      NULL, flip ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE);
     SDL_SetTextureAlphaMod(p->texture, 255);
@@ -1035,6 +1053,43 @@ static void telegraph(Gfx *f, Vec2 p, float range, float angle, float half, floa
                     (Vec2){p.x + cosf(a1) * range, p.y + sinf(a1) * range}, rim);
     }
 }
+/* A boar charge warning over the exact strip it hits: dim strip, a brighter
+ * fill that runs out from the boar and reaches the end on the impact frame,
+ * and an outline that flickers in the final moment. */
+static void telegraph_line(Gfx *f, Vec2 p, float length, float half_width, float angle, float remaining,
+                           SDL_Color area, SDL_Color rim) {
+    float progress = 1 - clampf(remaining, 0, 1);
+    Vec2 d = {cosf(angle), sinf(angle)}, n = {-d.y, d.x};
+    SDL_Color dim = area, fill = area;
+    dim.a = (Uint8)(area.a * .6f);
+    fill.a = (Uint8)fminf(255, area.a * 1.5f);
+    const int indices[6] = {0, 1, 2, 0, 2, 3};
+    for (int layer = 0; layer < 2; layer++) {
+        float reach = layer ? length * progress : length;
+        if (reach <= 0) continue;
+        SDL_Color c = layer ? fill : dim;
+        Vec2 a = {p.x + n.x * half_width, p.y + n.y * half_width};
+        Vec2 b = {p.x - n.x * half_width, p.y - n.y * half_width};
+        SDL_Vertex v[4] = {{{a.x, a.y}, c, {0, 0}}, {{b.x, b.y}, c, {0, 0}},
+                           {{b.x + d.x * reach, b.y + d.y * reach}, c, {0, 0}},
+                           {{a.x + d.x * reach, a.y + d.y * reach}, c, {0, 0}}};
+        SDL_RenderGeometry(f->renderer, NULL, v, 4, indices, 6);
+    }
+    bool flicker = remaining < .25f && (int)(remaining * 12) % 2 == 0;
+    rim.a = flicker ? 255 : 150;
+    Vec2 corners[4];
+    for (int k = 0; k < 4; k++) {
+        float side = k == 0 || k == 3 ? 1 : -1, reach = k >= 2 ? length : 0;
+        corners[k] = (Vec2){p.x + n.x * half_width * side + d.x * reach, p.y + n.y * half_width * side + d.y * reach};
+    }
+    gfx_line(f, corners[0], corners[3], rim);
+    gfx_line(f, corners[1], corners[2], rim);
+    gfx_line(f, corners[2], corners[3], rim);
+    /* An arrowhead at the far end shows which way it rushes. */
+    Vec2 tip = {p.x + d.x * length, p.y + d.y * length};
+    for (int side = -1; side <= 1; side += 2)
+        gfx_line(f, tip, (Vec2){tip.x - d.x * 12 + n.x * 9 * side, tip.y - d.y * 12 + n.y * 9 * side}, rim);
+}
 /* Roadside props point into the open lane; the interaction center stays unchanged. */
 static Vec2 waypost_pos(int index) {
     static const Vec2 offsets[4]={{-74,80},{-105,10.5f},{-62,20},{-95,14}};
@@ -1116,9 +1171,10 @@ void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool has_ta
             if (g->boars[i].hp > 0 || g->boars[i].dying > 0) {
                 actors[count++] = (Actor){1, i, g->boars[i].pos.y};
                 if (g->boars[i].state == AI_WINDUP)
-                    telegraph(f, screen_pos(g->boars[i].pos, camera), BOAR_STRIKE_RANGE, 0, PI,
-                              g->boars[i].timer / BOAR_WINDUP_SECONDS, (SDL_Color){200, 90, 45, 72},
-                              (SDL_Color){255, 170, 120, 255});
+                    telegraph_line(f, screen_pos(g->boars[i].pos, camera), BOAR_CHARGE_LENGTH,
+                                   BOAR_CHARGE_HALF_WIDTH, g->boars[i].angle,
+                                   g->boars[i].timer / BOAR_WINDUP_SECONDS, (SDL_Color){200, 90, 45, 72},
+                                   (SDL_Color){255, 170, 120, 255});
             }
     if (g->training.active || (g->map==MAP_CAVE && (g->boss.hp>0 || g->boss.dying>0)) || (g->map==MAP_TRAINING && (g->quest==Q_HUNT || g->quest==Q_COMBAT || g->boss.dying>0))) {
         actors[count++] = (Actor){2, 0, g->boss.pos.y};

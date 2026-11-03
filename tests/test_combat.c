@@ -107,14 +107,14 @@ static void actual_impacts(void) {
 static void confirmed_chains(void) {
     Game g; fixture(&g);
     CHECK(game_attack(&g)); g.boss.pos.x += 300;
-    CHECK(game_technique(&g, TECH_SWEEP)); advance(&g, 45);
+    CHECK(game_technique(&g, TECH_SWEEP)); advance(&g, 30);
     CHECK(g.input_count == 2 && g.combo_count == 0 && g.training.misses == 1);
     g.boss.pos = (Vec2){g.hero.pos.x + 40, g.hero.pos.y}; advance(&g, 25);
     CHECK(g.combo_count == 1 && g.training.last_damage == 12);
     CHECK(game_technique(&g, TECH_CLEAVE));
-    advance(&g, 40); g.boss.pos.x += 300; advance(&g, 25);
+    advance(&g, 10); g.boss.pos.x += 300; advance(&g, 25);
     CHECK(g.combo_count == 0 && g.training.misses == 2 && g.input_count == 3);
-    CHECK(game_attack(&g)); advance(&g, 40);
+    CHECK(game_attack(&g)); advance(&g, 5);
     g.boss.pos = (Vec2){g.hero.pos.x + 40, g.hero.pos.y}; advance(&g, 20);
     CHECK(g.combo_count == 1 && g.training.last_damage == 9);
 
@@ -127,15 +127,17 @@ static void confirmed_chains(void) {
         CHECK(g.combo_count == (timely ? 2 : 1));
         CHECK(g.training.last_damage == (timely ? 13 : 12));
     }
-    /* Repeat resets, distinct fourth move saturates at three. Cooldowns remain
-     * enforced in other cases; reset here only to isolate the duplicate rule. */
+    /* Distinct moves climb to COMBO_MAX (+40%) and stay there; a repeat resets. */
     fixture(&g);
-    const int moves[] = {MOVE_ATTACK, TECH_SWEEP, TECH_CLEAVE, TECH_RETREAT, TECH_RETREAT};
-    for (int i = 0; i < 5; i++) {
-        if (i == 4) g.technique_cooldowns[TECH_RETREAT] = 0;
+    const int moves[] = {MOVE_ATTACK, TECH_SWEEP, TECH_CLEAVE, TECH_RETREAT, TECH_THRUST,
+                         MOVE_ATTACK, MOVE_ATTACK};
+    const int tiers[] = {1, 2, 3, 4, 5, 5, 1};
+    for (int i = 0; i < 7; i++) {
         g.hero.pos = BOSS_HOME; g.boss.pos = polar(BOSS_HOME, 0, 40);
+        if (i == 6) g.attack_cooldown = 0; /* Isolate the repeat rule from the cooldown. */
         CHECK(request(&g, moves[i])); advance(&g, 65);
-        CHECK(g.combo_count == (i == 4 ? 1 : i < 3 ? i + 1 : 3));
+        CHECK(g.combo_count == tiers[i]);
+        if (i == 5) CHECK(g.training.last_damage == (9 * 140 + 50) / 100);
     }
     advance(&g, 110);
     CHECK(g.combo_count == 0 && g.last_hit_move == MOVE_NONE);
@@ -162,7 +164,7 @@ static void reservations(void) {
     CHECK(g.combat_request == TRAIN_INVALID && g.queued_move == MOVE_ATTACK && g.buffer_time == lifetime);
     game_invalid_direction(&g);
     CHECK(g.queued_move == MOVE_ATTACK && g.buffer_time == lifetime);
-    CHECK(game_technique(&g, TECH_THRUST)); advance(&g, 65);
+    CHECK(game_technique(&g, TECH_THRUST)); advance(&g, 35);
     CHECK(g.hero.technique == TECH_THRUST && g.queued_move == MOVE_NONE);
     CHECK(g.combo_count == 1 && g.input_count == 2);
     advance(&g, 150);
@@ -194,8 +196,207 @@ static void multiple_targets(void) {
     advance(&g, 15);
     CHECK(g.boars[0].hp == hp0 && g.boars[1].hp == hp1 - 9);
 }
+/* The on-screen chain counts every confirmed hit in the window, including a
+ * repeated move, while the damage tier keeps its own rules. */
+static void display_chain(void) {
+    Game g; fixture(&g);
+    const int moves[] = {MOVE_ATTACK, TECH_SWEEP, TECH_CLEAVE, TECH_RETREAT, TECH_RETREAT};
+    for (int i = 0; i < 5; i++) {
+        if (i == 4) g.technique_cooldowns[TECH_RETREAT] = 0;
+        g.hero.pos = BOSS_HOME; g.boss.pos = polar(BOSS_HOME, 0, 40);
+        CHECK(request(&g, moves[i])); advance(&g, 65);
+        CHECK(g.chain_hits == i + 1 && g.chain_fade == 0);
+        CHECK(g.combo_count == (i == 4 ? 1 : i + 1));
+    }
+    advance(&g, 110);
+    CHECK(g.chain_hits == 0 && g.chain_last == 5 && g.chain_fade > 0);
+    advance(&g, 50);
+    CHECK(g.chain_fade == 0 && g.chain_last == 5);
+    /* A whiff breaks the chain at once. */
+    fixture(&g);
+    CHECK(game_attack(&g)); advance(&g, 50);
+    CHECK(g.chain_hits == 1);
+    g.boss.pos.x += 300;
+    CHECK(game_technique(&g, TECH_SWEEP)); advance(&g, 30);
+    CHECK(g.chain_hits == 0 && g.chain_last == 0 && g.chain_fade == 0);
+    /* Leaving training clears it without a fade. */
+    Game saved;
+    legacy_reset(&g); game_start(&g);
+    CHECK(game_enter_training(&g, &saved));
+    for (int i = 0; i < 2; i++) {
+        g.hero.pos = BOSS_HOME; g.boss.pos = polar(BOSS_HOME, 0, 40);
+        CHECK(request(&g, i ? TECH_SWEEP : MOVE_ATTACK)); advance(&g, 65);
+    }
+    CHECK(g.chain_hits == 2);
+    CHECK(game_leave_training(&g, &saved));
+    CHECK(g.chain_hits == 0 && g.chain_last == 0 && g.chain_fade == 0 && g.chain_pop == 0);
+}
+static void dodging(void) {
+    Game g; fixture(&g);
+    Vec2 start = g.hero.pos;
+    CHECK(g.dodge_charges == DODGE_CHARGES);
+    CHECK(game_dodge(&g, (Vec2){0, 3}));
+    CHECK(g.hero.dodging && g.hero.invul >= DODGE_INVUL_SECONDS && g.dodge_charges == 1);
+    CHECK(!game_dodge(&g, (Vec2){0, 1}));   /* one dash at a time */
+    advance(&g, 23);
+    CHECK(!g.hero.dodging);
+    CHECK(fabsf(g.hero.pos.x - start.x) < .5f && g.hero.pos.y - start.y > 78 && g.hero.pos.y - start.y < 84);
+    /* Charges: two, then empty; each refills in turn. */
+    CHECK(game_dodge(&g, (Vec2){0, -1})); advance(&g, 23);
+    CHECK(g.dodge_charges == 0 && !game_dodge(&g, (Vec2){1, 0}));
+    advance(&g, 75);
+    CHECK(g.dodge_charges == 1);
+    advance(&g, 121);
+    CHECK(g.dodge_charges == 2 && g.dodge_recharge == 0);
+    /* No direction: step back from the facing. */
+    fixture(&g); g.boss.pos.x -= 300; g.hero.dir = (Vec2){1, 0};
+    start = g.hero.pos;
+    CHECK(game_dodge(&g, (Vec2){0, 0})); advance(&g, 23);
+    CHECK(start.x - g.hero.pos.x > 78);
+    /* Before impact the swing is lost; a follow-up waits for the dash. */
+    fixture(&g);
+    CHECK(game_attack(&g)); advance(&g, 5);
+    CHECK(game_dodge(&g, (Vec2){0, 1}));
+    CHECK(!g.hero.attacking);
+    g.attack_cooldown = 0;
+    CHECK(game_attack(&g) && g.queued_move == MOVE_ATTACK && !g.hero.attacking);
+    advance(&g, 23);
+    CHECK(g.hero.attacking && g.training.hits == 0 && g.training.misses == 0);
+    /* After impact it cuts only the recovery and keeps the chain alive. */
+    fixture(&g);
+    CHECK(game_attack(&g)); advance(&g, 20);
+    CHECK(g.training.hits == 1 && g.hero.attacking && g.chain_hits == 1);
+    CHECK(game_dodge(&g, (Vec2){0, 1}));
+    CHECK(!g.hero.attacking && g.chain_hits == 1 && g.combo_time > 0);
+    /* Invulnerable for the dash, hurt again afterwards (outside training). */
+    legacy_reset(&g); game_start(&g);
+    CHECK(game_dodge(&g, (Vec2){1, 0}));
+    game_hurt(&g, 10, false);
+    CHECK(g.hero.hp == 100);
+    advance(&g, 25);
+    game_hurt(&g, 10, false);
+    CHECK(g.hero.hp < 100);
+    /* Not while dead or in a menu. */
+    legacy_reset(&g);
+    CHECK(!game_dodge(&g, (Vec2){1, 0}) && g.dodge_charges == DODGE_CHARGES);
+}
+/* Boars active on the old training ground, boar 0 about to strike. */
+static void boar_fixture(Game *g, float windup_left) {
+    legacy_reset(g); game_start(g);
+    g->traces[0] = g->traces[1] = true; g->quest = Q_RECOVER;
+    g->hero.pos = BOSS_HOME; g->hero.dir = (Vec2){1, 0};
+    for (int i = 1; i < BOAR_COUNT; i++) g->boars[i].pos = g->boars[i].home = polar(BOSS_HOME, 0, 900);
+    Enemy *b = &g->boars[0];
+    b->pos = b->home = polar(BOSS_HOME, 0, 50);
+    b->state = AI_WINDUP; b->timer = windup_left; b->angle = 3.14159265f;
+}
+static void gwanpa_dodge(void) {
+    Game g;
+    /* Dodge just before the strike: no damage, slow motion, charge back. */
+    boar_fixture(&g, .05f);
+    CHECK(game_dodge(&g, (Vec2){0, 1}) && g.dodge_charges == 1);
+    advance(&g, 7);
+    CHECK(g.hero.hp == 100 && g.perfect_count == 1 && g.hero.dodge_perfect);
+    CHECK(g.perfect_slow > 0 && g.perfect_bonus > 0 && g.perfect_flash > 0 && g.dodge_charges == 2);
+    /* The world runs at 30%: a boar timer moves ~0.3 s per second of play. */
+    float timer = g.boars[0].timer;
+    advance(&g, 10);
+    CHECK(fabsf((timer - g.boars[0].timer) - .1f * PERFECT_SLOW_SCALE) < .01f);
+    advance(&g, 40);
+    CHECK(g.perfect_slow == 0);
+    /* Bonus expires unused after its window. */
+    advance(&g, 60);
+    CHECK(g.perfect_bonus == 0);
+
+    /* Empowered next impact: +50% on top of the normal damage. */
+    boar_fixture(&g, .05f);
+    CHECK(game_dodge(&g, (Vec2){0, 1})); advance(&g, 25);
+    CHECK(g.perfect_bonus > 0);
+    g.hero.pos = polar(g.boars[0].pos, 3.14159265f, 40);
+    int hp = g.boars[0].hp;
+    CHECK(game_attack(&g)); advance(&g, 20);
+    CHECK(hp - g.boars[0].hp == (9 * 150 + 50) / 100 && g.perfect_bonus == 0);
+    /* Normal hit afterwards. */
+    g.attack_cooldown = 0; g.boars[0].state = AI_RECOVER; g.boars[0].timer = 5;
+    hp = g.boars[0].hp; g.hero.pos = polar(g.boars[0].pos, 3.14159265f, 40);
+    CHECK(game_attack(&g)); advance(&g, 50);
+    CHECK(hp - g.boars[0].hp == 9);
+
+    /* Too early: the dash is over when the strike lands, so no gwanpa;
+     * having left the range it simply misses. */
+    boar_fixture(&g, .40f);
+    CHECK(game_dodge(&g, (Vec2){0, 1})); advance(&g, 45);
+    CHECK(g.hero.hp == 100 && g.perfect_count == 0 && g.perfect_slow == 0);
+    /* Out of reach anyway: no gwanpa. */
+    boar_fixture(&g, .05f);
+    g.boars[0].pos = polar(BOSS_HOME, 0, 300);
+    CHECK(game_dodge(&g, (Vec2){0, 1})); advance(&g, 10);
+    CHECK(g.perfect_count == 0);
+    /* No dodge: hit as before. */
+    boar_fixture(&g, .05f);
+    advance(&g, 10);
+    CHECK(g.hero.hp < 100 && g.perfect_count == 0);
+
+    /* Boss swing: the cone counts from where the dash began. */
+    legacy_reset(&g); game_start(&g);
+    g.quest = Q_COMBAT; g.map = MAP_TRAINING;
+    g.hero.pos = BOSS_HOME; g.boss.pos = polar(BOSS_HOME, 0, 80);
+    g.boss.state = AI_WINDUP; g.boss.timer = .05f; g.boss.angle = 3.14159265f;
+    CHECK(game_dodge(&g, (Vec2){0, -1})); advance(&g, 10);
+    CHECK(g.hero.hp == 100 && g.perfect_count == 1 && g.hero.bleed == 0);
+}
+/* Stage 4: once a swing has landed and its stop is over, a different move cuts
+ * the remaining recovery. Before the impact, or for the same move, it waits. */
+static void recovery_cancel(void) {
+    Game g; fixture(&g);
+    CHECK(game_attack(&g)); advance(&g, 5);
+    CHECK(!g.hero.attack_hit && game_technique(&g, TECH_SWEEP));
+    CHECK(g.queued_move == TECH_SWEEP && g.hero.attacking && g.cancel_count == 0);
+    int frames = 0;
+    while (!g.hero.attack_hit && frames++ < 40) advance(&g, 1);
+    CHECK(g.hero.attack_hit && g.hitstop_time > 0);
+    CHECK(g.hero.attacking && g.queued_move == TECH_SWEEP); /* The stop holds it. */
+    for (frames = 0; g.hitstop_time > 0 && frames < 40; frames++) advance(&g, 1);
+    advance(&g, 1);
+    CHECK(!g.hero.attacking && g.hero.skilling && g.hero.technique == TECH_SWEEP);
+    CHECK(g.cancel_count == 1 && g.queued_move == MOVE_NONE);
+    CHECK(g.hero.attack_elapsed < HERO_ATTACK_SECONDS * .7f);
+
+    /* A direct request after the landing cancels on the spot. */
+    while (!g.hero.skill_hit && frames++ < 200) advance(&g, 1);
+    while (g.hitstop_time > 0 && frames++ < 200) advance(&g, 1);
+    CHECK(game_technique(&g, TECH_THRUST));
+    CHECK(g.hero.technique == TECH_THRUST && g.hero.skill_elapsed == 0 && g.cancel_count == 2);
+
+    /* The same move never cancels itself. */
+    fixture(&g); CHECK(game_attack(&g));
+    for (frames = 0; (!g.hero.attack_hit || g.hitstop_time > 0) && frames < 60; frames++) advance(&g, 1);
+    float elapsed = g.hero.attack_elapsed;
+    game_attack(&g);
+    CHECK(g.hero.attacking && g.hero.attack_elapsed == elapsed && g.cancel_count == 0);
+}
+/* Stage 6: a landed hit shortens the other techniques' cooldowns by 0.3 s,
+ * never the move that landed; a whiff refunds nothing. */
+static void cooldown_refund(void) {
+    float after[2][TECH_COUNT];
+    for (int hit = 0; hit < 2; hit++) {
+        Game g; fixture(&g);
+        if (!hit) g.boss.pos.x += 300;
+        g.cooldown = 3; g.technique_cooldowns[TECH_THRUST] = 2; g.technique_cooldowns[TECH_RETREAT] = .2f;
+        CHECK(game_technique(&g, TECH_SWEEP)); advance(&g, 40);
+        CHECK(g.training.hits == hit && g.training.misses == 1 - hit);
+        for (int t = 0; t < TECH_COUNT; t++) after[hit][t] = game_technique_cooldown(&g, (Technique)t);
+    }
+    /* The hit run also sat through a short hitstop, which pauses cooldowns. */
+    float stop = HITSTOP_LIGHT_SECONDS + .011f;
+    CHECK(after[1][TECH_SWEEP] >= after[0][TECH_SWEEP] && after[1][TECH_SWEEP] - after[0][TECH_SWEEP] < stop);
+    CHECK(fabsf(after[0][TECH_CLEAVE] - after[1][TECH_CLEAVE] - COOLDOWN_REFUND_SECONDS) < stop);
+    CHECK(fabsf(after[0][TECH_THRUST] - after[1][TECH_THRUST] - COOLDOWN_REFUND_SECONDS) < stop);
+    CHECK(after[1][TECH_RETREAT] == 0 && after[0][TECH_RETREAT] == 0);
+}
 int main(void) {
-    sectors(); actual_impacts(); confirmed_chains(); reservations(); multiple_targets();
+    sectors(); actual_impacts(); confirmed_chains(); reservations(); multiple_targets(); display_chain();
+    dodging(); gwanpa_dodge(); recovery_cancel(); cooldown_refund();
     printf("PASS: %d directional combat checks.\n", checks);
     return 0;
 }

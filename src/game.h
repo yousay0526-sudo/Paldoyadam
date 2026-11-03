@@ -23,13 +23,39 @@
 #define HERO_SKILL_SECONDS .64f
 #define HERO_SKILL_IMPACT .24f
 #define COMBO_SECONDS 1.05f
+/* Different moves in a row raise the damage tier up to this step (+10% each). */
+#define COMBO_MAX 5
+/* Every landed hit shortens the other techniques' cooldowns by this much. */
+#define COOLDOWN_REFUND_SECONDS .3f
+#define CHAIN_POP_SECONDS .18f
+/* Bobeop: a short dash in the chosen direction with brief invulnerability. */
+#define DODGE_SECONDS .22f
+#define DODGE_DISTANCE 80.0f
+#define DODGE_INVUL_SECONDS .20f
+#define DODGE_CHARGES 2
+#define DODGE_RECHARGE_SECONDS 1.2f
+/* Gwanpa (perfect dodge): an enemy strike that would have landed resolves
+ * within this long after a dodge starts. The world slows while the hero
+ * keeps full speed, and the next impact soon after hits harder. */
+#define PERFECT_WINDOW_SECONDS .15f
+#define PERFECT_SLOW_SECONDS .4f
+#define PERFECT_SLOW_SCALE .3f
+#define PERFECT_BONUS_SECONDS 1.0f
+#define PERFECT_BONUS_PERCENT 50
+#define CHAIN_FADE_SECONDS .45f
 #define HIT_FLASH_SECONDS .12f
 #define HITSTOP_LIGHT_SECONDS .035f
 #define HITSTOP_HEAVY_SECONDS .055f
 #define HITSTOP_WIND_SECONDS .020f
 #define HITSTOP_HURT_SECONDS .045f
-/* A boar windup lands within this centre distance; its warning uses the same reach. */
-#define BOAR_STRIKE_RANGE 73.0f
+/* A boar windup ends in a straight charge along the heading fixed when it
+ * began: the hero's centre is hit inside this strip, and the warning draws
+ * the same strip. The boar itself then rushes that far (walls stop it). */
+#define BOAR_CHARGE_LENGTH 110.0f
+#define BOAR_CHARGE_HALF_WIDTH 22.0f
+#define BOAR_CHARGE_SECONDS .18f
+/* Attackers flash white this long before their strike lands. */
+#define ENEMY_TELL_SECONDS .15f
 /* Windup lengths and the butcher's cleaver arc, shared with the warnings. */
 #define BOAR_WINDUP_SECONDS .6f
 #define BOSS_WINDUP_SECONDS .95f
@@ -137,6 +163,10 @@ typedef struct {
     float skill_elapsed, skill_angle;
     Technique technique;
     bool skilling, skill_hit;
+    /* Dodge dash: fixed heading, eased distance; cancels a swing in progress. */
+    Vec2 dodge_dir, dodge_origin;
+    float dodge_elapsed;
+    bool dodging, dodge_perfect;
 } Hero;
 typedef struct {
     Vec2 pos, home;
@@ -153,6 +183,8 @@ typedef struct {
     bool walking;
     /* Knockback velocity, decaying; it moves pos through terrain collision. */
     Vec2 knock;
+    /* Distance still to rush in a boar's charge. */
+    float charge_left;
 } Enemy;
 typedef struct {
     Vec2 pos;
@@ -210,6 +242,17 @@ typedef struct {
     /* Input links never award damage. Confirmed hits advance once per impact. */
     int input_count, last_move, combo_count, last_hit_move, queued_move;
     float input_time, combo_time, buffer_time;
+    /* Display only: confirmed hits chained inside the combo window, any move,
+     * uncapped. It never changes damage; the last broken chain fades out. */
+    int chain_hits, chain_last;
+    float chain_pop, chain_fade;
+    /* Dodge charges refill one at a time. */
+    int dodge_charges;
+    float dodge_recharge;
+    /* Gwanpa: world slow-motion left, empowered-impact window left, and the
+     * on-screen callout (presentation only). */
+    float perfect_slow, perfect_bonus, perfect_flash;
+    unsigned perfect_count, cancel_count;
     enum { IMPACT_NONE, IMPACT_HIT, IMPACT_MISS } last_impact;
     enum { TRAIN_READY, TRAIN_STARTED, TRAIN_QUEUED, TRAIN_COOLDOWN,
            TRAIN_INVALID, TRAIN_BLOCKED } combat_request;
@@ -253,6 +296,9 @@ int game_hero_frame(const Game *g);
 int game_hero_attack_frame(const Game *g);
 int game_hero_skill_frame(const Game *g);
 bool game_attack(Game *g);
+/* Dash toward `direction` (any length; zero steps back from the facing).
+ * Works mid-swing, cancelling it. False when no charge or not in play. */
+bool game_dodge(Game *g, Vec2 direction);
 /* Shared geometry for simulation and the existing procedural sword trail.
  * Radius is exclusive, angle inclusive; targets use their existing centers. */
 float game_attack_range(const Game *g, int move);

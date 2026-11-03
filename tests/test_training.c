@@ -109,14 +109,15 @@ static void combos_and_misses(void) {
                 CHECK(game.combat_request == TRAIN_QUEUED && game.queued_move == (int)next);
                 CHECK(!game_technique(&game, opening));
                 CHECK(game.combat_request == TRAIN_COOLDOWN && game.queued_move == (int)next);
-                advance(&game, 65);
+                /* The follow-up cuts the opening's recovery right after its impact. */
+                advance(&game, 30);
                 CHECK(game.training.hits == 1 && game.hero.technique == next && game.combo_count == 1 && game.input_count == 2);
                 CHECK(game.training.last_damage == TECHNIQUES[opening].damage);
                 CHECK(game_technique(&game, finish));
-                advance(&game, 65);
+                advance(&game, 20);
                 CHECK(game.training.hits == 2 && game.combo_count == 2 && game.input_count == 3);
                 CHECK(game.training.last_damage == (TECHNIQUES[next].damage * 110 + 50) / 100);
-                advance(&game, 64);
+                advance(&game, 30);
                 CHECK(game.training.hits == 3 && game.training.misses == 0);
                 CHECK(game.training.last_damage == (TECHNIQUES[finish].damage * 120 + 50) / 100);
                 CHECK(game.boss.hp == game.boss.max_hp && game.coins == 55 && game.notices == 0);

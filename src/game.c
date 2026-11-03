@@ -129,6 +129,7 @@ void game_reset(Game *g) {
     g->swipe_bindings[SWIPE_RIGHT] = TECH_SWEEP;
     g->swipe_bindings[SWIPE_DOWN] = TECH_RETREAT;
     g->swipe_bindings[SWIPE_LEFT] = TECH_THRUST;
+    g->dodge_charges = DODGE_CHARGES;
 }
 void game_start(Game *g) {
     world_select(g->map);
@@ -166,10 +167,13 @@ bool game_leave_training(Game *game, const Game *saved) {
     world_select(game->map);
     game->queued_move = game->last_move = game->last_hit_move = game->input_move = MOVE_NONE;
     game->buffer_time = game->combo_time = game->input_time = game->request_time = 0;
-    game->combo_count = game->input_count = 0;
+    game->combo_count = game->input_count = game->chain_hits = game->chain_last = 0;
+    game->chain_pop = game->chain_fade = 0;
     game->last_impact = IMPACT_NONE;
     game->combat_request = TRAIN_READY;
-    game->hero.attacking = game->hero.skilling = game->hero.walking = false;
+    game->hero.attacking = game->hero.skilling = game->hero.walking = game->hero.dodging = false;
+    game->hero.dodge_elapsed = 0; game->hero.dodge_perfect = false;
+    game->perfect_slow = game->perfect_bonus = game->perfect_flash = 0;
     game->hero.vel = game->hero.knock = (Vec2){0, 0};
     game->hero.attack_elapsed = game->hero.skill_elapsed = game->hero.walk_cycle = 0;
     game_clear_hit_feedback(game);
@@ -472,7 +476,7 @@ bool game_damage(Game *g, Enemy *e, int amount, EffectKind kind) {
             e->timer = fmaxf(e->timer, .25f);
     }
     float stop = kind == FX_WIND ? HITSTOP_WIND_SECONDS
-        : g->hero.skilling && g->hero.technique == TECH_CLEAVE
+        : g->perfect_bonus > 0 || (g->hero.skilling && g->hero.technique == TECH_CLEAVE)
             ? HITSTOP_HEAVY_SECONDS : HITSTOP_LIGHT_SECONDS;
     /* Simultaneous victims and the wind add-on share a single stop. */
     g->hitstop_time = fmaxf(g->hitstop_time, stop);
@@ -585,6 +589,29 @@ bool game_technique(Game *g, Technique technique) {
     if (technique < 0 || technique >= TECH_COUNT) { game_invalid_direction(g); return false; }
     return request_move(g, technique);
 }
+bool game_dodge(Game *g, Vec2 direction) {
+    world_select(g->map);
+    Hero *h = &g->hero;
+    if (g->phase != PH_PLAY || h->hp <= 0 || h->dodging || g->dodge_charges <= 0 ||
+        !isfinite(direction.x) || !isfinite(direction.y))
+        return false;
+    float length = hypotf(direction.x, direction.y);
+    Vec2 dir = length > .05f ? (Vec2){direction.x / length, direction.y / length}
+                             : (Vec2){-h->dir.x, -h->dir.y};
+    if (hypotf(dir.x, dir.y) < .5f) dir = (Vec2){(float)-h->face, 0};
+    /* The dash wins over a swing: before its impact the swing is lost, after
+     * it only the recovery is cut. A queued follow-up waits for the dash. */
+    h->attacking = h->skilling = false;
+    h->attack_elapsed = h->skill_elapsed = 0;
+    h->dodging = true; h->dodge_elapsed = 0; h->dodge_dir = dir;
+    h->dodge_origin = h->pos; h->dodge_perfect = false;
+    h->invul = fmaxf(h->invul, DODGE_INVUL_SECONDS);
+    if (g->dodge_charges == DODGE_CHARGES) g->dodge_recharge = DODGE_RECHARGE_SECONDS;
+    g->dodge_charges--;
+    effect(g, (Effect){.kind = FX_DUST, .pos = h->pos, .life = .45f, .amount = 2,
+                       .angle = atan2f(dir.y, dir.x)});
+    return true;
+}
 bool game_skill(Game *g) {
     world_select(g->map); return game_technique(g, TECH_CLEAVE); }
 bool game_begin_boss(Game *g) {
@@ -610,7 +637,11 @@ static void reset_fight(Game *g, Vec2 pos) {
     g->hero.attacking = false;
     g->hero.attack_elapsed = 0;
     g->hero.skilling = false; g->hero.skill_elapsed = 0;
-    g->combo_count = g->input_count = 0;
+    g->hero.dodging = false; g->hero.dodge_elapsed = 0; g->hero.dodge_perfect = false;
+    g->dodge_charges = DODGE_CHARGES; g->dodge_recharge = 0;
+    g->perfect_slow = g->perfect_bonus = g->perfect_flash = 0;
+    g->combo_count = g->input_count = g->chain_hits = g->chain_last = 0;
+    g->chain_pop = g->chain_fade = 0;
     g->combo_time = g->input_time = g->buffer_time = g->request_time = 0;
     g->queued_move = g->last_move = g->last_hit_move = g->input_move = MOVE_NONE;
     g->last_impact = IMPACT_NONE; g->combat_request = TRAIN_READY;
@@ -665,7 +696,9 @@ static void separate_bodies(Game *g, float dt) {
     world_select(g->map);
     Body bodies[BOAR_COUNT + 2];
     int count = 0;
-    bodies[count++] = (Body){&g->hero.pos, HERO_RADIUS, BODY_MASS_HERO};
+    /* A dodging hero slips between bodies; separation resumes after the dash. */
+    if (!g->hero.dodging)
+        bodies[count++] = (Body){&g->hero.pos, HERO_RADIUS, BODY_MASS_HERO};
     if ((g->map == MAP_CAVE || g->map == MAP_TRAINING) && g->quest == Q_COMBAT && g->boss.hp > 0)
         bodies[count++] = (Body){&g->boss.pos, BOSS_RADIUS, BODY_MASS_BOSS};
     else if (game_boars_active(g))
@@ -691,8 +724,47 @@ static int boars_winding_up(const Game *g) {
     world_select(g->map);
     int n = 0;
     for (int i = 0; i < BOAR_COUNT; i++)
-        n += g->boars[i].hp > 0 && g->boars[i].state == AI_WINDUP;
+        n += g->boars[i].hp > 0 && (g->boars[i].state == AI_WINDUP || g->boars[i].state == AI_SWING);
     return n;
+}
+/* A strike that meets a fresh dodge: true when the hero is early in the dash
+ * and would have been hit where the dash began or where it is now. The
+ * first one per dash slows the world, refills the combo window and a dodge
+ * charge, and empowers the next impact. The dash's invulnerability already
+ * stops the damage either way. */
+static bool gwanpa(Game *g, const Enemy *e, bool (*reaches)(const Enemy *, Vec2)) {
+    Hero *h = &g->hero;
+    if (!h->dodging || h->dodge_elapsed > PERFECT_WINDOW_SECONDS ||
+        !(reaches(e, h->dodge_origin) || reaches(e, h->pos)))
+        return false;
+    if (h->dodge_perfect) return true;
+    h->dodge_perfect = true;
+    g->perfect_slow = PERFECT_SLOW_SECONDS;
+    g->perfect_bonus = PERFECT_BONUS_SECONDS;
+    g->perfect_flash = .7f;
+    g->perfect_count++;
+    if (g->combo_time > 0) g->combo_time = COMBO_SECONDS;
+    if (g->dodge_charges < DODGE_CHARGES) {
+        g->dodge_charges++;
+        g->dodge_recharge = g->dodge_charges < DODGE_CHARGES ? DODGE_RECHARGE_SECONDS : 0;
+    }
+    return true;
+}
+/* Along and across the boar's fixed heading. */
+static float charge_along(const Enemy *e, Vec2 target) {
+    return (target.x - e->pos.x) * cosf(e->angle) + (target.y - e->pos.y) * sinf(e->angle);
+}
+static bool boar_reaches(const Enemy *e, Vec2 target) {
+    float along = charge_along(e, target);
+    float across = -(target.x - e->pos.x) * sinf(e->angle) + (target.y - e->pos.y) * cosf(e->angle);
+    return along >= 0 && along < BOAR_CHARGE_LENGTH && fabsf(across) < BOAR_CHARGE_HALF_WIDTH &&
+           world_segment(e->pos, target, 0);
+}
+static bool boss_reaches(const Enemy *e, Vec2 target) {
+    Vec2 boss = e->pos;
+    float a = atan2f(target.y - boss.y, target.x - boss.x) - e->angle;
+    return distance(boss, target) < BOSS_STRIKE_RANGE && fabsf(atan2f(sinf(a), cosf(a))) < BOSS_STRIKE_HALF &&
+           world_segment(boss, target, 0);
 }
 /* Enemy behaviour numbers in one place (distances in world units, speeds
  * per second, times in seconds). Windup and strike reach live in game.h
@@ -702,7 +774,7 @@ typedef struct {
     int damage;
 } EnemyTuning;
 static const EnemyTuning BOAR_TUNING = {.speed = 64, .notice = 180, .give_up = 270, .close_to = 43, .wait_at = 80,
-                                        .strike_from = 65, .recover = BOAR_RECOVER_SECONDS, .rest = .4f, .damage = 9};
+                                        .strike_from = 90, .recover = BOAR_RECOVER_SECONDS, .rest = .4f, .damage = 9};
 static const EnemyTuning BOSS_TUNING = {.speed = 45, .close_to = 57, .strike_from = 138, .recover = 1.25f,
                                         .rest = .9f, .damage = 18};
 static void tick_boar(Game *g, Enemy *e, float dt) {
@@ -738,12 +810,29 @@ static void tick_boar(Game *g, Enemy *e, float dt) {
         break;
     case AI_WINDUP:
         if (e->timer <= 0) {
-            if (d < BOAR_STRIKE_RANGE && world_segment(e->pos, g->hero.pos, 0))
+            /* The rush stops short of a hero it hits; otherwise it runs its length. */
+            e->charge_left = BOAR_CHARGE_LENGTH;
+            if (!gwanpa(g, e, boar_reaches) && boar_reaches(e, g->hero.pos)) {
+                e->charge_left = fmaxf(0, charge_along(e, g->hero.pos) - HERO_RADIUS - BOAR_RADIUS);
                 hurt_from(g, t->damage, false, e->pos, KNOCK_HERO_BOAR);
-            e->state = AI_RECOVER;
-            e->timer = t->recover;
+            }
+            e->state = AI_SWING;
+            e->timer = BOAR_CHARGE_SECONDS;
         }
         break;
+    case AI_SWING: {
+        float step = fminf(e->charge_left, BOAR_CHARGE_LENGTH / BOAR_CHARGE_SECONDS * dt);
+        Vec2 before = e->pos;
+        e->pos = world_move(e->pos, (Vec2){cosf(e->angle) * step, sinf(e->angle) * step}, BOAR_RADIUS);
+        e->stride += distance(before, e->pos);
+        e->charge_left = distance(before, e->pos) < step * .5f ? 0 : e->charge_left - step;
+        if (e->timer <= 0) {
+            e->charge_left = 0;
+            e->state = AI_RECOVER;
+            e->timer = t->recover - BOAR_CHARGE_SECONDS;
+        }
+        break;
+    }
     case AI_RECOVER:
         if (e->timer <= 0) {
             e->state = AI_CHASE;
@@ -783,8 +872,7 @@ static void tick_boss(Game *g, float dt) {
             e->state = AI_SWING;
             e->timer = BOSS_SWING_SECONDS;
             effect(g, (Effect){.kind = FX_BOSS_SWING, .pos = e->pos, .angle = e->angle, .life = .25f});
-            float a = atan2f(g->hero.pos.y - e->pos.y, g->hero.pos.x - e->pos.x) - e->angle;
-            if (d < BOSS_STRIKE_RANGE && fabsf(atan2f(sinf(a), cosf(a))) < BOSS_STRIKE_HALF && world_segment(e->pos, g->hero.pos, 0))
+            if (!gwanpa(g, e, boss_reaches) && boss_reaches(e, g->hero.pos))
                 hurt_from(g, t->damage, true, e->pos, KNOCK_HERO_BOSS);
         }
         break;
@@ -838,18 +926,19 @@ static void tick_loot(Game *g, float dt) {
 static void chain_move(Game *g, int move) {
     world_select(g->map);
     g->input_count = g->input_time > 0 && g->last_move != move
-        ? (int)fminf(3, g->input_count + 1) : 1;
+        ? (int)fminf(COMBO_MAX, g->input_count + 1) : 1;
     g->last_move = move;
     g->input_time = COMBO_SECONDS;
 }
 static int next_combo(const Game *g, int move) {
     world_select(g->map);
     return g->combo_time > 0 && g->last_hit_move != move
-        ? (int)fminf(3, g->combo_count + 1) : 1;
+        ? (int)fminf(COMBO_MAX, g->combo_count + 1) : 1;
 }
 static int combo_damage(const Game *g, int move, int damage) {
     world_select(g->map);
-    return (damage * (100 + 10 * (next_combo(g, move) - 1)) + 50) / 100;
+    int scaled = (damage * (100 + 10 * (next_combo(g, move) - 1)) + 50) / 100;
+    return g->perfect_bonus > 0 ? (scaled * (100 + PERFECT_BONUS_PERCENT) + 50) / 100 : scaled;
 }
 /* Basic attack reach: the blade, and the wind blade that extends it. */
 #define BLADE_RANGE 58.0f
@@ -955,6 +1044,14 @@ static void begin_technique(Game *g, Technique technique) {
         h->invul = fmaxf(h->invul, .38f);
     chain_move(g, technique);
 }
+/* After its impact, a swing's recovery can be cut by a different move. The
+ * same move repeated still waits, so mixing moves is the faster chain. */
+static bool cancels_recovery(const Game *g, int move) {
+    const Hero *h = &g->hero;
+    return g->hitstop_time <= 0 &&
+           ((h->attacking && h->attack_hit && move != MOVE_ATTACK) ||
+            (h->skilling && h->skill_hit && move != (int)h->technique));
+}
 static bool request_move(Game *g, int move) {
     world_select(g->map);
     if (move != MOVE_ATTACK && (move < 0 || move >= TECH_COUNT)) {
@@ -970,8 +1067,17 @@ static bool request_move(Game *g, int move) {
         combat_feedback(g, move, TRAIN_COOLDOWN);
         return false;
     }
+    if (cancels_recovery(g, move)) {
+        Hero *h = &g->hero;
+        h->attacking = h->skilling = false;
+        h->attack_elapsed = h->skill_elapsed = 0;
+        effect(g, (Effect){.kind = FX_HIT, .pos = h->pos, .life = .15f,
+                           .target = {h->pos.x + h->dir.x * 18, h->pos.y + h->dir.y * 18 - 20}});
+        g->cancel_count++;
+    }
     float remaining = g->hero.skilling ? HERO_SKILL_SECONDS - g->hero.skill_elapsed
-        : g->hero.attacking ? HERO_ATTACK_SECONDS - g->hero.attack_elapsed : 0;
+        : g->hero.attacking ? HERO_ATTACK_SECONDS - g->hero.attack_elapsed
+        : g->hero.dodging ? DODGE_SECONDS - g->hero.dodge_elapsed : 0;
     if (remaining > 0 || g->hitstop_time > 0) {
         /* Keep one intentional follow-up across the entire active animation.
          * The last valid input replaces it; no held direction auto-repeats.
@@ -989,8 +1095,28 @@ static bool request_move(Game *g, int move) {
     combat_feedback(g, move, TRAIN_STARTED);
     return true;
 }
+static void break_chain(Game *g) {
+    if (g->chain_hits >= 2) {
+        g->chain_last = g->chain_hits;
+        g->chain_fade = CHAIN_FADE_SECONDS;
+    }
+    g->chain_hits = 0;
+    g->chain_pop = 0;
+}
 static void finish_impact(Game *game, int move, bool hit) {
     world_select(game->map);
+    game->perfect_bonus = 0;
+    if (hit) {
+        /* Skill cycling: a landed hit brings the other techniques back sooner. */
+        for (int t = 0; t < TECH_COUNT; t++) {
+            if (t == move) continue;
+            float *cd = t == TECH_CLEAVE ? &game->cooldown : &game->technique_cooldowns[t];
+            *cd = fmaxf(0, *cd - COOLDOWN_REFUND_SECONDS);
+        }
+        game->chain_hits = game->combo_time > 0 ? game->chain_hits + 1 : 1;
+        game->chain_pop = CHAIN_POP_SECONDS;
+        game->chain_fade = 0;
+    } else break_chain(game);
     game->input_time = COMBO_SECONDS;
     game->last_impact = hit ? IMPACT_HIT : IMPACT_MISS;
     game->combo_count = hit ? next_combo(game, move) : 0;
@@ -1164,6 +1290,9 @@ void game_tick(Game *g, float dt, Vec2 input) {
         if (dt <= 0) return;
     }
     g->time += dt;
+    /* Gwanpa slow motion: enemies run slower, the hero keeps full speed. */
+    float world_dt = g->perfect_slow > 0 ? dt * PERFECT_SLOW_SCALE : dt;
+    g->perfect_slow = fmaxf(0, g->perfect_slow - dt);
     g->toast_time = fmaxf(0, g->toast_time - dt);
     float length = hypotf(input.x, input.y);
     Vec2 before = g->hero.pos, target = {0, 0};
@@ -1188,6 +1317,22 @@ void game_tick(Game *g, float dt, Vec2 input) {
     Vec2 step = {target.x * dt + (was.x - target.x) * lag, target.y * dt + (was.y - target.y) * lag};
     if (length <= .05f && hypotf(g->hero.vel.x, g->hero.vel.y) < 2)
         g->hero.vel = (Vec2){0, 0};
+    if (g->hero.dodging) {
+        /* Ease-out dash: distance(t) = D * (1 - (1 - t)^2), exact per step.
+         * It leaves at walking speed so the run carries on smoothly. */
+        Hero *h = &g->hero;
+        float t0 = h->dodge_elapsed / DODGE_SECONDS;
+        h->dodge_elapsed = fminf(DODGE_SECONDS, h->dodge_elapsed + dt);
+        float t1 = h->dodge_elapsed / DODGE_SECONDS;
+        float covered = DODGE_DISTANCE * ((1 - t0) * (1 - t0) - (1 - t1) * (1 - t1));
+        step = (Vec2){h->dodge_dir.x * covered, h->dodge_dir.y * covered};
+        h->dir = h->dodge_dir;
+        if (fabsf(h->dodge_dir.x) > .1f) h->face = h->dodge_dir.x > 0 ? 1 : -1;
+        if (h->dodge_elapsed >= DODGE_SECONDS) {
+            h->dodging = false;
+            h->vel = (Vec2){h->dodge_dir.x * HERO_SPEED, h->dodge_dir.y * HERO_SPEED};
+        } else h->vel = (Vec2){0, 0};
+    }
     if (step.x != 0 || step.y != 0) {
         g->hero.pos = world_move(g->hero.pos, step, HERO_RADIUS);
         /* Keep only the motion the terrain allowed, so walls never store speed. */
@@ -1210,9 +1355,9 @@ void game_tick(Game *g, float dt, Vec2 input) {
                            .angle = atan2f(g->hero.dir.y, g->hero.dir.x)});
     knock_back(&g->hero.pos, &g->hero.knock, HERO_RADIUS, dt);
     if (g->map == MAP_CAVE || g->map == MAP_TRAINING)
-        knock_back(&g->boss.pos, &g->boss.knock, BOSS_RADIUS, dt);
+        knock_back(&g->boss.pos, &g->boss.knock, BOSS_RADIUS, world_dt);
     for (int i = 0; (g->map == MAP_PASS || g->map == MAP_TRAINING) && i < BOAR_COUNT; i++)
-        knock_back(&g->boars[i].pos, &g->boars[i].knock, BOAR_RADIUS, dt);
+        knock_back(&g->boars[i].pos, &g->boars[i].knock, BOAR_RADIUS, world_dt);
     g->cooldown = fmaxf(0, g->cooldown - dt);
     for (int i = 0; i < TECH_COUNT; i++)
         g->technique_cooldowns[i] = fmaxf(0, g->technique_cooldowns[i] - dt);
@@ -1220,7 +1365,18 @@ void game_tick(Game *g, float dt, Vec2 input) {
     g->combo_time = fmaxf(0, g->combo_time - dt);
     g->input_time = fmaxf(0, g->input_time - dt);
     g->request_time = fmaxf(0, g->request_time - dt);
-    if (g->combo_time <= 0) { g->combo_count = 0; g->last_hit_move = MOVE_NONE; }
+    g->chain_pop = fmaxf(0, g->chain_pop - dt);
+    g->perfect_bonus = fmaxf(0, g->perfect_bonus - dt);
+    g->perfect_flash = fmaxf(0, g->perfect_flash - dt);
+    if (g->dodge_charges < DODGE_CHARGES) {
+        g->dodge_recharge -= dt;
+        if (g->dodge_recharge <= 0) {
+            g->dodge_charges++;
+            g->dodge_recharge = g->dodge_charges < DODGE_CHARGES ? DODGE_RECHARGE_SECONDS : 0;
+        }
+    }
+    g->chain_fade = fmaxf(0, g->chain_fade - dt);
+    if (g->combo_time <= 0) { g->combo_count = 0; g->last_hit_move = MOVE_NONE; break_chain(g); }
     if (g->input_time <= 0) { g->input_count = 0; g->last_move = MOVE_NONE; }
     g->buffer_time = fmaxf(0, g->buffer_time - dt);
     if (g->buffer_time <= 0) g->queued_move = MOVE_NONE;
@@ -1259,18 +1415,19 @@ void game_tick(Game *g, float dt, Vec2 input) {
     }
     tick_attack(g, dt);
     tick_technique(g, dt);
-    if (!g->hero.attacking && !g->hero.skilling && g->queued_move != MOVE_NONE) {
+    if (g->queued_move != MOVE_NONE && !g->hero.dodging &&
+        ((!g->hero.attacking && !g->hero.skilling) || cancels_recovery(g, g->queued_move))) {
         int next = g->queued_move;
         g->queued_move = MOVE_NONE; g->buffer_time = 0;
         request_move(g, next);
     }
     if (g->training.active) return;
     if ((g->map == MAP_CAVE || g->map == MAP_TRAINING) && g->quest == Q_COMBAT)
-        tick_boss(g, dt);
+        tick_boss(g, world_dt);
     else if (game_boars_active(g))
         for (int i = 0; i < BOAR_COUNT && g->phase == PH_PLAY; i++)
             if (g->boars[i].hp > 0)
-                tick_boar(g, &g->boars[i], dt);
+                tick_boar(g, &g->boars[i], world_dt);
     separate_bodies(g, dt);
     tick_loot(g, dt);
 }
@@ -1305,12 +1462,15 @@ bool game_travel(Game *g, int index) {
     if(!world_clear(MAP_EXITS[index].arrival,HERO_RADIUS)) { world_select(from);return false; }
     g->map=MAP_EXITS[index].to;
     g->hero.pos=MAP_EXITS[index].arrival;
-    g->hero.attacking=g->hero.skilling=g->hero.walking=false;
+    g->hero.attacking=g->hero.skilling=g->hero.walking=g->hero.dodging=false;
+    g->hero.dodge_elapsed=0;g->hero.dodge_perfect=false;
+    g->perfect_slow=g->perfect_bonus=g->perfect_flash=0;
     g->hero.vel=g->hero.knock=(Vec2){0,0};
     g->hero.attack_elapsed=g->hero.skill_elapsed=g->hero.walk_cycle=0;
     g->hero.attack_target=-1;
     g->queued_move=g->last_move=g->last_hit_move=g->input_move=MOVE_NONE;
-    g->combo_count=g->input_count=0;
+    g->combo_count=g->input_count=g->chain_hits=g->chain_last=0;
+    g->chain_pop=g->chain_fade=0;
     g->combo_time=g->input_time=g->buffer_time=g->request_time=0;
     g->last_impact=IMPACT_NONE;g->combat_request=TRAIN_READY;
     g->effect_count=0;g->notices=0;
