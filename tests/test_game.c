@@ -531,19 +531,18 @@ static void techniques_and_combos(void) {
     CHECK(!game_technique(&g,(Technique)TECH_COUNT));
     combat_fixture(&g); CHECK(game_attack(&g));
     CHECK(game_technique(&g,TECH_SWEEP) && g.queued_move==TECH_SWEEP);
-    /* Early input waits for the previous attack's impact and recovery. */
-    advance(&g,5); CHECK(g.boss.hp==231 && g.hero.attacking);
-    CHECK(game_technique(&g,TECH_SWEEP) && g.queued_move==TECH_SWEEP);
-    advance(&g,4); CHECK(g.hero.skilling && g.hero.technique==TECH_SWEEP && g.input_count==2);
-    advance(&g,9); CHECK(g.boss.hp==218); /* 12 * 1.1 rounds to 13. */
+    /* Early input waits for the previous attack's impact, then cuts its recovery. */
+    advance(&g,5); CHECK(g.boss.hp==231 && !g.hero.attacking);
+    CHECK(g.hero.skilling && g.hero.technique==TECH_SWEEP && g.input_count==2 && g.queued_move==MOVE_NONE);
+    advance(&g,4); CHECK(g.boss.hp==218); /* 12 * 1.1 rounds to 13. */
     CHECK(game_technique(&g,TECH_CLEAVE)); advance(&g,4);
     CHECK(g.hero.technique==TECH_CLEAVE && g.input_count==3);
     advance(&g,5); CHECK(g.boss.hp==187); /* 26 * 1.2 rounds to 31. */
     CHECK(!game_technique(&g,TECH_CLEAVE));
     advance(&g,35); CHECK(g.combo_time==0);
     CHECK(game_technique(&g,TECH_THRUST) && g.input_count==1);
-    combat_fixture(&g); CHECK(game_attack(&g)); advance(&g,5);
-    CHECK(game_technique(&g,TECH_SWEEP));
+    combat_fixture(&g); CHECK(game_attack(&g)); advance(&g,1);
+    CHECK(game_technique(&g,TECH_SWEEP) && g.queued_move==TECH_SWEEP);
     g.phase=PH_BAG; advance(&g,1);
     CHECK(g.queued_move==MOVE_NONE); game_close_panel(&g); advance(&g,10);
     CHECK(!g.hero.skilling && g.boss.hp==231);
@@ -573,7 +572,7 @@ static void all_directional_pair_combos(void) {
 static void continuous_input_buffer(void) {
     Game g; combat_fixture(&g);
     CHECK(game_technique(&g,TECH_CLEAVE));
-    advance(&g,8); /* An early next direction is deliberately buffered. */
+    advance(&g,2); /* A direction before the impact is deliberately buffered. */
     CHECK(game_technique(&g,TECH_RETREAT) && g.queued_move==TECH_RETREAT);
     CHECK(g.buffer_time>.24f);
     advance(&g,1);
@@ -583,7 +582,8 @@ static void continuous_input_buffer(void) {
     float lifetime=g.buffer_time;
     CHECK(!game_technique(&g,TECH_CLEAVE));
     CHECK(g.queued_move==TECH_THRUST && g.buffer_time==lifetime);
-    advance(&g,4);
+    /* It fires the moment the cleave has landed and its stop is over. */
+    for(int i=0;i<10 && g.hero.technique!=TECH_THRUST;i++) advance(&g,1);
     CHECK(g.hero.skilling && g.hero.technique==TECH_THRUST && g.hero.skill_elapsed==0);
     CHECK(g.queued_move==MOVE_NONE && g.buffer_time==0 && g.input_count==2);
     CHECK(game_technique_cooldown(&g,TECH_RETREAT)==0);
@@ -595,7 +595,7 @@ static void continuous_input_buffer(void) {
     CHECK(!g.hero.skilling && !g.hero.attacking && g.queued_move==MOVE_NONE);
 
     /* Keyboard/basic and directional requests share one buffer; no hidden queue. */
-    combat_fixture(&g); CHECK(game_technique(&g,TECH_CLEAVE)); advance(&g,9);
+    combat_fixture(&g); CHECK(game_technique(&g,TECH_CLEAVE)); advance(&g,2);
     CHECK(game_technique(&g,TECH_SWEEP));
     CHECK(game_attack(&g) && g.queued_move==MOVE_ATTACK);
     CHECK(game_technique(&g,TECH_RETREAT) && g.queued_move==TECH_RETREAT);
@@ -606,7 +606,7 @@ static void continuous_input_buffer(void) {
 
     const Phase panels[]={PH_BAG,PH_DIALOGUE,PH_PAUSED,PH_TECHNIQUES,PH_JOURNAL};
     for(size_t i=0;i<sizeof panels/sizeof *panels;i++) {
-        combat_fixture(&g); CHECK(game_technique(&g,TECH_CLEAVE)); advance(&g,9);
+        combat_fixture(&g); CHECK(game_technique(&g,TECH_CLEAVE)); advance(&g,2);
         CHECK(game_technique(&g,TECH_RETREAT));
         g.phase=panels[i]; advance(&g,1);
         CHECK(g.queued_move==MOVE_NONE && g.buffer_time==0);
@@ -614,25 +614,45 @@ static void continuous_input_buffer(void) {
         CHECK(!g.hero.skilling && game_technique_cooldown(&g,TECH_RETREAT)==0);
     }
 }
-/* The windup lands strictly inside BOAR_STRIKE_RANGE, the same reach the
- * warning circle draws. Probe the boundary on open ground, no armour. */
+/* The windup ends in a straight charge: it lands strictly inside the strip
+ * the warning draws (length along the fixed heading, half width across).
+ * Probe the boundary on open ground, no armour. */
 static void boar_strike_reach(void) {
-    const float distances[] = {63.9f, 64.0f, 70.0f, 72.9f, 73.0f, 73.5f};
-    for (size_t i = 0; i < sizeof distances / sizeof *distances; i++) {
+    const Vec2 offsets[] = {{0, 30}, {0, 109.5f}, {0, 110.5f}, {0, 115}, {0, -20},
+                            {21.5f, 60}, {-21.5f, 60}, {22.5f, 60}, {-30, 60}};
+    for (size_t i = 0; i < sizeof offsets / sizeof *offsets; i++) {
         Game g;
         legacy_reset(&g);
         game_start(&g);
         clues(&g);
         Enemy *boar = &g.boars[0];
-        g.hero.pos = (Vec2){boar->pos.x, boar->pos.y + distances[i]};
+        g.hero.pos = (Vec2){boar->pos.x + offsets[i].x, boar->pos.y + offsets[i].y};
         CHECK(world_segment(boar->pos, g.hero.pos, 0));
         boar->state = AI_WINDUP;
         boar->timer = .001f;
+        boar->angle = 1.57079633f; /* Heading straight down. */
         g.boars[1].state = g.boars[2].state = AI_RETURN;
         game_tick(&g, .01f, (Vec2){0, 0});
-        CHECK(boar->state == AI_RECOVER);
-        CHECK((g.hero.hp == 91) == (distances[i] < BOAR_STRIKE_RANGE));
+        CHECK(boar->state == AI_SWING);
+        bool inside = offsets[i].y >= 0 && offsets[i].y < BOAR_CHARGE_LENGTH &&
+                      fabsf(offsets[i].x) < BOAR_CHARGE_HALF_WIDTH;
+        CHECK((g.hero.hp == 91) == inside);
         CHECK(g.hero.hp == 91 || g.hero.hp == 100);
+    }
+    /* The boar rushes its full length when it misses, and stops short of a hero it hits. */
+    for (int hit = 0; hit < 2; hit++) {
+        Game g;
+        legacy_reset(&g); game_start(&g); clues(&g);
+        Enemy *boar = &g.boars[0];
+        Vec2 start = boar->pos;
+        g.hero.pos = (Vec2){start.x + (hit ? 0 : 60), start.y + 70};
+        boar->state = AI_WINDUP; boar->timer = .001f; boar->angle = 1.57079633f;
+        g.boars[1].state = g.boars[2].state = AI_RETURN;
+        for (int f = 0; f < 30 && boar->state != AI_RECOVER; f++) game_tick(&g, .01f, (Vec2){0, 0});
+        CHECK(boar->state == AI_RECOVER && fabsf(boar->pos.x - start.x) < 1);
+        float rushed = boar->pos.y - start.y;
+        if (hit) CHECK(rushed > 20 && rushed < 70 - HERO_RADIUS);
+        else CHECK(fabsf(rushed - BOAR_CHARGE_LENGTH) < 2);
     }
 }
 /* Presentation state: chasing enemies accumulate walked distance, and a
@@ -779,7 +799,10 @@ static void bodies_and_attack_tokens(void) {
     for (int i = 0; i < BOAR_COUNT; i++) winding += g.boars[i].state == AI_WINDUP;
     CHECK(winding == BOAR_ATTACK_TOKENS && g.boars[2].state == AI_CHASE);
     g.hero.invul = 99; /* keep the hero standing through the strikes */
+    /* The token frees once the first charge has finished its rush. */
     for (int i = 0; i < 26; i++) game_tick(&g, .025f, (Vec2){0, 0});
+    CHECK(g.boars[0].state == AI_SWING && g.boars[2].state == AI_CHASE);
+    for (int i = 0; i < 8; i++) game_tick(&g, .025f, (Vec2){0, 0});
     CHECK(g.boars[0].state == AI_RECOVER && g.boars[2].state == AI_WINDUP);
 }
 static void knockback_and_stagger(void) {
@@ -815,7 +838,7 @@ static void knockback_and_stagger(void) {
     g.traces[0] = g.traces[1] = true; g.quest = Q_RECOVER;
     e = &g.boars[0];
     g.hero.pos = (Vec2){e->pos.x - 50, e->pos.y};
-    e->state = AI_WINDUP; e->timer = .001f;
+    e->state = AI_WINDUP; e->timer = .001f; e->angle = 3.14159265f;
     Vec2 hero = g.hero.pos;
     for (int i = 0; i < 30; i++) game_tick(&g, .025f, (Vec2){0, 0});
     CHECK(g.hero.hp < 100 && g.hero.pos.x < hero.x - 5 && g.hero.pos.x > hero.x - KNOCK_HERO_BOAR / KNOCK_DECAY - .5f);

@@ -55,8 +55,8 @@ int main(int argc, char **argv) {
                     e.timer=windup*.5f; frame=1; sx=1.025f; sy=.97f;
                     dx=-cosf(e.angle)*2; dy=-sinf(e.angle);
                 } else if(pose==7) { /* First actual impact state, not earlier. */
-                    e.state=boss?AI_SWING:AI_RECOVER;
-                    e.timer=boss?BOSS_SWING_SECONDS:BOAR_RECOVER_SECONDS;
+                    e.state=AI_SWING; /* A boar's charge is its strike. */
+                    e.timer=boss?BOSS_SWING_SECONDS:BOAR_CHARGE_SECONDS;
                     frame=2; sx=.96f; sy=1.06f;
                     dx=cosf(e.angle)*9; dy=sinf(e.angle)*5;
                 } else if(pose==8) { e.state=AI_RECOVER; e.timer=.5f; frame=3; }
@@ -77,6 +77,15 @@ int main(int argc, char **argv) {
             float size=(boss?110:60)*ACTOR_SCALE*monster_draw_scale[atlas][d];
             SDL_FRect dest={feet.x-size*sx*.5f+dx,feet.y-size*sy*176/192+dy,size*sx,size*sy};
             clear(r); CHECK(SDL_RenderCopyF(r,p->texture,&src,&dest)==0);
+            if(pose==9) { /* The last windup moment flashes: two warm additive passes. */
+                SDL_SetTextureBlendMode(p->texture,SDL_BLENDMODE_ADD);
+                SDL_SetTextureColorMod(p->texture,255,228,180);
+                SDL_SetTextureAlphaMod(p->texture,175);
+                for(int pass=0;pass<2;pass++) CHECK(SDL_RenderCopyF(r,p->texture,&src,&dest)==0);
+                SDL_SetTextureBlendMode(p->texture,SDL_BLENDMODE_BLEND);
+                SDL_SetTextureColorMod(p->texture,255,255,255);
+                SDL_SetTextureAlphaMod(p->texture,255);
+            }
             read_pixels(r,surface,expected); CHECK(memcmp(actual,expected,bytes)==0);
             Uint32 bg=SDL_MapRGBA(surface->format,29,37,31,255); int visible=0;
             for(int y=0;y<surface->h;y++) for(int x=0;x<surface->w;x++) if(actual[y*surface->w+x]!=bg) {
