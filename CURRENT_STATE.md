@@ -1,12 +1,24 @@
 # CURRENT_STATE.md — 팔도야담 개발 상태
 
-최종 갱신: 2026-10-28
+최종 갱신: 2026-11-03
 
 ## 기준
 - GitHub 저장소: `yousay0526-sudo/Paldoyadam`
 - 현재 버전: `0.8.0` (C11/SDL2 기반 게임 및 Emscripten 웹 빌드)
 - 정본: `src/*.c`, `src/*.h`; 주요 문서: `README.md`, `docs/CONTROLS.md`, `docs/VALIDATION.md`, `docs/WEB.md`
 
+
+## 2026-11-03 · 승인된 HUD 아이콘 3종 적용 · PR #50 병합·배포 승인
+- 사용자가 이 채팅의 보따리·탕약·지혈산 원화를 승인하고 게임 적용을 요청했다. 기준 main `80e632fe547c7dee5c764c23a9dc4b8bd147c3d2`, 독립 브랜치 `art/approved-hud-icons-20261103`.
+- `assets/ui/icon-bag.png`, `icon-tonic.png`, `icon-bandage.png`를 승인된 PNG와 바이트 동일하게 추가했다. 각 128×128 RGBA, 알파 0..255, 사방 완전 투명 여백 최소 각각 9px·6px·8px. 내장 ImageGen 생성 원본은 각 1254×1254이며 승인된 원본·프롬프트·검수판은 이 채팅의 `hud-icons-review-20261103.zip`에 보존되어 있다.
+- 기존 `UI_ICON_FILES`와 `hud_icon`이 자동으로 읽어 약 24px로 표시한다. 코드·버튼 위치·조작·사용 조건·흐림 처리·전투·버전·배포 설정 변경 없음. 보류된 PR #49는 수정하거나 포함하지 않았다.
+- Windows / Zig 0.14.1(Clang 19.1.7) / SDL 2.32.10 전체 CMake 빌드 성공. `ctest --test-dir build-hud --output-on-failure` **12/12 통과 (21.70초)**: 맵 이동·게임·지형·수련·방향 전투·타격 피드백·맵/네이티브 렌더링·입력·UI·주인공/몬스터 애니메이션.
+- 실제 실행 파일의 `--smoke --scene village --size 844x390` 및 `1280x720` 출력 성공, 세 아이콘이 버튼 안에 들어가고 숫자와 겹치지 않는 것을 시각 확인했다. 체력 가득·출혈 없음 상태의 탕약/지혈산 흐림은 기존 코드의 의도된 표시다. [실제 SDL 화면 두 크기](docs/hud-icons-applied-20261103.png).
+- 로컬 빌드 최초 구성은 Ninja의 상대 경로가 임시 컴파일 폴더에서 해석되지 않아 실패했다. 외부 빌드 도구 경로를 절대 경로로 지정해 구성·빌드·전체 검사를 완료했다. Windows 검증용 `SDL_MAIN_HANDLED` 정의와 기존 테스트의 빈 정의 사이 재정의 경고만 있었고 제품 소스는 수정하지 않았다.
+- 설치본 SHA-256: 보따리 `dc466111d128b31d965834869c5e3c380b954021f612f5a403b0285c9dd88743`, 탕약 `e94a15f39e4fb381c91898d168aba34b3350b4d708761a1fe958d6f4b4f2abe6`, 지혈산 `8fc4b96cd3bb8597e60b46a5ddde5f0e7041894782d80356b837febd08ca9e20`.
+- 웹 빌드 스크립트는 `assets/` 전체를 포함하므로 설정 수정이 없다. 원격 네이티브/웹 빌드 결과는 이 PR의 CI를 기준으로 확인한다. 실제 브라우저·iPhone/Android 조작 및 GPU 선형 보간의 최종 시각 품질은 미검증이며 로컬 화면은 SDL dummy 소프트웨어 렌더러 결과다.
+- 2026-11-03 사용자가 PR #50 병합 및 자동 웹 배포 질문에 "진행부탁해"로 명시적으로 승인했다. 구현 커밋 `0790ce8b72a4a6ff9f46a54f16a5b8fab8d6bf1c`의 [PR CI](https://github.com/yousay0526-sudo/Paldoyadam/actions/runs/41564695054)는 네이티브 테스트·일반 웹·단일 HTML 빌드 모두 성공했다. 이 후속 커밋은 승인 기록만 갱신하며 코드·에셋은 그대로다.
+- 병합 SHA와 실제 배포 결과는 [PR #50](https://github.com/yousay0526-sudo/Paldoyadam/pull/50) 및 [main 배포 기록](https://github.com/yousay0526-sudo/Paldoyadam/actions/workflows/web.yml?query=branch%3Amain)을 정본으로 확인한다. Pages 게시 단계와 실제 서비스 응답을 확인한 뒤 완료 보고한다. `GAME_BIBLE.md` 없음, 게임 설정·정식 버전 변경 없음. 실제 휴대폰 조작·장시간 성능은 미검증으로 남는다.
 
 ## 2026-10-28 · 미니맵 (작업 2) · 사용자 적용 승인, main 병합
 - 2026-10-28 07:35 사용자가 "좋아 적용해줘"로 PR #48의 main 병합과 자동 Pages 배포를 승인했다. 병합 전 main의 PR #47(이정표)과 `src/draw.c` 에셋 로드/해제 부분이 충돌해 양쪽을 모두 유지하도록 합쳤다. 보따리·탕약·지혈산 칸은 빈칸인 채로 배포된다.
