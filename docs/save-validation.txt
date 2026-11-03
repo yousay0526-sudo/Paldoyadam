@@ -66,3 +66,6 @@ Recovered local build issues:
 - emcc Windows Python entry path: provided EMSDK_PYTHON for validation only.
 - sandbox temporary output permission: placed Emscripten temp files under build-save/emtmp; successful builds followed.
 - stale save failure after reverting to identical data: retry condition fixed; final UI regression verifies recovery.
+
+INTEGRATION LIMIT discovered at PR creation:
+External main afcee8bedbf9e58d4253451d5e2e50dbad64b1ca merged PR #49. This task explicitly excludes #49; branch remains based on 026ce7c. Draft PR #51 has merge conflicts against that newer main. No combined #49/autosave build or regression is claimed. Integration requires user confirmation; no merge/revert/deploy was performed.
