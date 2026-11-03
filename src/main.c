@@ -1,5 +1,6 @@
 #include "draw.h"
 #include "world.h"
+#include "save_store.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,7 +16,7 @@ EM_JS(void, web_fullscreen, (void), { if (Module.paldoToggleFullscreen) Module.p
 #define PI 3.14159265358979323846f
 
 typedef enum {
-    ACT_START,
+    ACT_START, ACT_CONTINUE, ACT_NEW_CONFIRM, ACT_NEW_CANCEL,
     ACT_SKIP,
     ACT_NEXT,
     ACT_INTERACT,
@@ -61,6 +62,13 @@ typedef struct { Vec2 hero, boss, boars[BOAR_COUNT]; } Poses;
 typedef struct {
     Game game;
     Game training_return;
+    SaveStore save_store;
+    bool save_enabled, save_active, save_available, save_present, save_recovered;
+    int new_confirm;
+    SaveResult save_result;
+    float save_elapsed, save_message_time;
+    unsigned char saved_bytes[SAVE_CAPACITY];
+    size_t saved_size;
     Gfx gfx;
     SDL_Window *window;
     SDL_Renderer *renderer;
@@ -178,7 +186,47 @@ static void stop_input(App *a) {
     a->game.request_time = 0;
     game_clear_hit_feedback(&a->game);
 }
+/* Saves inspect the real simulation state, before/after render interpolation. */
+static void refresh_save(App *a) {
+    Game probe; bool recovered = false;
+    a->save_result = save_store_load(&a->save_store, &probe, &recovered);
+    a->save_available = a->save_result == SAVE_OK;
+    a->save_present = a->save_result != SAVE_MISSING;
+    a->save_recovered = recovered;
+}
+static void autosave(App *a, bool force) {
+    if (!a->save_enabled || !a->save_active || a->game.training.active ||
+        a->game.phase == PH_TITLE) return;
+    if (!force && a->save_elapsed < 1) return;
+    a->save_elapsed = 0;
+    unsigned char bytes[SAVE_CAPACITY]; size_t size = 0;
+    SaveResult r = save_encode(&a->game, bytes, &size);
+    if (r == SAVE_OK && a->save_result == SAVE_OK && size == a->saved_size &&
+        !memcmp(bytes, a->saved_bytes, size)) return;
+    if (r == SAVE_OK) r = save_store_write(&a->save_store, &a->game);
+    a->save_result = r;
+    a->save_message_time = 3;
+    if (r == SAVE_OK) {
+        memcpy(a->saved_bytes, bytes, size); a->saved_size = size;
+        a->save_available = a->save_present = true;
+        a->save_recovered = false;
+    }
+}
+static void resume_view(App *a) {
+    stop_input(a); a->movement_blocked = true; a->view_ready = false;
+    a->trauma = a->sim_accumulator = 0; a->button_count = 0;
+    a->sim_previous.hero = a->game.hero.pos; a->sim_previous.boss = a->game.boss.pos;
+    for (int i = 0; i < BOAR_COUNT; i++) a->sim_previous.boars[i] = a->game.boars[i].pos;
+}
+static void new_journey(App *a, bool skip) {
+    game_reset(&a->game);
+    a->game.phase = PH_PROLOGUE; a->story_index = 0; a->story_elapsed = 0;
+    if (skip) game_start(&a->game);
+    a->save_active = true; a->saved_size = 0; a->new_confirm = 0;
+    resume_view(a); autosave(a, true);
+}
 static void toggle_training(App *app) {
+    if (!app->game.training.active) autosave(app, true);
     if (app->width <= app->height) return;
     bool changed = app->game.training.active
         ? game_leave_training(&app->game, &app->training_return)
@@ -288,19 +336,39 @@ static void interact(App *a) {
 }
 static void dispatch(App *a, Action action, int value) {
     Game *g = &a->game;
+    if (a->new_confirm && action != ACT_NEW_CONFIRM && action != ACT_NEW_CANCEL && action != ACT_PAUSE)
+        return;
     switch (action) {
+    case ACT_CONTINUE:
+        if (g->phase == PH_TITLE && a->save_available) {
+            Game loaded; bool recovered;
+            a->save_result = save_store_load(&a->save_store, &loaded, &recovered);
+            if (a->save_result == SAVE_OK) {
+                *g = loaded; a->save_active = true; a->new_confirm = 0;
+                a->save_recovered = recovered; a->saved_size = 0;
+                a->story_index = 0; a->story_elapsed = 0;
+                a->save_message_time = 3; resume_view(a);
+            } else { refresh_save(a); a->save_message_time = 3; }
+        }
+        break;
+    case ACT_NEW_CANCEL:
+        a->new_confirm = 0;
+        break;
+    case ACT_NEW_CONFIRM:
+        if (a->new_confirm) new_journey(a, a->new_confirm == 2);
+        break;
     case ACT_START:
         if (g->phase == PH_TITLE) {
-            g->phase = PH_PROLOGUE;
-            a->story_index = 0;
-            a->story_elapsed = 0;
-            stop_input(a);
+            if (a->save_enabled && a->save_present) a->new_confirm = 1;
+            else new_journey(a, false);
         }
         break;
     case ACT_SKIP:
-        if (g->phase == PH_TITLE || g->phase == PH_PROLOGUE) {
-            game_start(g);
-            stop_input(a);
+        if (g->phase == PH_TITLE) {
+            if (a->save_enabled && a->save_present) a->new_confirm = 2;
+            else new_journey(a, true);
+        } else if (g->phase == PH_PROLOGUE) {
+            game_start(g); stop_input(a);
         }
         break;
     case ACT_NEXT:
@@ -380,6 +448,7 @@ static void dispatch(App *a, Action action, int value) {
         stop_input(a);
         break;
     case ACT_PAUSE:
+        if (a->new_confirm) { a->new_confirm = 0; break; }
         if (g->phase == PH_PLAY) {
             g->phase = PH_PAUSED;
             stop_input(a);
@@ -413,7 +482,10 @@ static void dispatch(App *a, Action action, int value) {
             toggle_training(a);
             break;
         }
+        autosave(a, true);
+        a->save_active = false; a->new_confirm = 0;
         game_reset(g);
+        if (a->save_enabled) refresh_save(a);
         stop_input(a);
         break;
     case ACT_RECOVER:
@@ -1050,9 +1122,21 @@ static void draw_overlay(App *a) {
         gfx_center(f, "사람이 짐승이 되는 밤.", w * .29f, h * .59f, 17, PAPER);
         gfx_center(f, "팔도에 남겨진 이야기를 따라.", w * .29f, h * .68f, 15, MUTED);
         float x = w * .58f, bw = fminf(260, w * .36f);
-        button(a, (SDL_FRect){x, h * .35f, bw, 52}, "이야기 시작", ACT_START, 0, true, true);
-        button(a, (SDL_FRect){x, h * .35f + 54, bw, 45}, "바로 마을로", ACT_SKIP, 0, true, false);
-        gfx_center(f, "제1장 · 경상도 남부", x + bw / 2, h * .35f + 108, 13, MUTED);
+        float top = h * .25f;
+        if (a->new_confirm) {
+            gfx_text_box(f, "기존 여정을 덮어쓰고\n새로 시작할까요?",
+                         (SDL_FRect){x, top, bw, 55}, 18, 14, PAPER);
+            button(a, (SDL_FRect){x, top + 60, bw, 44}, "새 여정 시작", ACT_NEW_CONFIRM, 0, true, true);
+            button(a, (SDL_FRect){x, top + 108, bw, 44}, "취소", ACT_NEW_CANCEL, 0, true, false);
+        } else {
+            if (a->save_available) {
+                button(a, (SDL_FRect){x, top, bw, 44}, "이어하기", ACT_CONTINUE, 0, true, true);
+                top += 48;
+            }
+            button(a, (SDL_FRect){x, top, bw, 44}, "새 여정", ACT_START, 0, true, !a->save_available);
+            button(a, (SDL_FRect){x, top + 48, bw, 44}, "바로 마을로", ACT_SKIP, 0, true, false);
+        }
+        gfx_center(f, "제1장 · 경상도 남부", x + bw / 2, h - 42, 13, MUTED);
         return;
     }
     if (g->phase == PH_PROLOGUE) {
@@ -1252,6 +1336,13 @@ static Vec2 view_camera(const App *a, float w, float h, float scale) {
     if (h < WORLD_H) camera.y = clampf(camera.y, 0, WORLD_H - h);
     return camera;
 }
+static SDL_FRect save_status_rect(const App *a) {
+    /* Below quest/toast, left of the compact quick-item column; no HUD
+     * controls or the down/right attack gesture are covered. */
+    if (a->game.phase == PH_PLAY)
+        return (SDL_FRect){12, 144, fminf(250, a->width * .36f), 24};
+    return (SDL_FRect){0, a->height - 24, a->width, 24};
+}
 static void draw(App *a) {
     world_select(a->game.map);
     resize(a);
@@ -1279,6 +1370,16 @@ static void draw(App *a) {
         draw_hud(a);
     draw_overlay(a);
     draw_notification(a);
+    if (a->save_enabled && (a->game.phase == PH_TITLE || a->save_message_time > 0 ||
+                            (a->save_active && a->save_result != SAVE_OK))) {
+        const char *text = a->save_recovered ? "이전 정상 저장으로 복구"
+            : a->game.phase == PH_TITLE && a->save_available ? "저장된 여정 · 이어하기 가능"
+            : save_result_text(a->save_result);
+        SDL_FRect status = save_status_rect(a);
+        gfx_rect(&a->gfx, status, (SDL_Color){7, 22, 26, 235});
+        gfx_text_box(&a->gfx, text, status, 12, 9,
+                     a->save_result == SAVE_OK || a->save_result == SAVE_MISSING ? MUTED : GOLD);
+    }
     if (a->pointer_down) {
         gfx_circle(&a->gfx, a->pointer_start, 38, (SDL_Color){231, 214, 156, 150});
         gfx_sector(&a->gfx,
@@ -1441,11 +1542,13 @@ static void handle_events(App *a) {
     SDL_Event e;
     while (SDL_PollEvent(&e)) {
         if (e.type == SDL_QUIT) {
+            autosave(a, true);
             a->running = false;
             continue;
         }
         if (e.type == SDL_WINDOWEVENT) {
             if (e.window.event == SDL_WINDOWEVENT_FOCUS_LOST || e.window.event == SDL_WINDOWEVENT_MINIMIZED) {
+                autosave(a, true);
                 if (a->game.phase == PH_PLAY)
                     a->game.phase = PH_PAUSED;
                 stop_input(a);
@@ -1457,6 +1560,7 @@ static void handle_events(App *a) {
             continue;
         }
         if (e.type == SDL_APP_WILLENTERBACKGROUND) {
+            autosave(a, true);
             if (a->game.phase == PH_PLAY)
                 a->game.phase = PH_PAUSED;
             stop_input(a);
@@ -1478,7 +1582,7 @@ static void handle_events(App *a) {
                 toggle_training(a);
             else if (key == SDLK_SPACE || key == SDLK_RETURN) {
                 if (a->game.phase == PH_TITLE)
-                    dispatch(a, ACT_START, 0);
+                    dispatch(a, a->save_available && !a->new_confirm ? ACT_CONTINUE : ACT_START, 0);
                 else if (a->game.phase == PH_DIALOGUE || a->game.phase == PH_PROLOGUE)
                     dispatch(a, ACT_NEXT, 0);
                 else if (a->game.phase == PH_PLAY)
@@ -1772,8 +1876,12 @@ static void frame(App *a) {
     draw(a);
     if (blended)
         restore_poses(&a->game, &shown);
+    a->save_elapsed += clampf(dt, 0, 1);
+    a->save_message_time = fmaxf(0, a->save_message_time - clampf(dt, 0, 1));
+    autosave(a, false);
 }
 static void destroy_app(App *a) {
+    autosave(a, true);
     gfx_free(&a->gfx);
     SDL_DestroyRenderer(a->renderer);
     SDL_DestroyWindow(a->window);
@@ -1781,6 +1889,13 @@ static void destroy_app(App *a) {
     SDL_Quit();
 }
 #ifdef __EMSCRIPTEN__
+static App *browser_app;
+EMSCRIPTEN_KEEPALIVE void paldo_save_now(void) { if (browser_app) autosave(browser_app, true); }
+EM_JS(void, save_browser_events, (void), {
+    const save = () => Module['_paldo_save_now']();
+    window.addEventListener('pagehide', save);
+    document.addEventListener('visibilitychange', () => { if (document.hidden) save(); });
+});
 static EM_BOOL browser_resize(int event, const EmscriptenUiEvent *info, void *user) {
     (void)event;
     (void)info;
@@ -1898,6 +2013,11 @@ int main(int argc, char **argv) {
     }
     game_reset(&a->game);
     world_prepare();
+    if (!smoke) {
+        char *pref = SDL_GetPrefPath("Paldoyadam", "Paldoyadam");
+        save_store_init(&a->save_store, pref); SDL_free(pref);
+        a->save_enabled = true; refresh_save(a);
+    }
     a->running = true;
     resize(a);
     if (smoke)
@@ -1908,6 +2028,7 @@ int main(int argc, char **argv) {
     #ifdef PALDO_WEB_TESTING
     web_test_app = a;
     #endif
+    browser_app = a; save_browser_events();
     browser_resize(0, NULL, a);
     emscripten_set_resize_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, a, EM_FALSE, browser_resize);
     draw(a);

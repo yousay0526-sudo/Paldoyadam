@@ -1,3 +1,10 @@
+## 2026-11-03 · 자동저장·이어하기
+
+Windows 전체 CTest 16/16, 일반 웹/단일 HTML Emscripten 3.1.74 컴파일 성공.
+저장 형식·복원/오류 정책·검사 범위는 [SAVE_SYSTEM.md](SAVE_SYSTEM.md), 실제 명령/결과는 [save-validation.txt](save-validation.txt).
+실제 PC 창 재실행, 브라우저 새로고침·재접속, 실제 모바일·전원 중단 내구성은 미검증이다.
+보류 PR #49와 전투 변경은 포함하지 않았다.
+
 ## 2026-10-21 · 승인된 몬스터 8방향 게임 연결
 
 2026-10-27: 마을·두 사냥터 연결의 Windows 전체 CTest 12/12 및 실제 SDL 화면 검증은 [맵 연결 기록](MAP_INTEGRATION.md)과 [로그](map-validation.txt)에 기록했다. 브라우저/실기기/ASan 검증과 구분한다.
