@@ -68,4 +68,4 @@ Recovered local build issues:
 - stale save failure after reverting to identical data: retry condition fixed; final UI regression verifies recovery.
 
 INTEGRATION LIMIT discovered at PR creation:
-External main afcee8bedbf9e58d4253451d5e2e50dbad64b1ca merged PR #49. This task explicitly excludes #49; branch remains based on 026ce7c. Draft PR #51 has merge conflicts against that newer main. No combined #49/autosave build or regression is claimed. Integration requires user confirmation; no merge/revert/deploy was performed.
+External main afcee8bedbf9e58d4253451d5e2e50dbad64b1ca merged PR #49. This task explicitly excludes #49; branch remains based on 026ce7c. The initial PR creation response showed mergeable=false, but the subsequent computed GitHub status confirmed mergeable=true. There are no confirmed textual merge conflicts. No combined #49/autosave build or regression is claimed. Integration requires user confirmation; no merge/revert/deploy was performed.
