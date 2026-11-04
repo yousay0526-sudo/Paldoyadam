@@ -9,7 +9,7 @@ const Vec2 HOME = P(.30f, .51f), BOSS_HOME = P(.81f, .46f);
 const Vec2 CAVE_HOME = {768 * 1.5f, 440 * 1.5f};
 /* Open dirt paths on the pass, far from the arrival point, the return exit,
  * the quest boars and both traces; tests check clearance and reachability. */
-const Vec2 HUNT_SPAWNS[HUNT_COUNT] = {{225, 540}, {1050, 150}, {2100, 315}, {1950, 1050}};
+const Vec2 HUNT_SPAWNS[HUNT_COUNT] = {{225, 540}, {1050, 150}, {2100, 315}, {1950, 1050}, {300, 880}, {1440, 225}};
 const Npc NPCS[NPC_COUNT] = {{P(.29f, .43f), "마을 이장", "이야기"},
                              {P(.21f, .285f), "대장장이", "대장간"},
                              {P(.355f, .29f), "약방 주인", "약방"},
@@ -96,8 +96,10 @@ static Enemy make_enemy(Vec2 p, int hp) {
 }
 /* Every ordinary boar back at its spawn with full health. */
 static void new_hunt_round(Game *g) {
-    for (int i = 0; i < HUNT_COUNT; i++)
+    for (int i = 0; i < HUNT_COUNT; i++) {
         g->hunt[i] = make_enemy(HUNT_SPAWNS[i], BOAR_HP);
+        g->hunt_respawn[i] = 0;
+    }
     g->hunt_round++;
 }
 static bool is_hunt(const Game *g, const Enemy *e) {
@@ -521,6 +523,7 @@ bool game_damage(Game *g, Enemy *e, int amount, EffectKind kind) {
         } else if (is_hunt(g, e)) {
             /* Paid in the same tick as the kill, so a save always sees both. */
             g->coins += HUNT_REWARD;
+            g->hunt_respawn[e - g->hunt] = HUNT_RESPAWN_SECONDS;
             game_toast(g, "멧돼지 제압 +9문");
         } else {
             for (int i = 0; i < BOAR_COUNT; i++)
@@ -932,6 +935,21 @@ static void tick_boss(Game *g, float dt) {
         break;
     default:
         break;
+    }
+}
+/* Fallen ordinary boars count down only while the hero plays on the pass.
+ * When due, one returns at its spawn with full health, but only out of the
+ * hero's sight; otherwise it waits at zero until the hero moves away. */
+static void tick_hunt_respawn(Game *g, float dt) {
+    if (!game_hunt_active(g) || g->phase != PH_PLAY || dt <= 0) return;
+    for (int i = 0; i < HUNT_COUNT; i++) {
+        Enemy *e = &g->hunt[i];
+        if (e->hp > 0) continue;
+        g->hunt_respawn[i] = fmaxf(0, g->hunt_respawn[i] - dt);
+        if (g->hunt_respawn[i] > 0 || e->dying > 0 || distance(g->hero.pos, HUNT_SPAWNS[i]) < HUNT_RESPAWN_CLEAR)
+            continue;
+        *e = make_enemy(HUNT_SPAWNS[i], BOAR_HP);
+        effect(g, (Effect){.kind = FX_DUST, .pos = e->pos, .life = .55f, .amount = 3});
     }
 }
 /* Follow only an unobstructed segment. Menus pause this with the rest of the world. */
@@ -1492,6 +1510,7 @@ void game_tick(Game *g, float dt, Vec2 input) {
             for (int i = 0; i < HUNT_COUNT && g->phase == PH_PLAY; i++)
                 if (g->hunt[i].hp > 0)
                     tick_boar(g, &g->hunt[i], world_dt);
+        tick_hunt_respawn(g, dt);
     }
     separate_bodies(g, dt);
     tick_loot(g, dt);

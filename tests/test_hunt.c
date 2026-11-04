@@ -161,7 +161,7 @@ static void rounds(void) {
     g.hero.pos = g.drops[0].pos; CHECK(game_collect(&g, 0));
     g.hunt[2].pos.x += 30; /* Wandered off. */
     int coins = g.coins; unsigned round = g.hunt_round;
-    /* Same visit: no respawn while staying, pausing or opening menus. */
+    /* Same visit: pausing, menus and a short stay bring nobody back early. */
     const Phase menus[] = {PH_PAUSED, PH_BAG, PH_JOURNAL, PH_TECHNIQUES, PH_DIALOGUE};
     for (unsigned m = 0; m < sizeof menus / sizeof *menus; m++) {
         g.phase = menus[m];
@@ -229,6 +229,80 @@ static void saving(void) {
     for (int i = 0; i < 4; i++) bytes[size - 4 + i] = (unsigned char)(h >> (8 * i));
     Game sentinel = g, out = g;
     CHECK(save_decode(&out, bytes, size) == SAVE_CORRUPT && !memcmp(&out, &sentinel, sizeof out));
+}
+
+static void wait_play(Game *g, float seconds) {
+    for (int n = (int)lroundf(seconds / .05f); n > 0; n--) {
+        g->hero.hp = 100; g->hero.invul = 1;
+        simulation_tick(g, .05f, (Vec2){0});
+    }
+}
+/* While the hero stays on the pass, each fallen ordinary boar returns after
+ * HUNT_RESPAWN_SECONDS of play, never beside the hero, up to HUNT_COUNT. */
+static void timed_respawn(void) {
+    Game g; ready(&g);
+    Vec2 safe = MAP_EXITS[0].arrival;
+    for (int i = 0; i < HUNT_COUNT; i++) CHECK(distance(safe, HUNT_SPAWNS[i]) >= HUNT_RESPAWN_CLEAR);
+    g.hero.pos = g.hunt[0].pos; CHECK(game_damage(&g, &g.hunt[0], 99, FX_HIT));
+    CHECK(g.hunt_respawn[0] == HUNT_RESPAWN_SECONDS);
+    g.hero.pos = safe; int coins = g.coins; unsigned round = g.hunt_round;
+    wait_play(&g, HUNT_RESPAWN_SECONDS - 1);
+    CHECK(g.hunt[0].hp == 0 && g.hunt_respawn[0] > .5f && g.hunt_respawn[0] < 1.5f);
+    /* Menus, training and loading neither run nor reset the clock. */
+    float left = g.hunt_respawn[0];
+    const Phase menus[] = {PH_PAUSED, PH_BAG, PH_JOURNAL, PH_TECHNIQUES, PH_DIALOGUE, PH_SHOP};
+    for (unsigned m = 0; m < sizeof menus / sizeof *menus; m++) {
+        g.phase = menus[m];
+        for (int i = 0; i < 200; i++) game_tick(&g, .05f, (Vec2){0});
+        g.phase = PH_PLAY;
+    }
+    CHECK(g.hunt_respawn[0] == left && g.hunt[0].hp == 0);
+    Game saved; CHECK(game_enter_training(&g, &saved));
+    for (int i = 0; i < 200; i++) simulation_tick(&g, .05f, (Vec2){0});
+    CHECK(game_leave_training(&g, &saved) && g.hunt_respawn[0] == left);
+    g = roundtrip(&g);
+    CHECK(g.hunt[0].hp == 0 && g.hunt_respawn[0] == left && g.hunt_round == round);
+    g.hero.pos = safe;
+    wait_play(&g, 2);
+    CHECK(g.hunt[0].hp == BOAR_HP && g.hunt[0].state == AI_IDLE && g.hunt_respawn[0] == 0);
+    CHECK(distance(g.hunt[0].pos, HUNT_SPAWNS[0]) == 0 && g.coins == coins && g.hunt_round == round);
+    /* Due while the hero stands at its spawn: it waits until they leave. */
+    g.hero.pos = g.hunt[1].pos; CHECK(game_damage(&g, &g.hunt[1], 99, FX_HIT));
+    wait_play(&g, HUNT_RESPAWN_SECONDS + 5);
+    CHECK(g.hunt[1].hp == 0 && g.hunt_respawn[1] == 0);
+    g.hero.pos = safe; wait_play(&g, .05f);
+    CHECK(g.hunt[1].hp == BOAR_HP);
+    /* Hunt the whole pass three times over in one visit: always back to six,
+     * nine coins per kill, no herb or quest change. */
+    for (int cycle = 0; cycle < 3; cycle++) {
+        for (int i = 0; i < HUNT_COUNT; i++) {
+            g.hero.pos = g.hunt[i].pos; CHECK(game_damage(&g, &g.hunt[i], 99, FX_HIT));
+        }
+        CHECK(alive(&g) == 0);
+        g.hero.pos = safe; wait_play(&g, HUNT_RESPAWN_SECONDS / 2);
+        CHECK(alive(&g) == 0);
+        wait_play(&g, HUNT_RESPAWN_SECONDS / 2 + 1);
+        CHECK(alive(&g) == HUNT_COUNT);
+    }
+    CHECK(g.coins == coins + (3 * HUNT_COUNT + 1) * HUNT_REWARD && g.herbs == 0 && g.quest == Q_RECOVER);
+    CHECK(g.hunt_round == round);
+    for (int i = 0; i < BOAR_COUNT; i++) CHECK(!g.drops[i].exists);
+    /* Out of the pass the clock stops; walking back in refills everything. */
+    g.hero.pos = g.hunt[2].pos; CHECK(game_damage(&g, &g.hunt[2], 99, FX_HIT));
+    to_village(&g); left = g.hunt_respawn[2];
+    wait_play(&g, HUNT_RESPAWN_SECONDS * 2);
+    CHECK(g.hunt[2].hp == 0 && g.hunt_respawn[2] == left);
+    to_pass(&g); CHECK(alive(&g) == HUNT_COUNT && g.hunt_respawn[2] == 0);
+    /* Before the traces nothing counts down. */
+    game_reset(&g); game_start(&g); to_pass(&g);
+    g.hunt[3].hp = 0; g.hunt[3].state = AI_DEAD; g.hunt_respawn[3] = 5;
+    wait_play(&g, 10); CHECK(g.hunt[3].hp == 0 && g.hunt_respawn[3] == 5);
+    /* Saves reject an impossible clock. */
+    ready(&g);
+    Game bad = g; bad.hunt_respawn[0] = 1; CHECK(save_encode(&bad, bytes, &size) == SAVE_INVALID);
+    bad = g; bad.hunt[0].hp = 0; bad.hunt_respawn[0] = HUNT_RESPAWN_SECONDS + 1;
+    CHECK(save_encode(&bad, bytes, &size) == SAVE_INVALID);
+    bad.hunt_respawn[0] = NAN; CHECK(save_encode(&bad, bytes, &size) == SAVE_INVALID);
 }
 
 /* A v2 file (before repeat hunting) keeps its progress and starts round 1. */
@@ -323,7 +397,7 @@ static void chapter(void) {
 
 int main(void) {
     spawns(); where_they_appear(); rewards_apart_from_quest(); real_combat();
-    shared_attack_slots(); rounds(); saving(); v2_migration(); death(); chapter();
+    shared_attack_slots(); rounds(); timed_respawn(); saving(); v2_migration(); death(); chapter();
     printf("PASS: %d repeat hunting checks.\n", checks);
     return 0;
 }

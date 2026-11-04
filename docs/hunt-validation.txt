@@ -1,16 +1,15 @@
-# 반복 사냥 기반 1차 검증 로그 — 2026-11-04
-# Linux (Ubuntu 24.04) / GCC / SDL 2.30.0, SDL_VIDEODRIVER 미지정(테스트 내부 dummy) / Debug
-# ctest --test-dir build -V 요약
-1: PASS: 1224 save/quest/recovery/storage checks
+# 반복 사냥(최대 6마리·30초 재생성) 검증 로그 — 2026-11-04
+# Linux (Ubuntu 24.04) / GCC / SDL 2.30.0 / Debug, ctest --test-dir build -V 요약
+1: PASS: 1352 save/quest/recovery/storage checks
 2: PASS: browser storage atomic replacement, backup, quota, security, bounds, key isolation
 3: PASS: 7033 map travel/navigation/quest/persistence checks.
-4: PASS: 994 repeat hunting checks.
+4: PASS: 1138 repeat hunting checks.
 5: PASS: 746 checks across quests, transactions, consumables, recovery, pause, four techniques, combos and bounds.
 6: PASS: 157 terrain, gate, route, dash and wall-combat checks.
 7: PASS: 1578 isolated training checks.
 8: PASS: 859 directional combat checks.
 9: PASS: 159 real-time hit feedback checks.
-10: PASS production main write: quest, position, HP, coins, key settings; 77 checks
+10: PASS production main write: quest, position, HP, coins, key settings; 74 checks
 11: PASS production main read: quest, position, HP, coins, key settings; 17 checks
 12: PASS: 14 native session/title/confirmation/autosave checks (write)
 13: PASS: 1379 native session/title/confirmation/autosave checks (read)
@@ -20,8 +19,8 @@
 18: PASS: 7162841 hero rendering checks: eight-direction idle/walk, attack/four techniques, bounds and feedback at 1/2/3x.
 19: PASS: 26012698 monster rendering checks: 8 authored views, gait, impact boundaries, roots, bounds, fall and texture restoration at 1/2/3x.
 100% tests passed, 0 tests failed out of 19
-Total Test time (real) =  14.28 sec
+Total Test time (real) =  15.92 sec
 
 # ASan+UBSan 빌드(-fsanitize=address,undefined) 전체 CTest
 100% tests passed, 0 tests failed out of 19
-Total Test time (real) =  36.97 sec
+Total Test time (real) =  38.70 sec

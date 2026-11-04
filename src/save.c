@@ -56,7 +56,9 @@ static bool valid(const Game *g) {
     /* Ordinary boars: hp 0 means killed and already paid. */
     if (g->hunt_round < 1) return false;
     for (int i = 0; i < HUNT_COUNT; i++)
-        if (g->hunt[i].hp < 0 || g->hunt[i].hp > BOAR_HP) return false;
+        if (g->hunt[i].hp < 0 || g->hunt[i].hp > BOAR_HP ||
+            !bounded(g->hunt_respawn[i], HUNT_RESPAWN_SECONDS) ||
+            (g->hunt[i].hp > 0 && g->hunt_respawn[i] != 0)) return false;
     if (g->herbs != (g->supplies_delivered ? 0 : collected) ||
         (g->supplies_delivered && collected != 3) ||
         (g->quest == Q_MEET && (g->traces[0] || g->traces[1])) ||
@@ -100,7 +102,7 @@ SaveResult save_encode(const Game *g, unsigned char *b, size_t *size) {
     }
     I(g->dodge_charges); F(g->dodge_recharge);
     I(g->hunt_round);
-    for (int i = 0; i < HUNT_COUNT; i++) I(g->hunt[i].hp);
+    for (int i = 0; i < HUNT_COUNT; i++) { I(g->hunt[i].hp); F(g->hunt_respawn[i]); }
     size_t p = 8; put(b, &p, (uint32_t)(n + 4));
     uint32_t sum = checksum(b, n); I(sum);
 #undef I
@@ -156,7 +158,7 @@ SaveResult save_decode(Game *out, const unsigned char *b, size_t size) {
     if (version >= 3) {
         g.hunt_round = get(b, &n);
         for (int i = 0; i < HUNT_COUNT; i++) {
-            I(g.hunt[i].hp);
+            I(g.hunt[i].hp); F(g.hunt_respawn[i]);
             g.hunt[i].state = g.hunt[i].hp == 0 ? AI_DEAD : AI_IDLE;
         }
     }

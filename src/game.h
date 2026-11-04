@@ -9,8 +9,12 @@
 /* Repeat hunting: ordinary boars on the pass, apart from the three quest
  * boars. They share the boar's art, AI and numbers, pay coins once per kill
  * and never drop herbs. A fresh round fills them when the hero walks in
- * from the village. */
-#define HUNT_COUNT 4
+ * from the village; while the hero stays, each fallen one comes back at its
+ * spawn after HUNT_RESPAWN_SECONDS of play on the pass, once the hero is at
+ * least HUNT_RESPAWN_CLEAR away so it never appears beside them. */
+#define HUNT_COUNT 6
+#define HUNT_RESPAWN_SECONDS 30.0f
+#define HUNT_RESPAWN_CLEAR 420.0f
 #define BOAR_HP 38
 #define HUNT_REWARD 9
 #define NPC_COUNT 5
@@ -243,6 +247,8 @@ typedef struct {
     /* Ordinary boars of the current hunting round; hp 0 = killed and paid. */
     Enemy hunt[HUNT_COUNT];
     unsigned hunt_round;
+    /* Seconds of play on the pass left before each fallen boar returns. */
+    float hunt_respawn[HUNT_COUNT];
     Drop drops[BOAR_COUNT];
     bool traces[TRACE_COUNT], sword, armor, supplies_delivered, boss_rewarded, replay;
     bool owned_sword, owned_armor;
