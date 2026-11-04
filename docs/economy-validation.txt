@@ -1,0 +1,142 @@
+사냥 경제 1차 검증 · 2026-11-04
+
+main fa2647dfa8f6b401a09ac4e14595a94aaf51e44f / dependency #52 bec2b5f5048d16ee7fd009d636c071770b38f1a8
+
+Linux GCC 13.3.0 / SDL 2.30.0; explicit existing SDL library+official headers; no product dependency changes.
+
+Native configure: cmake -S . -B build-economy -DCMAKE_BUILD_TYPE=Debug -DPALDO_SDL_INCLUDE_DIR=<SDL2/include> -DPALDO_SDL_LIBRARY=<libSDL2-2.0.so.0>
+
+Build: cmake --build build-economy --parallel 3
+
+Final native: ctest --test-dir build-economy --output-on-failure
+
+Test project /workspace/scratch/10d197b67577/Paldoyadam/build-economy
+      Start  1: autosave_progress
+ 1/22 Test  #1: autosave_progress ................   Passed    0.16 sec
+      Start  2: browser_storage_backend
+ 2/22 Test  #2: browser_storage_backend ..........   Passed    0.23 sec
+      Start  3: map_travel
+ 3/22 Test  #3: map_travel .......................   Passed    0.38 sec
+      Start  4: hunt_economy
+ 4/22 Test  #4: hunt_economy .....................   Passed    0.22 sec
+      Start  5: repeat_hunting
+ 5/22 Test  #5: repeat_hunting ...................   Passed    0.44 sec
+      Start  6: gameplay
+ 6/22 Test  #6: gameplay .........................   Passed    0.02 sec
+      Start  7: world_navigation
+ 7/22 Test  #7: world_navigation .................   Passed    0.25 sec
+      Start  8: isolated_training
+ 8/22 Test  #8: isolated_training ................   Passed    0.03 sec
+      Start  9: directional_combat
+ 9/22 Test  #9: directional_combat ...............   Passed    0.02 sec
+      Start 10: hit_feedback
+10/22 Test #10: hit_feedback .....................   Passed    0.00 sec
+      Start 11: native_economy_write
+11/22 Test #11: native_economy_write .............   Passed   22.63 sec
+      Start 12: native_economy_restart
+12/22 Test #12: native_economy_restart ...........   Passed    2.42 sec
+      Start 13: native_main_save
+13/22 Test #13: native_main_save .................   Passed    1.87 sec
+      Start 14: native_main_restart
+14/22 Test #14: native_main_restart ..............   Passed    2.35 sec
+      Start 15: native_save_session_write
+15/22 Test #15: native_save_session_write ........   Passed    1.00 sec
+      Start 16: native_save_session_restart
+16/22 Test #16: native_save_session_restart ......   Passed    2.77 sec
+      Start 17: map_backgrounds
+17/22 Test #17: map_backgrounds ..................   Passed    3.99 sec
+      Start 18: native_render
+18/22 Test #18: native_render ....................   Passed    1.12 sec
+      Start 19: player_controls
+19/22 Test #19: player_controls ..................   Passed    0.03 sec
+      Start 20: responsive_ui
+20/22 Test #20: responsive_ui ....................   Passed    2.41 sec
+      Start 21: hero_animation
+21/22 Test #21: hero_animation ...................   Passed    3.92 sec
+      Start 22: monster_animation
+22/22 Test #22: monster_animation ................   Passed    3.75 sec
+
+100% tests passed out of 22
+
+Total Test time (real) =  50.03 sec
+
+Additional guard cases after full suite: native hunt_economy 536 checks passed; ASan+UBSan hunt_economy 536 checks passed.
+
+ASan configure: cmake -S . -B build-economy-asan -DPALDO_SANITIZE=ON <same SDL paths>
+
+ASan command: ASAN_OPTIONS=detect_leaks=0 ctest --test-dir build-economy-asan --output-on-failure
+
+Test project /workspace/scratch/10d197b67577/Paldoyadam/build-economy-asan
+      Start  1: autosave_progress
+ 1/22 Test  #1: autosave_progress ................   Passed    0.22 sec
+      Start  2: browser_storage_backend
+ 2/22 Test  #2: browser_storage_backend ..........   Passed    0.09 sec
+      Start  3: map_travel
+ 3/22 Test  #3: map_travel .......................   Passed    0.77 sec
+      Start  4: hunt_economy
+ 4/22 Test  #4: hunt_economy .....................   Passed    0.38 sec
+      Start  5: repeat_hunting
+ 5/22 Test  #5: repeat_hunting ...................   Passed    0.63 sec
+      Start  6: gameplay
+ 6/22 Test  #6: gameplay .........................   Passed    0.03 sec
+      Start  7: world_navigation
+ 7/22 Test  #7: world_navigation .................   Passed    0.42 sec
+      Start  8: isolated_training
+ 8/22 Test  #8: isolated_training ................   Passed    0.48 sec
+      Start  9: directional_combat
+ 9/22 Test  #9: directional_combat ...............   Passed    0.06 sec
+      Start 10: hit_feedback
+10/22 Test #10: hit_feedback .....................   Passed    0.01 sec
+      Start 11: native_economy_write
+11/22 Test #11: native_economy_write .............   Passed   24.22 sec
+      Start 12: native_economy_restart
+12/22 Test #12: native_economy_restart ...........   Passed    5.54 sec
+      Start 13: native_main_save
+13/22 Test #13: native_main_save .................   Passed    4.32 sec
+      Start 14: native_main_restart
+14/22 Test #14: native_main_restart ..............   Passed    3.09 sec
+      Start 15: native_save_session_write
+15/22 Test #15: native_save_session_write ........   Passed    3.53 sec
+      Start 16: native_save_session_restart
+16/22 Test #16: native_save_session_restart ......   Passed    4.01 sec
+      Start 17: map_backgrounds
+17/22 Test #17: map_backgrounds ..................   Passed    4.49 sec
+      Start 18: native_render
+18/22 Test #18: native_render ....................   Passed    3.11 sec
+      Start 19: player_controls
+19/22 Test #19: player_controls ..................   Passed    0.14 sec
+      Start 20: responsive_ui
+20/22 Test #20: responsive_ui ....................   Passed    7.22 sec
+      Start 21: hero_animation
+21/22 Test #21: hero_animation ...................   Passed   24.08 sec
+      Start 22: monster_animation
+22/22 Test #22: monster_animation ................   Passed   49.57 sec
+
+100% tests passed out of 22
+
+Total Test time (real) = 136.44 sec
+
+
+UI: paldo-ui-tests assets: 8261 checks passed.
+
+Actual SDL screenshots rendered and inspected: sell 432x270 and 844x390; bag-materials 844x390. New material image slots are blank.
+
+Native session fixtures: initial save prepared before production_main, then real SDL mouse/key/quit events only; no live Game writes. Hunt -> pickup -> bag -> walking to village -> smith sale -> continue -> second process restart passed.
+
+JS syntax: node --check tests/browser_economy.cjs passed.
+
+Browser execution attempted (Chrome for Testing 131.0.6778.204, Playwright). Blocked before game loading:
+
+FATAL:process_singleton_posix.cc(292) Check failed: socket() failed: Operation not permitted (1)
+
+Therefore browser hunting/pickup/sale/continue, touch devices and browser persistence are NOT VERIFIED for this change.
+
+Local Emscripten 3.1.74 SDK execution attempted: clang --version failed with SIGSEGV; build_web.py aborted before compiling. PR CI web builds are tracked separately.
+
+LeakSanitizer default attempt: fatal /proc/<pid>/task access / ptrace restriction. Leak checking NOT VERIFIED; ASan/UBSan retested with leak detection disabled.
+
+Prior test corrections: repeat_hunting assumed no ordinary pickups; retain herb/quest assertions while allowing new materials. Compare persisted quest ledger rather than transient age of nonexistent herb drops; choose an unobstructed magnet test segment. No terrain/AI/quest policy changes.
+
+No main merge, auto-merge, deployment, release tag or formal version change. No new item images. GAME_BIBLE.md absent.
+
+Regression fixture note: some overlapped tool sessions observed an old slot at native_main_save startup. Added checked file cleanup, a pre-SDL empty-store assertion and unexpected-store diagnostics. Standalone and final serial full-suite runs passed. Exact environment interference was not conclusively identified; no product save behavior was changed for this.

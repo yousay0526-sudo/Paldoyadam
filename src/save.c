@@ -28,7 +28,7 @@ static bool bounded(float f, float hi) { return isfinite(f) && f >= 0 && f <= hi
 static bool valid(const Game *g) {
     if (sizeof(float) != 4 || g->map < MAP_VILLAGE || g->map >= MAP_TRAINING ||
         g->quest < Q_MEET || g->quest >= QUEST_COUNT || g->hero.max_hp != 100 ||
-        g->hero.hp < 0 || g->hero.hp > 100 || g->coins < 0 || g->coins > 1000000 ||
+        g->hero.hp < 0 || g->hero.hp > 100 || g->coins < 0 || g->coins > COIN_LIMIT ||
         g->tonics < 0 || g->tonics > 22 || g->bandages < 0 || g->bandages > 21 ||
         g->herbs < 0 || g->herbs > 3 || g->augment < AUG_NONE || g->augment > AUG_FLOW ||
         (g->sword && !g->owned_sword) || (g->armor && !g->owned_armor) ||
@@ -59,6 +59,14 @@ static bool valid(const Game *g) {
         if (g->hunt[i].hp < 0 || g->hunt[i].hp > BOAR_HP ||
             !bounded(g->hunt_respawn[i], HUNT_RESPAWN_SECONDS) ||
             (g->hunt[i].hp > 0 && g->hunt_respawn[i] != 0)) return false;
+    if (!g->loot_rng) return false;
+    for (int i = 0; i < MATERIAL_COUNT; i++)
+        if (game_material_total(g, (Material)i) < 0) return false;
+    for (int i = 0; i < MATERIAL_DROP_MAX; i++) {
+        const MaterialDrop *p = &g->material_drops[i];
+        if (p->quantity && (!bounded(p->drop.age, DROP_REST_SECONDS) ||
+                            !bounded(p->drop.magnet_time, 1))) return false;
+    }
     if (g->herbs != (g->supplies_delivered ? 0 : collected) ||
         (g->supplies_delivered && collected != 3) ||
         (g->quest == Q_MEET && (g->traces[0] || g->traces[1])) ||
@@ -103,6 +111,14 @@ SaveResult save_encode(const Game *g, unsigned char *b, size_t *size) {
     I(g->dodge_charges); F(g->dodge_recharge);
     I(g->hunt_round);
     for (int i = 0; i < HUNT_COUNT; i++) { I(g->hunt[i].hp); F(g->hunt_respawn[i]); }
+    for (int i = 0; i < MATERIAL_COUNT; i++) I(g->materials[i]);
+    I(g->loot_rng);
+    for (int i = 0; i < MATERIAL_DROP_MAX; i++) {
+        const MaterialDrop *p = &g->material_drops[i];
+        I(p->quantity);
+        F(p->quantity ? p->drop.pos.x : 0); F(p->quantity ? p->drop.pos.y : 0);
+        F(p->quantity ? p->drop.age : 0); F(p->quantity ? p->drop.magnet_time : 0);
+    }
     size_t p = 8; put(b, &p, (uint32_t)(n + 4));
     uint32_t sum = checksum(b, n); I(sum);
 #undef I
@@ -125,7 +141,7 @@ SaveResult save_decode(Game *out, const unsigned char *b, size_t size) {
     if (get(b, &n) != 0x31594450u) return SAVE_CORRUPT;
     uint32_t version = get(b, &n);
     if (version < 1 || version > SAVE_VERSION) return SAVE_VERSION_NEW;
-    static const uint32_t sizes[] = {0, 216u, 224u, SAVE_V3_SIZE};
+    static const uint32_t sizes[] = {0, 216u, 224u, SAVE_V3_SIZE, SAVE_V4_SIZE};
     if (get(b, &n) != size || size != sizes[version]) return SAVE_CORRUPT;
     size_t end = size - 4;
     if (get(b, &end) != checksum(b, size - 4)) return SAVE_CORRUPT;
@@ -162,6 +178,18 @@ SaveResult save_decode(Game *out, const unsigned char *b, size_t size) {
             g.hunt[i].state = g.hunt[i].hp == 0 ? AI_DEAD : AI_IDLE;
         }
     }
+    /* v1..v3: empty materials/ground, nonzero default PRNG. Dead old boars
+     * stay dead; migration never invents a material result for an old kill. */
+    if (version >= 4) {
+        for (int i = 0; i < MATERIAL_COUNT; i++) I(g.materials[i]);
+        g.loot_rng = get(b, &n);
+        for (int i = 0; i < MATERIAL_DROP_MAX; i++) {
+            MaterialDrop *p = &g.material_drops[i];
+            I(p->quantity); F(p->drop.pos.x); F(p->drop.pos.y);
+            F(p->drop.age); F(p->drop.magnet_time);
+            p->drop.exists = p->quantity > 0;
+        }
+    }
 #undef I
 #undef F
 #undef B
@@ -173,6 +201,13 @@ SaveResult save_decode(Game *out, const unsigned char *b, size_t size) {
     for (int i = 0; i < BOAR_COUNT; i++)
         if (g.drops[i].exists && !reachable(safe_home(MAP_PASS), g.drops[i].pos, HERO_RADIUS))
             g.drops[i].pos = g.boars[i].home;
+    for (int i = 0; i < MATERIAL_DROP_MAX; i++) {
+        MaterialDrop *p = &g.material_drops[i];
+        /* No quantity/transaction repair. Coordinates alone can be recovered
+         * to a known reachable ordinary spawn without deleting materials. */
+        if (p->quantity && !reachable(safe_home(MAP_PASS), p->drop.pos, 0))
+            p->drop.pos = HUNT_SPAWNS[0];
+    }
     world_select(g.map);
     if (!reachable(safe_home(g.map), g.hero.pos, HERO_RADIUS)) g.hero.pos = safe_home(g.map);
     g.boss.state = g.boss.hp == 0 ? AI_DEAD : AI_IDLE;

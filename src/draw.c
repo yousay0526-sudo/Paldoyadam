@@ -1163,6 +1163,17 @@ void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool has_ta
             } else
                 label(f, "약재", (Vec2){p.x, item.y - 24}, GOLD);
         }
+    /* No material art yet: named text is deliberately distinct from herbs.
+     * This pool is independent of all enemy and quest-drop slots. */
+    if (g->map == MAP_PASS && !g->training.active)
+        for (int i = 0; i < MATERIAL_DROP_MAX; i++) {
+            const MaterialDrop *pile = &g->material_drops[i];
+            if (pile->quantity <= 0) continue;
+            Vec2 p = screen_pos(pile->drop.pos, camera);
+            char text[80];
+            snprintf(text, sizeof text, "%s ×%d", MATERIALS[i / MATERIAL_PILES_PER_KIND].name, pile->quantity);
+            label(f, text, (Vec2){p.x, p.y - 20}, i < MATERIAL_PILES_PER_KIND ? GOLD : PAPER);
+        }
     typedef struct {
         int kind, index;
         float y;

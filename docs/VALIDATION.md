@@ -1,5 +1,18 @@
 ## 2026-11-04 · 반복 사냥 기반 1차
 
+## 사냥 경제 1차 · 2026-11-04
+
+기준 main `fa2647d`, 미병합 선행 #52 head `bec2b5f`에서 독립 `feature/hunt-economy-phase1-20261104`. [정책/드롭표/기대 수익](HUNT_ECONOMY.md), [실행 로그](economy-validation.txt), [이미지 요청 지시문](HUNT_MATERIAL_ART_BRIEF.md).
+
+- GCC 13.3.0/C11·SDL 2.30.0 네이티브 전체 CTest **22/22 통과**. 새 경제 검사 **536조건**, 반응형 UI **8,261조건**. 기존 1장 전체·반복 사냥·입력·전투·회복/구입/장착·저장 회귀 포함.
+- ASan+UBSan 전체 **22/22 통과**, 누수 검사만 `ASAN_OPTIONS=detect_leaks=0`로 제외. 기본 LeakSanitizer는 실행 환경의 `/proc/<pid>/task` 접근 실패로 중단되므로 누수 통과를 주장하지 않는다.
+- 실제 제품 main 루프 + SDL 입력의 `native_economy_write`/`native_economy_restart`: 격리된 fixture 이후 Game 직접 쓰기 없이 일반 멧돼지 공격, 자석 회수, 기타 탭, 맵 도보 이동, 마을 대장간 1개 판매, 타이틀 이어하기와 별도 OS 프로세스 재시작의 돈/재료/약재 상태 확인.
+- 확률 0/34/35/54/55/99, 처치당 PRNG 1회, 실패·확정 드롭 저장, 미회수/회수/판매 전후 저장, 반복 불러오기, 적 재생성·풀 만석 합산·9,999개 한도·벽/메뉴·알림 합산, 음수/INT_MAX/한도 초과/잘못된 종류·다른 상점·연속 판매, v1/v2/v3 이행·수련 격리 포함.
+- 432×270~1280×720 PC/터치 공통 판매 버튼·수량 0/7/9,999에서 범위/비겹침·재판매 차단, 기타 탭의 소비/장착 버튼 없음 확인. 실제 SDL 화면 `sell` 두 크기와 `bag-materials`를 출력·시각 확인. 요청대로 재료 이미지 칸은 비움.
+- `node --check tests/browser_economy.cjs` 통과. 실제 Chromium 시작은 socket 생성 거부로 중단되어 브라우저 플레이/이어하기 **미실행**. 로컬 웹 SDK clang SIGSEGV로 웹 빌드 중단, PR CI 웹 빌드는 별도로 확인. 기존 브라우저 성공 이력은 이번 작업 결과가 아니다.
+- 실제 사용자 Windows 창/GPU, iPhone/Android 터치·백그라운드/APK, Safari/Firefox, 누수·장시간 성능·경제 체감은 미검증. 병합/자동 병합/배포/정식 버전 변경 없음.
+
+
 Linux / GCC / SDL 2.30.0 전체 CTest **19/19**(새 `repeat_hunting` 1,138조건 포함), ASan+UBSan **19/19**,
 실제 실행 파일 `--scene hunt` 844×390·1280×720 출력. 로컬 웹 빌드·Chromium 저장 회귀는 미실행(SDL 웹 포트 내려받기 차단).
 [반복 사냥 정책·검증](REPEAT_HUNTING.md), [로그](hunt-validation.txt).

@@ -34,7 +34,8 @@ typedef enum {
     ACT_CHOOSE,
     ACT_PICKUP, ACT_ATTACK, ACT_TECHNIQUE, ACT_TECHNIQUES, ACT_SWIPE_SELECT,
     ACT_TECH_BIND, ACT_BIND_RESET, ACT_BAG_TAB, ACT_BAG_SELECT, ACT_EQUIP, ACT_GEAR_SELECT,
-    ACT_TRAINING_EXIT, ACT_DODGE, ACT_KEY_MENU, ACT_KEY_SELECT, ACT_KEY_RESET
+    ACT_TRAINING_EXIT, ACT_DODGE, ACT_KEY_MENU, ACT_KEY_SELECT, ACT_KEY_RESET,
+    ACT_SMITH_TAB, ACT_MATERIAL_SELECT, ACT_SELL_ONE, ACT_SELL_ALL
 } Action;
 /* Rebindable keyboard commands. Movement stays on the arrow keys; Esc,
  * Space/Enter and the F-keys are fixed and cannot be taken. */
@@ -101,6 +102,8 @@ typedef struct {
     Vec2 pointer_start, pointer_delta, target;
     float journal_scroll, story_elapsed;
     int bag_tab, bag_selected, selected_swipe;
+    bool smith_selling;
+    int sell_material;
     bool attack_pointer_down, attack_swiping, attack_repeated, attack_key_down;
     Sint64 attack_pointer_id;
     Vec2 attack_start, attack_anchor;
@@ -136,7 +139,7 @@ static void combat_tick(App *a, float dt);
 #if defined(__EMSCRIPTEN__) && defined(PALDO_WEB_TESTING)
 static App *web_test_app;
 EMSCRIPTEN_KEEPALIVE const char *paldo_test_state(void) {
-    static char state[2048];
+    static char state[4096];
     App *a = web_test_app;
     if (!a)
         return "{}";
@@ -149,7 +152,9 @@ EMSCRIPTEN_KEEPALIVE const char *paldo_test_state(void) {
              "\"queued\":%d,\"hp\":%d,\"coins\":%d,\"dummyHp\":%d,\"attackDown\":%s,"
              "\"secretTaps\":%d,\"pointerX\":%.2f,\"pointerY\":%.2f,\"secretDown\":%s,"
              "\"map\":%d,\"saveAvailable\":%s,\"saveResult\":%d,\"newConfirm\":%d,"
-             "\"dodgeCharges\":%d,\"keyAttack\":%ld}",
+             "\"dodgeCharges\":%d,\"keyAttack\":%ld,"
+             "\"leather\":%d,\"bone\":%d,\"huntHp0\":%d,\"floor0\":%d,\"lootRng\":%u,"
+             "\"cameraX\":%.3f,\"cameraY\":%.3f,\"zoom\":%.4f}",
              a->game.phase, a->game.quest, a->story_index, a->game.hero.pos.x, a->game.hero.pos.y,
              a->width, a->height, a->density,
              world_clear(a->game.hero.pos, HERO_RADIUS) ? "true" : "false",
@@ -160,7 +165,10 @@ EMSCRIPTEN_KEEPALIVE const char *paldo_test_state(void) {
              a->game.coins, a->game.boss.hp, a->attack_pointer_down ? "true" : "false",
              a->secret_taps, a->pointer_start.x, a->pointer_start.y, a->secret_down ? "true" : "false",
              a->game.map, a->save_available ? "true" : "false", a->save_result, a->new_confirm,
-             a->game.dodge_charges, (long)(a->keys[KEY_ATTACK] ? a->keys[KEY_ATTACK] : DEFAULT_KEYS[KEY_ATTACK]));
+             a->game.dodge_charges, (long)(a->keys[KEY_ATTACK] ? a->keys[KEY_ATTACK] : DEFAULT_KEYS[KEY_ATTACK]),
+             a->game.materials[0], a->game.materials[1], a->game.hunt[0].hp,
+             a->game.material_drops[0].quantity, a->game.loot_rng,
+             a->camera.x, a->camera.y, world_zoom(a->height));
     return state;
 }
 /* Read-only descriptions of rendered controls. Browser tests still use real
@@ -179,6 +187,13 @@ EMSCRIPTEN_KEEPALIVE const char *paldo_test_buttons(void) {
         case ACT_NEW_CANCEL: name = "cancel"; break;
         case ACT_TITLE: name = "title"; break;
         case ACT_CLOSE: name = "close"; break;
+        case ACT_INTERACT: name = "interact"; break;
+        case ACT_BAG: name = "bag"; break;
+        case ACT_BAG_TAB: name = "bag-tab"; break;
+        case ACT_SMITH_TAB: name = "smith-tab"; break;
+        case ACT_MATERIAL_SELECT: name = "material"; break;
+        case ACT_SELL_ONE: name = "sell-one"; break;
+        case ACT_SELL_ALL: name = "sell-all"; break;
         case ACT_KEY_MENU: name = "keys"; break;
         case ACT_KEY_SELECT: name = "key"; break;
         default: break;
@@ -190,6 +205,18 @@ EMSCRIPTEN_KEEPALIVE const char *paldo_test_buttons(void) {
     }
     snprintf(text + used, sizeof text - used, "]");
     return text;
+}
+/* Read-only route planning for real input automation; no action/state writes. */
+EMSCRIPTEN_KEEPALIVE const char *paldo_test_route(float x, float y) {
+    static char text[4096]; size_t n = 0; Route route = {0};
+    if (web_test_app) {
+        world_select(web_test_app->game.map);
+        world_route(web_test_app->game.hero.pos, (Vec2){x, y}, HERO_RADIUS, &route);
+    }
+    n += (size_t)snprintf(text, sizeof text, "[");
+    for (int i=0; i<route.count; i++)
+        n += (size_t)snprintf(text+n, sizeof text-n, "%s[%.3f,%.3f]", i ? "," : "", route.points[i].x, route.points[i].y);
+    snprintf(text+n, sizeof text-n, "]"); return text;
 }
 #endif
 
@@ -383,6 +410,8 @@ static void resume_view(App *a) {
 }
 static void new_journey(App *a, bool skip) {
     game_reset(&a->game);
+    uint32_t seed = (uint32_t)SDL_GetPerformanceCounter() ^ (uint32_t)SDL_GetTicks();
+    if (seed) a->game.loot_rng = seed;
     a->game.phase = PH_PROLOGUE; a->story_index = 0; a->story_elapsed = 0;
     if (skip) game_start(&a->game);
     a->save_active = true; a->saved_size = 0; a->new_confirm = 0;
@@ -472,8 +501,10 @@ static void interact(App *a) {
         return;
     }
     if (n.index >= SMITH && n.index <= INNKEEPER) {
-        if (game_open_shop(g, n.index))
+        if (game_open_shop(g, n.index)) {
+            a->smith_selling = false; a->sell_material = 0;
             stop_input(a);
+        }
         return;
     }
     if (n.index == MESSENGER) {
@@ -707,6 +738,20 @@ static void dispatch(App *a, Action action, int value) {
             game_retry(g);
             stop_input(a);
         }
+        break;
+    case ACT_SMITH_TAB:
+        if (g->phase == PH_SHOP && g->shop == SMITH && (value == 0 || value == 1))
+            a->smith_selling = value == 1;
+        break;
+    case ACT_MATERIAL_SELECT:
+        if (g->phase == PH_SHOP && g->shop == SMITH && (unsigned)value < MATERIAL_COUNT)
+            a->sell_material = value;
+        break;
+    case ACT_SELL_ONE:
+    case ACT_SELL_ALL:
+        if (a->smith_selling && (unsigned)a->sell_material < MATERIAL_COUNT)
+            game_sell_material(g, (Material)a->sell_material,
+                action == ACT_SELL_ONE ? 1 : g->materials[a->sell_material]);
         break;
     case ACT_BUY:
         game_buy(g, (Item)value);
@@ -1237,27 +1282,55 @@ static void draw_hud(App *a) {
 static void draw_shop(App *a) {
     Game *g = &a->game;
     Gfx *f = &a->gfx;
-    const char *line = g->shop == SMITH ? "검날을 벼리고, 돌아올 몸을 지키시오."
-        : g->shop == HERBALIST ? "탕약과 지혈산을 챙기세요. 숲에서는 상처를 돌볼 틈이 적으니까요."
-                               : "따뜻한 국밥 한 그릇 드시고 기운 차리세요.";
-    SDL_FRect p = panel(a, NPCS[g->shop].name, NPCS[g->shop].role, 264);
+    bool smith = g->shop == SMITH;
+    SDL_FRect p = panel(a, NPCS[g->shop].name, NPCS[g->shop].role, smith ? 320 : 264);
     char s[256];
-    gfx_text_box(f, line, (SDL_FRect){p.x + 16, p.y + 64, p.w - 32, 32}, 13, 12, MUTED);
-    snprintf(s, sizeof s, "소지금 %d문", g->coins);
-    gfx_text_box(f, s, (SDL_FRect){p.x + 16, p.y + 96, p.w - 32, 18}, 13, 12, GOLD);
+    float top = p.y + (smith ? 114 : 118);
+    if (smith) {
+        float bw = fminf(126, (p.w - 160) / 2);
+        button(a, (SDL_FRect){p.x + 12, p.y + 64, bw, 44}, "구입", ACT_SMITH_TAB, 0, true, !a->smith_selling);
+        button(a, (SDL_FRect){p.x + 14 + bw, p.y + 64, bw, 44}, "재료 매각", ACT_SMITH_TAB, 1, true, a->smith_selling);
+        snprintf(s, sizeof s, "%d문", g->coins);
+        gfx_text_box(f, s, (SDL_FRect){p.x + 20 + bw * 2, p.y + 76, p.w - bw * 2 - 36, 24}, 14, 11, GOLD);
+    } else {
+        const char *line = g->shop == HERBALIST ? "탕약과 지혈산을 챙기세요. 숲에서는 상처를 돌볼 틈이 적으니까요."
+                                                 : "따뜻한 국밥 한 그릇 드시고 기운 차리세요.";
+        gfx_text_box(f, line, (SDL_FRect){p.x + 16, p.y + 64, p.w - 32, 32}, 13, 12, MUTED);
+        snprintf(s, sizeof s, "소지금 %d문", g->coins);
+        gfx_text_box(f, s, (SDL_FRect){p.x + 16, p.y + 96, p.w - 32, 18}, 13, 12, GOLD);
+    }
+    if (smith && a->smith_selling) {
+        int kind = (unsigned)a->sell_material < MATERIAL_COUNT ? a->sell_material : 0;
+        a->sell_material = kind;
+        float bw = (p.w - 36) / 2;
+        for (int i = 0; i < MATERIAL_COUNT; i++)
+            button(a, (SDL_FRect){p.x + 14 + (bw + 8) * i, top, bw, 44}, MATERIALS[i].name,
+                   ACT_MATERIAL_SELECT, i, true, kind == i);
+        int q = g->materials[kind], price = MATERIALS[kind].price;
+        snprintf(s, sizeof s, "보유 %d개 · 개당 %d문 · 대장간 매각용", q, price);
+        gfx_text_box(f, s, (SDL_FRect){p.x + 18, top + 48, p.w - 36, 20}, 14, 11, PAPER);
+        snprintf(s, sizeof s, "판매 1개 = %d문 / 전부 %d개 = %d문", price, q, q * price);
+        gfx_text_box(f, s, (SDL_FRect){p.x + 18, top + 69, p.w - 36, p.h - 237}, 13, 10, GOLD);
+        const char *one = game_sale_error(g, (Material)kind, 1);
+        const char *all = game_sale_error(g, (Material)kind, q);
+        button(a, (SDL_FRect){p.x + 14, p.y + p.h - 52, bw, 44},
+               one && q > 0 ? one : "1개 판매", ACT_SELL_ONE, 0, !one, true);
+        button(a, (SDL_FRect){p.x + 22 + bw, p.y + p.h - 52, bw, 44},
+               all && q > 0 ? all : "전부 판매", ACT_SELL_ALL, 0, !all, true);
+        return;
+    }
     int row = 0;
-    float row_h = fminf(62, (p.h - 132) / 2);
+    float row_h = fminf(62, (p.h - (top - p.y) - 20) / 2);
     for (int i = 0; i < ITEM_COUNT; i++)
         if ((int)ITEMS[i].shop == g->shop) {
-            float y = p.y + 118 + (row_h + 6) * (float)row++;
+            float y = top + (row_h + 6) * (float)row++;
             gfx_round(f, (SDL_FRect){p.x + 16, y, p.w - 32, row_h}, 10, (SDL_Color){34, 53, 49, 220});
             gfx_text_box(f, ITEMS[i].name, (SDL_FRect){p.x + 25, y + 6, p.w - 158, 21}, 15, 13, PAPER);
             gfx_text_box(f, ITEMS[i].description, (SDL_FRect){p.x + 25, y + 28, p.w - 158, row_h - 30}, 12, 11, MUTED);
             const char *error = game_purchase_error(g, (Item)i);
             if (error) snprintf(s, sizeof s, "%s", error);
             else snprintf(s, sizeof s, "%d문 · %s", ITEMS[i].price, i == ITEM_MEAL ? "쉬기" : "구입");
-            button(a, (SDL_FRect){p.x + p.w - 123, y + (row_h - 44) / 2, 102, 44}, s, ACT_BUY, i,
-                   error == NULL, true);
+            button(a, (SDL_FRect){p.x + p.w - 123, y + (row_h - 44) / 2, 102, 44}, s, ACT_BUY, i, !error, true);
         }
 }
 typedef struct {
@@ -1276,11 +1349,17 @@ static int bag_entries(const Game *g, int tab, BagEntry entries[8]) {
     } else if (tab == 1) {
         if (g->tonics > 0) entries[n++] = (BagEntry){ITEM_TONIC, g->tonics, "탕약", "체력 45 회복"};
         if (g->bandages > 0) entries[n++] = (BagEntry){ITEM_BANDAGE, g->bandages, "지혈산", "출혈 즉시 해제"};
+    } else if (tab == 2) {
+        for (int i = 0; i < MATERIAL_COUNT; i++)
+            if (g->materials[i] > 0)
+                entries[n++] = (BagEntry){150 + i, g->materials[i], MATERIALS[i].name, MATERIALS[i].use};
     } else if (tab == 3 && g->herbs > 0)
         entries[n++] = (BagEntry){102, g->herbs, "약재 꾸러미", "의뢰품 · 약방 주인에게 전달할 약재"};
     return n;
 }
 static void bag_icon(Gfx *f, int key, SDL_FRect r, SDL_Color c) {
+    /* Material image slots intentionally blank pending separate art approval. */
+    if (key >= 150 && key < 150 + MATERIAL_COUNT) return;
     Vec2 p = {r.x + r.w / 2, r.y + r.h / 2};
     float z = fminf(r.w, r.h) * .34f;
     if (key == ITEM_SWORD || key == 100) {
@@ -1383,7 +1462,12 @@ static void draw_bag(App *a) {
         BagEntry e=entries[selected]; bool actionable=e.key>=0 && e.key<=ITEM_BANDAGE;
         float reserved=actionable?80:8;
         gfx_text_box(f,e.name,(SDL_FRect){rx+9,detail.y+6,rw-reserved-16,22},14,11,PAPER);
-        gfx_text_box(f,e.description,(SDL_FRect){rx+9,detail.y+29,rw-reserved-16,detail.h-34},12,10,MUTED);
+        const char *description = e.description;
+        if (e.key >= 150 && e.key < 150 + MATERIAL_COUNT) {
+            snprintf(text, sizeof text, "%d개 · 일반 재료 · 대장간 매각 %d문/개", e.count, MATERIALS[e.key - 150].price);
+            description = text;
+        }
+        gfx_text_box(f,description,(SDL_FRect){rx+9,detail.y+29,rw-reserved-16,detail.h-34},12,10,MUTED);
         if(actionable) {
             bool gear=e.key==ITEM_SWORD || e.key==ITEM_ARMOR;
             button(a,(SDL_FRect){rx+rw-80,detail.y+(detail_h-44)/2,76,44},gear?(bag_equipped(g,e.key)?"해제":"장착"):"사용",
@@ -2183,6 +2267,10 @@ static void smoke_scene(App *a, const char *scene) {
         a->game.hero.pos = (Vec2){779 * 1.5f, 867 * 1.5f};
     } else if (!strcmp(scene, "roof")) {
         a->game.hero.pos = (Vec2){295 * 1.5f, 136 * 1.5f};
+    } else if (!strcmp(scene, "sell")) {
+        a->game.hero.pos = NPCS[SMITH].pos;
+        a->game.materials[0] = 12; a->game.materials[1] = 7;
+        game_open_shop(&a->game, SMITH); a->smith_selling = true;
     } else if (!strcmp(scene, "shop")) {
         a->game.hero.pos = NPCS[SMITH].pos;
         a->game.coins = 137;
@@ -2192,7 +2280,8 @@ static void smoke_scene(App *a, const char *scene) {
         a->game.owned_sword = a->game.sword = true;
         a->game.owned_armor = a->game.armor = true;
         a->game.herbs = 2; a->bag_selected = ITEM_SWORD;
-        a->bag_tab = !strcmp(scene,"bag-consumables") ? 1 : !strcmp(scene,"bag-quest") ? 3 : 0;
+        a->game.materials[0] = 12; a->game.materials[1] = 7;
+        a->bag_tab = !strcmp(scene,"bag-materials") ? 2 : !strcmp(scene,"bag-consumables") ? 1 : !strcmp(scene,"bag-quest") ? 3 : 0;
         a->game.phase = PH_BAG;
     } else if (!strcmp(scene,"techniques")) {
         a->game.phase = PH_TECHNIQUES;
