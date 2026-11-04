@@ -16,7 +16,7 @@ static int checks;
  * fragments later used for occlusion. Catch accidental runtime filtering. */
 static void check_map_pixels(Gfx *gfx, SDL_Surface *surface, const char *root) {
     char path[2048];
-    snprintf(path, sizeof path, "%s/village.png", root);
+    snprintf(path, sizeof path, "%s/village.jpg", root);
     int w, h, channels;
     unsigned char *source = stbi_load(path, &w, &h, &channels, 4);
     CHECK(source != NULL);

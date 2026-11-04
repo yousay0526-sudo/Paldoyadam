@@ -7,6 +7,7 @@
 
 #define STB_IMAGE_IMPLEMENTATION
 #define STBI_ONLY_PNG
+#define STBI_ONLY_JPEG
 #include "stb_image.h"
 #define STB_TRUETYPE_IMPLEMENTATION
 #include "stb_truetype.h"
@@ -80,7 +81,7 @@ bool gfx_load(Gfx *g, SDL_Renderer *renderer, const char *root) {
                            &g->hero_walk_directions[HERO_E], &g->hero_walk_directions[HERO_SE],
                            &g->hero_walk_directions[HERO_S], &g->hero_walk_directions[HERO_SW],
                            &g->hero_walk_directions[HERO_W], &g->hero_walk_directions[HERO_NW]};
-    const char *names[] = {"village.png",
+    const char *names[] = {"village.jpg",
                            "warrior-v2.png",
                            "warrior-walk-v1.png",
                            "warrior-attack-v1.png",
@@ -88,9 +89,9 @@ bool gfx_load(Gfx *g, SDL_Renderer *renderer, const char *root) {
                            "butcher.png",
                            "minion.png",
                            "npcs.png",
-                           "prologue/01-homeward.png",
-                           "prologue/02-hunger.png",
-                           "prologue/03-reflection.png",
+                           "prologue/01-homeward.jpg",
+                           "prologue/02-hunger.jpg",
+                           "prologue/03-reflection.jpg",
                            "warrior-cleave-v1.png",
                            "warrior-sweep-v1.png",
                            "warrior-thrust-v1.png",
@@ -831,8 +832,8 @@ void gfx_story_release(Gfx *f) {
 /* Preserve the entire illustration above the dialogue. A dimmed copy fills
  * the widescreen background, so even the reflected wolf stays in view. */
 void gfx_story(Gfx *f, int index, float w, float h, float elapsed, float footer_height) {
-    static const char *names[3] = {"prologue/01-homeward.png", "prologue/02-hunger.png",
-                                   "prologue/03-reflection.png"};
+    static const char *names[3] = {"prologue/01-homeward.jpg", "prologue/02-hunger.jpg",
+                                   "prologue/03-reflection.jpg"};
     Picture *p = &f->prologue[index];
     if (!p->texture) {
         /* Hold one illustration at a time: each is 9 MiB once decoded. */

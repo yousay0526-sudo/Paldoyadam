@@ -1645,7 +1645,7 @@ const char *game_map_name(MapId map) {
     return map >= 0 && map < MAP_COUNT ? names[map] : names[0];
 }
 const char *game_map_asset(MapId map) {
-    static const char *paths[MAP_COUNT]={"maps/village.png","maps/solbaramjae.png","maps/tamsikgul.png","village.png"};
+    static const char *paths[MAP_COUNT]={"maps/village.jpg","maps/solbaramjae.jpg","maps/tamsikgul.jpg","village.jpg"};
     return map >= 0 && map < MAP_COUNT ? paths[map] : paths[0];
 }
 int game_exit_nearby(const Game *g) {

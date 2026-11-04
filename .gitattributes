@@ -6,3 +6,4 @@
 *.gradle text eol=lf
 *.png binary
 *.ttf binary
+*.jpg binary

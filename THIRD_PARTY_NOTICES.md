@@ -41,6 +41,8 @@
 - `2.png` → `assets/prologue/02-hunger.png`: 사과와 시냇물, 허기와 갈증
 - `download.png` → `assets/prologue/03-reflection.png`: 시냇물에 비친 늑대
 
+2026-11-04 웹 용량을 줄이기 위해 원본 PNG는 `art/prologue/`로 옮겨 그대로 보존하고, 게임은 같은 크기의 JPEG 사본(`assets/prologue/*.jpg`, 품질 95)을 읽습니다. 마을·지역 배경도 같은 방식입니다(`scripts/prepare_web_paintings.py`).
+
 ## Gradle
 
 Android 준비 과정에서 공식 SDL 배포본의 Gradle Wrapper를 복사합니다. Gradle은 Apache License 2.0을 사용하며 실행 스크립트에 라이선스 고지가 포함됩니다. 공식 라이선스: https://github.com/gradle/gradle/blob/master/LICENSE

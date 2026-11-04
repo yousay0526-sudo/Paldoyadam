@@ -31,6 +31,8 @@
 
 승인 PNG는 `assets/maps/village.png`, `solbaramjae.png`, `tamsikgul.png`에 원본 바이트 그대로 설치했다. 모두 1536×1024 RGB PNG이며 월드 크기는 기존 2304×1536이다. 크기·원본 일치·SHA-256과 출처는 [provenance.json](../art/maps/provenance.json), 원화 픽셀 기준 수동 경계는 [layout.json](../art/maps/layout.json)에 기록했다.
 
+2026-11-04부터 무손실 원본은 `art/maps/*.png`에 그대로 두고, 게임은 같은 1536×1024 크기의 JPEG 사본 `assets/maps/*.jpg`(품질 95, 색 해상도 유지)를 읽는다. 원본을 고치면 `python3 scripts/prepare_web_paintings.py`로 사본을 다시 만든다. `web_paintings` 테스트가 사본이 원본과 맞는지 확인한다.
+
 탐식굴의 혈흔 없는 포식 흔적과 오른쪽 아래 작은 베어 먹은 사과는 원화 그대로다. 캐릭터·몬스터를 PNG에 합성하지 않았다. 새 그림에 맞춰 건물·암벽·동굴 벽의 충돌과 주요 지붕/수목 가림을 작성했으며, 전체 맵을 정확한 물리 메시로 자동 복원했다는 뜻은 아니다.
 
 - [실제 게임 844×390 / 1280×720](map-gameplay-review.png)
