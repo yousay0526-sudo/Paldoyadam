@@ -71,7 +71,7 @@ typedef struct {
  * most a quarter second is caught up after a stall. */
 #define SIM_STEP (1.0f / 60)
 #define SIM_MAX_STEPS 15
-typedef struct { Vec2 hero, boss, boars[BOAR_COUNT]; } Poses;
+typedef struct { Vec2 hero, boss, boars[BOAR_COUNT], hunt[HUNT_COUNT]; } Poses;
 typedef struct {
     Game game;
     Game training_return;
@@ -379,6 +379,7 @@ static void resume_view(App *a) {
     a->trauma = a->sim_accumulator = 0; a->button_count = 0;
     a->sim_previous.hero = a->game.hero.pos; a->sim_previous.boss = a->game.boss.pos;
     for (int i = 0; i < BOAR_COUNT; i++) a->sim_previous.boars[i] = a->game.boars[i].pos;
+    for (int i = 0; i < HUNT_COUNT; i++) a->sim_previous.hunt[i] = a->game.hunt[i].pos;
 }
 static void new_journey(App *a, bool skip) {
     game_reset(&a->game);
@@ -454,6 +455,7 @@ static void interact(App *a) {
             a->view_ready=false;a->trauma=0;a->sim_accumulator=0;
             a->sim_previous.hero=g->hero.pos;a->sim_previous.boss=g->boss.pos;
             for(int i=0;i<BOAR_COUNT;i++) a->sim_previous.boars[i]=g->boars[i].pos;
+            for(int i=0;i<HUNT_COUNT;i++) a->sim_previous.hunt[i]=g->hunt[i].pos;
         }
         return;
     }
@@ -1714,17 +1716,18 @@ static void follow_view(App *a, float dt) {
     a->view_focus.y += (target.y - a->view_focus.y) * k;
 }
 /* Collect each actor's hit flash; a rise means a hit landed this frame. */
-static void hit_marks(const Game *g, float marks[2 + BOAR_COUNT]) {
+static void hit_marks(const Game *g, float marks[2 + BOAR_COUNT + HUNT_COUNT]) {
     marks[0] = g->hero.hurt_time;
     marks[1] = g->boss.hit_time;
     for (int i = 0; i < BOAR_COUNT; i++) marks[2 + i] = g->boars[i].hit_time;
+    for (int i = 0; i < HUNT_COUNT; i++) marks[2 + BOAR_COUNT + i] = g->hunt[i].hit_time;
 }
-static void add_shake(App *a, const float before[2 + BOAR_COUNT], float dt) {
-    float after[2 + BOAR_COUNT];
+static void add_shake(App *a, const float before[2 + BOAR_COUNT + HUNT_COUNT], float dt) {
+    float after[2 + BOAR_COUNT + HUNT_COUNT];
     hit_marks(&a->game, after);
     float push = 0;
     if (after[0] > before[0] + .0001f) push = .6f;
-    for (int i = 1; i < 2 + BOAR_COUNT; i++)
+    for (int i = 1; i < 2 + BOAR_COUNT + HUNT_COUNT; i++)
         if (after[i] > before[i] + .0001f)
             push = fmaxf(push, a->game.hero.skilling && a->game.hero.technique == TECH_CLEAVE ? .55f : .3f);
     a->trauma = fminf(1, fmaxf(0, a->trauma - 1.8f * dt) + push);
@@ -2216,6 +2219,10 @@ static void smoke_scene(App *a, const char *scene) {
     } else if (!strcmp(scene, "solbaramjae")) {
         a->game.map=MAP_PASS;a->game.hero.pos=(Vec2){768*1.5f,530*1.5f};
         a->game.quest=Q_RECOVER;a->game.traces[0]=a->game.traces[1]=true;
+    } else if (!strcmp(scene, "hunt")) {
+        /* A quest boar beside an ordinary one, for comparing the labels. */
+        a->game.map=MAP_PASS;a->game.quest=Q_RECOVER;a->game.traces[0]=a->game.traces[1]=true;
+        a->game.hero.pos=(Vec2){1120,290};
     } else if (!strcmp(scene, "tamsikgul")) {
         a->game.map=MAP_CAVE;a->game.hero.pos=(Vec2){768*1.5f,730*1.5f};a->game.quest=Q_HUNT;
     } else if (!strcmp(scene, "boss")) {
@@ -2310,6 +2317,7 @@ static void capture_poses(const Game *g, Poses *p) {
     p->hero = g->hero.pos;
     p->boss = g->boss.pos;
     for (int i = 0; i < BOAR_COUNT; i++) p->boars[i] = g->boars[i].pos;
+    for (int i = 0; i < HUNT_COUNT; i++) p->hunt[i] = g->hunt[i].pos;
 }
 /* Run whole fixed steps for the wall time that has built up. Returns the
  * number of steps taken; the remainder waits for the next frame. */
@@ -2339,11 +2347,14 @@ static void blend_poses(Game *g, const Poses *previous, float t) {
     g->boss.pos = blend_pose(previous->boss, g->boss.pos, t);
     for (int i = 0; i < BOAR_COUNT; i++)
         g->boars[i].pos = blend_pose(previous->boars[i], g->boars[i].pos, t);
+    for (int i = 0; i < HUNT_COUNT; i++)
+        g->hunt[i].pos = blend_pose(previous->hunt[i], g->hunt[i].pos, t);
 }
 static void restore_poses(Game *g, const Poses *real) {
     g->hero.pos = real->hero;
     g->boss.pos = real->boss;
     for (int i = 0; i < BOAR_COUNT; i++) g->boars[i].pos = real->boars[i];
+    for (int i = 0; i < HUNT_COUNT; i++) g->hunt[i].pos = real->hunt[i];
 }
 /* Native and browser builds execute this exact same gameplay/rendering step. */
 static void frame(App *a) {
@@ -2357,7 +2368,7 @@ static void frame(App *a) {
     if (a->width > a->height) {
         if (a->game.phase == PH_PROLOGUE)
             a->story_elapsed += clampf(dt, 0, .05f);
-        float marks[2 + BOAR_COUNT];
+        float marks[2 + BOAR_COUNT + HUNT_COUNT];
         hit_marks(&a->game, marks);
         advance_simulation(a, dt);
         float wall = clampf(dt, 0, .05f);

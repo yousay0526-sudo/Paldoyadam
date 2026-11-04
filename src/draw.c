@@ -894,6 +894,11 @@ void gfx_minimap(Gfx *f, const Game *g, SDL_FRect box, SDL_FRect view) {
         for (int i = 0; i < BOAR_COUNT; i++)
             if (g->boars[i].hp > 0)
                 gfx_disc(f, MINI(g->boars[i].pos), 2.5f, RED, dark);
+    /* Ordinary boars: amber, so the quest's red ones stand out. */
+    if (game_hunt_active(g))
+        for (int i = 0; i < HUNT_COUNT; i++)
+            if (g->hunt[i].hp > 0)
+                gfx_disc(f, MINI(g->hunt[i].pos), 2.5f, (SDL_Color){226, 156, 72, 255}, dark);
     if (g->map == MAP_CAVE && g->boss.hp > 0)
         gfx_disc(f, MINI(g->boss.pos), 3.5f, RED, dark);
     /* Current goal: a gold ring. */
@@ -1162,7 +1167,7 @@ void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool has_ta
         int kind, index;
         float y;
     } Actor;
-    Actor actors[12];
+    Actor actors[24];
     int count = 0, npcs = g->training.active || (g->map!=MAP_VILLAGE && g->map!=MAP_TRAINING) ? 0 : g->quest == Q_MESSENGER ? 5 : 4;
     for (int i = 0; i < npcs; i++)
         actors[count++] = (Actor){0, i, NPCS[i].pos.y};
@@ -1174,6 +1179,17 @@ void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool has_ta
                     telegraph_line(f, screen_pos(g->boars[i].pos, camera), BOAR_CHARGE_LENGTH,
                                    BOAR_CHARGE_HALF_WIDTH, g->boars[i].angle,
                                    g->boars[i].timer / BOAR_WINDUP_SECONDS, (SDL_Color){200, 90, 45, 72},
+                                   (SDL_Color){255, 170, 120, 255});
+            }
+    /* Ordinary boars follow the quest boars as actor indexes BOAR_COUNT.. */
+    if (game_hunt_active(g))
+        for (int i = 0; i < HUNT_COUNT; i++)
+            if (g->hunt[i].hp > 0 || g->hunt[i].dying > 0) {
+                actors[count++] = (Actor){1, BOAR_COUNT + i, g->hunt[i].pos.y};
+                if (g->hunt[i].state == AI_WINDUP)
+                    telegraph_line(f, screen_pos(g->hunt[i].pos, camera), BOAR_CHARGE_LENGTH,
+                                   BOAR_CHARGE_HALF_WIDTH, g->hunt[i].angle,
+                                   g->hunt[i].timer / BOAR_WINDUP_SECONDS, (SDL_Color){200, 90, 45, 72},
                                    (SDL_Color){255, 170, 120, 255});
             }
     if (g->training.active || (g->map==MAP_CAVE && (g->boss.hp>0 || g->boss.dying>0)) || (g->map==MAP_TRAINING && (g->quest==Q_HUNT || g->quest==Q_COMBAT || g->boss.dying>0))) {
@@ -1227,7 +1243,8 @@ void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool has_ta
             if (distance(game_objective(g), NPCS[i].pos) < 1)
                 marker(f, (Vec2){p.x, p.y - tall - 33 + sinf(g->time * 3) * 2});
         } else if (actors[a].kind == 1) {
-            const Enemy *e = &g->boars[i];
+            bool ordinary = i >= BOAR_COUNT;
+            const Enemy *e = ordinary ? &g->hunt[i - BOAR_COUNT] : &g->boars[i];
             p = screen_pos(e->pos, camera);
             shadow(f, p, 17 * ACTOR_SCALE, e->hp > 0 ? 1 : clampf(e->dying / ENEMY_DEATH_SECONDS, 0, 1));
             SDL_FRect bounds = gfx_enemy(f, e, (Vec2){p.x, p.y + 3}, false, g->time, g->phase == PH_PLAY, e->pos.x < g->hero.pos.x);
@@ -1239,7 +1256,7 @@ void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool has_ta
                 gfx_rect(f, (SDL_FRect){p.x - 20, bar, 40, 4}, INK);
                 gfx_rect(f, (SDL_FRect){p.x - 20, bar, 40 * (float)e->hp / (float)e->max_hp, 4}, RED);
             } else
-                label(f, "변이한 멧돼지", (Vec2){p.x, p.y - 50 * ACTOR_SCALE - 15}, (SDL_Color){219, 186, 162, 255});
+                label(f, ordinary ? "멧돼지" : "변이한 멧돼지", (Vec2){p.x, p.y - 50 * ACTOR_SCALE - 15}, (SDL_Color){219, 186, 162, 255});
         } else if (actors[a].kind == 2) {
             p = screen_pos(g->boss.pos, camera);
             shadow(f, p, 23 * ACTOR_SCALE, g->boss.hp > 0 || g->training.active ? 1 : clampf(g->boss.dying / ENEMY_DEATH_SECONDS, 0, 1));

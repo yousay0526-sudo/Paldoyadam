@@ -53,6 +53,12 @@ static bool valid(const Game *g) {
         collected += g->drops[i].collected;
         if (g->quest < Q_RECOVER && !g->replay && g->boars[i].hp != 38) return false;
     }
+    /* Ordinary boars: hp 0 means killed and already paid. */
+    if (g->hunt_round < 1) return false;
+    for (int i = 0; i < HUNT_COUNT; i++)
+        if (g->hunt[i].hp < 0 || g->hunt[i].hp > BOAR_HP ||
+            !bounded(g->hunt_respawn[i], HUNT_RESPAWN_SECONDS) ||
+            (g->hunt[i].hp > 0 && g->hunt_respawn[i] != 0)) return false;
     if (g->herbs != (g->supplies_delivered ? 0 : collected) ||
         (g->supplies_delivered && collected != 3) ||
         (g->quest == Q_MEET && (g->traces[0] || g->traces[1])) ||
@@ -95,6 +101,8 @@ SaveResult save_encode(const Game *g, unsigned char *b, size_t *size) {
         F(g->drops[i].pos.x); F(g->drops[i].pos.y);
     }
     I(g->dodge_charges); F(g->dodge_recharge);
+    I(g->hunt_round);
+    for (int i = 0; i < HUNT_COUNT; i++) { I(g->hunt[i].hp); F(g->hunt_respawn[i]); }
     size_t p = 8; put(b, &p, (uint32_t)(n + 4));
     uint32_t sum = checksum(b, n); I(sum);
 #undef I
@@ -116,8 +124,9 @@ SaveResult save_decode(Game *out, const unsigned char *b, size_t size) {
     size_t n = 0;
     if (get(b, &n) != 0x31594450u) return SAVE_CORRUPT;
     uint32_t version = get(b, &n);
-    if (version != 1 && version != SAVE_VERSION) return SAVE_VERSION_NEW;
-    if (get(b, &n) != size || size != (version == 1 ? 216u : 224u)) return SAVE_CORRUPT;
+    if (version < 1 || version > SAVE_VERSION) return SAVE_VERSION_NEW;
+    static const uint32_t sizes[] = {0, 216u, 224u, SAVE_V3_SIZE};
+    if (get(b, &n) != size || size != sizes[version]) return SAVE_CORRUPT;
     size_t end = size - 4;
     if (get(b, &end) != checksum(b, size - 4)) return SAVE_CORRUPT;
     MapId previous = world_selected();
@@ -143,6 +152,16 @@ SaveResult save_decode(Game *out, const unsigned char *b, size_t size) {
     }
     /* v1 predates dodge charge persistence; reset defaults migrate it safely. */
     if (version >= 2) { I(g.dodge_charges); F(g.dodge_recharge); }
+    /* v1/v2 predate repeat hunting: game_reset's fresh first round stands.
+     * From v3 the round and each ordinary boar's health come back as saved;
+     * survivors wait at their spawn and loading never starts a new round. */
+    if (version >= 3) {
+        g.hunt_round = get(b, &n);
+        for (int i = 0; i < HUNT_COUNT; i++) {
+            I(g.hunt[i].hp); F(g.hunt_respawn[i]);
+            g.hunt[i].state = g.hunt[i].hp == 0 ? AI_DEAD : AI_IDLE;
+        }
+    }
 #undef I
 #undef F
 #undef B

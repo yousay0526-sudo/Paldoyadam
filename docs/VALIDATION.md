@@ -1,3 +1,9 @@
+## 2026-11-04 · 반복 사냥 기반 1차
+
+Linux / GCC / SDL 2.30.0 전체 CTest **19/19**(새 `repeat_hunting` 1,138조건 포함), ASan+UBSan **19/19**,
+실제 실행 파일 `--scene hunt` 844×390·1280×720 출력. 로컬 웹 빌드·Chromium 저장 회귀는 미실행(SDL 웹 포트 내려받기 차단).
+[반복 사냥 정책·검증](REPEAT_HUNTING.md), [로그](hunt-validation.txt).
+
 ## 2026-11-03 · 자동저장·이어하기, 현재 main 결합 검증
 
 사용자 승인으로 main `afcee8b`(#49 포함)을 보존하며 통합했다. Windows 전체 CTest **18/18**,
