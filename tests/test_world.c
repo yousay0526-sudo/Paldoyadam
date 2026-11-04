@@ -133,15 +133,31 @@ static void quests_reachable(void) {
 static void prepared_routes(void) {
     const float radii[3] = {HERO_RADIUS, BOAR_RADIUS, BOSS_RADIUS};
     const Vec2 from[3] = {HOME, HOME, BOSS_HOME}, to[3] = {P(566, 474), P(566, 474), NPCS[ELDER].pos};
+    MapId selected = world_selected();
     clock_t start = clock();
     world_prepare();
     clock_t prepared = clock();
+    CHECK(world_selected() == selected);
     for (int i = 0; i < 3; i++) {
         Route r;
         CHECK(!world_segment(from[i], to[i], radii[i]));
         CHECK(world_route(from[i], to[i], radii[i], &r));
         CHECK(r.count > 0);
     }
+    /* Other regions are ready too: a boar detour on the pass, the save's
+     * point check there, and a hero detour in the cave build nothing. */
+    const MapId maps[3] = {MAP_PASS, MAP_PASS, MAP_CAVE};
+    const float other_radii[3] = {BOAR_RADIUS, 0, HERO_RADIUS};
+    const Vec2 other_from[3] = {{300, 880}, {300, 880}, MAP_EXITS[3].pos};
+    const Vec2 other_to[3] = {{1950, 1050}, {1950, 1050}, {400, 900}};
+    for (int i = 0; i < 3; i++) {
+        Route r;
+        world_select(maps[i]);
+        CHECK(!world_segment(other_from[i], other_to[i], other_radii[i]));
+        CHECK(world_route(other_from[i], other_to[i], other_radii[i], &r));
+        CHECK(r.count > 0);
+    }
+    world_select(selected);
     clock_t routed = clock();
     /* Building a grid samples every cell; a detour on a ready grid is a search. */
     CHECK((routed - prepared) * 4 < prepared - start);
