@@ -8,7 +8,14 @@
 - 정본: `src/*.c`, `src/*.h`; 주요 문서: `README.md`, `docs/CONTROLS.md`, `docs/VALIDATION.md`, `docs/WEB.md`
 
 
-## 2026-11-04 · 사냥 보상·경제 시스템 1차 · PR 검토 대기
+## 2026-11-04 · 반복 사냥·사냥 경제 · 사용자 병합·자동 Pages 배포 승인
+
+- 사용자가 구현·검증·PR 결과 보고 뒤 "오케이 승인"으로 [PR #53](https://github.com/yousay0526-sudo/Paldoyadam/pull/53)의 병합과 기존 자동 Pages 배포를 승인했다. 필요한 선행 [PR #52](https://github.com/yousay0526-sudo/Paldoyadam/pull/52)는 검증된 head `bec2b5f5048d16ee7fd009d636c071770b38f1a8` 그대로 merge 방식으로 먼저 병합했다: main 병합 커밋 `02cd3479034c89058a909161ce99371e812bed38`. Claude 원래 소스를 직접 수정하지 않았다.
+- 경제 구현 커밋 `cf286c2825055f7be30bcc2307908debce9dc530`의 [PR CI](https://github.com/yousay0526-sudo/Paldoyadam/actions/runs/41774861735)는 네이티브 전체 검사·일반 웹·단일 HTML 빌드 모두 성공했다. 선행 #52의 [최종 CI](https://github.com/yousay0526-sudo/Paldoyadam/actions/runs/41745259515)도 성공했다. 이 승인 기록 커밋은 문서만 바꾸며 게임·수치·저장 형식·이미지·배포 설정은 그대로다.
+- #53 병합 SHA와 최종 Pages 게시 결과는 [PR #53](https://github.com/yousay0526-sudo/Paldoyadam/pull/53)과 [main 배포 기록](https://github.com/yousay0526-sudo/Paldoyadam/actions/workflows/web.yml?query=branch%3Amain)을 정본으로 확인한다. Pages 게시 성공과 실제 서비스 응답을 확인한 뒤 완료 보고한다. 자동 병합 예약·정식 버전/릴리스 태그 변경은 하지 않는다(0.8.0 유지).
+- 두 재료 이미지 칸은 비워 두고 [이미지 채팅용 제작 지시문](docs/HUNT_MATERIAL_ART_BRIEF.md)을 보존한다. 실제 브라우저 플레이·휴대폰·GPU·누수/장시간 경제 검증은 승인 뒤에도 미검증으로 남는다. 후속 이미지 제작·게임 연결과 다음 독립 작업은 별도 승인 후 진행한다.
+
+## 2026-11-04 · 사냥 보상·경제 시스템 1차 · PR #53 최초 제출 기록
 
 - 기준 main `fa2647dfa8f6b401a09ac4e14595a94aaf51e44f`. 선행 [PR #52](https://github.com/yousay0526-sudo/Paldoyadam/pull/52)는 미병합이며 최신 head `bec2b5f5048d16ee7fd009d636c071770b38f1a8`에서 독립 브랜치 `feature/hunt-economy-phase1-20261104`를 만들었다. Claude 원래 브랜치/작업은 보존한다. main 대상 PR은 #52에 의존하며 선행 변경이 함께 보인다. #52를 먼저 병합한 뒤 비교 기준을 재확인해야 한다.
 - 일반 멧돼지 처치당 한 번 추첨: 가죽 조각 35%×1개·3문, 뼈 조각 20%×1개·2문, 미드롭 45%. 재료 기대 수익 1.45문, 기존 9문 포함 10.45문(상한 미도달·회수/판매 가정). `MATERIALS[]` 설정표로 관리하며 기존 출현·6마리·30초 재생성·420 거리·전투·9문·의뢰/상점 가격은 유지한다. [경제 정책](docs/HUNT_ECONOMY.md).
