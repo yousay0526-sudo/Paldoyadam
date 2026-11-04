@@ -1087,8 +1087,12 @@ static void tick_loot(Game *g, float dt) {
             pile->drop.magnet_time = fminf(1, pile->drop.magnet_time);
             if (arrived) game_collect_material(g, i);
         }
-    /* One combined, deferred notice in the existing slot, without masking
-     * combat/quest toasts or creating a second HUD overlay beside saving. */
+}
+/* One combined, deferred notice in the existing slot, without masking
+ * combat/quest toasts or creating a second HUD overlay beside saving. It
+ * runs on every map, so a pickup made just before leaving the pass is
+ * still announced once the arrival toast clears. */
+static void flush_material_notice(Game *g) {
     if (g->toast_time <= 0 && (g->material_notice[0] || g->material_notice[1])) {
         char text[160];
         snprintf(text, sizeof text, "재료 회수 · 가죽 +%d · 뼈 +%d", g->material_notice[0], g->material_notice[1]);
@@ -1627,6 +1631,7 @@ void game_tick(Game *g, float dt, Vec2 input) {
     }
     separate_bodies(g, dt);
     tick_loot(g, dt);
+    flush_material_notice(g);
 }
 
 const MapExit MAP_EXITS[4] = {
