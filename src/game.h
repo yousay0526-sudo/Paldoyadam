@@ -6,6 +6,13 @@
 #define WORLD_W 2304.0f
 #define WORLD_H 1536.0f
 #define BOAR_COUNT 3
+/* Repeat hunting: ordinary boars on the pass, apart from the three quest
+ * boars. They share the boar's art, AI and numbers, pay coins once per kill
+ * and never drop herbs. A fresh round fills them when the hero walks in
+ * from the village. */
+#define HUNT_COUNT 4
+#define BOAR_HP 38
+#define HUNT_REWARD 9
 #define NPC_COUNT 5
 #define TRACE_COUNT 2
 #define EFFECT_MAX 48
@@ -139,6 +146,7 @@ typedef struct {
 } MapExit;
 extern const MapExit MAP_EXITS[4];
 extern const Vec2 CAVE_HOME;
+extern const Vec2 HUNT_SPAWNS[HUNT_COUNT];
 const char *game_map_name(MapId map);
 const char *game_map_asset(MapId map);
 
@@ -232,6 +240,9 @@ typedef struct {
     MapId map;
     Hero hero;
     Enemy boss, boars[BOAR_COUNT];
+    /* Ordinary boars of the current hunting round; hp 0 = killed and paid. */
+    Enemy hunt[HUNT_COUNT];
+    unsigned hunt_round;
     Drop drops[BOAR_COUNT];
     bool traces[TRACE_COUNT], sword, armor, supplies_delivered, boss_rewarded, replay;
     bool owned_sword, owned_armor;
@@ -339,4 +350,6 @@ void game_recover(Game *g);
 void game_retry(Game *g);
 bool game_choose(Game *g, Augment augment);
 bool game_boars_active(const Game *g);
+/* Ordinary boars live on the real pass only, once both traces are read. */
+bool game_hunt_active(const Game *g);
 #endif

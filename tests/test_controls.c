@@ -639,7 +639,7 @@ static void camera_follow_and_shake(App *a) {
     Vec2 still = view_camera(a, w, h, scale);
     CHECK(fabsf(still.x * scale - roundf(still.x * scale)) < .001f);
     CHECK(fabsf(still.y * scale - roundf(still.y * scale)) < .001f);
-    float marks[2 + BOAR_COUNT];
+    float marks[2 + BOAR_COUNT + HUNT_COUNT];
     hit_marks(&a->game, marks);
     add_shake(a, marks, .016f);
     CHECK(a->trauma == 0);

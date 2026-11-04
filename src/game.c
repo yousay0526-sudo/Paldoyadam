@@ -7,6 +7,9 @@
 #define P(x, y) {(x) * WORLD_W, (y) * WORLD_H}
 const Vec2 HOME = P(.30f, .51f), BOSS_HOME = P(.81f, .46f);
 const Vec2 CAVE_HOME = {768 * 1.5f, 440 * 1.5f};
+/* Open dirt paths on the pass, far from the arrival point, the return exit,
+ * the quest boars and both traces; tests check clearance and reachability. */
+const Vec2 HUNT_SPAWNS[HUNT_COUNT] = {{225, 540}, {1050, 150}, {2100, 315}, {1950, 1050}};
 const Npc NPCS[NPC_COUNT] = {{P(.29f, .43f), "마을 이장", "이야기"},
                              {P(.21f, .285f), "대장장이", "대장간"},
                              {P(.355f, .29f), "약방 주인", "약방"},
@@ -91,6 +94,15 @@ static Enemy make_enemy(Vec2 p, int hp) {
     e.facing = (Vec2){0, 1};
     return e;
 }
+/* Every ordinary boar back at its spawn with full health. */
+static void new_hunt_round(Game *g) {
+    for (int i = 0; i < HUNT_COUNT; i++)
+        g->hunt[i] = make_enemy(HUNT_SPAWNS[i], BOAR_HP);
+    g->hunt_round++;
+}
+static bool is_hunt(const Game *g, const Enemy *e) {
+    return e >= g->hunt && e < g->hunt + HUNT_COUNT;
+}
 static void effect(Game *g, Effect e) {
     world_select(g->map);
     if (g->effect_count < EFFECT_MAX)
@@ -118,7 +130,8 @@ void game_reset(Game *g) {
     g->boss = make_enemy(CAVE_HOME, 240);
     const Vec2 positions[3] = {{500*1.5f,380*1.5f},{1050*1.5f,400*1.5f},{790*1.5f,315*1.5f}};
     for (int i = 0; i < BOAR_COUNT; i++)
-        g->boars[i] = make_enemy(positions[i], 38);
+        g->boars[i] = make_enemy(positions[i], BOAR_HP);
+    new_hunt_round(g);
     g->coins = 55;
     g->tonics = 2;
     g->bandages = 1;
@@ -139,6 +152,10 @@ void game_start(Game *g) {
 bool game_boars_active(const Game *g) {
     world_select(g->map);
     return !g->training.active && (g->map == MAP_PASS || g->map == MAP_TRAINING) && g->traces[0] && g->traces[1];
+}
+bool game_hunt_active(const Game *g) {
+    world_select(g->map);
+    return !g->training.active && g->map == MAP_PASS && g->traces[0] && g->traces[1];
 }
 bool game_enter_training(Game *game, Game *saved) {
     world_select(game->map);
@@ -452,7 +469,7 @@ static bool active_enemy(const Game *g, const Enemy *e) {
     for (int i = 0; i < BOAR_COUNT; i++)
         if (e == &g->boars[i])
             return game_boars_active(g);
-    return false;
+    return is_hunt(g, e) && game_hunt_active(g);
 }
 bool game_damage(Game *g, Enemy *e, int amount, EffectKind kind) {
     world_select(g->map);
@@ -501,6 +518,10 @@ bool game_damage(Game *g, Enemy *e, int amount, EffectKind kind) {
                 g->boss_rewarded = true;
             }
             g->notices |= NOTICE_VICTORY;
+        } else if (is_hunt(g, e)) {
+            /* Paid in the same tick as the kill, so a save always sees both. */
+            g->coins += HUNT_REWARD;
+            game_toast(g, "멧돼지 제압 +9문");
         } else {
             for (int i = 0; i < BOAR_COUNT; i++)
                 if (e == &g->boars[i])
@@ -547,6 +568,7 @@ void game_clear_hit_feedback(Game *g) {
     world_select(g->map);
     g->hitstop_time = g->hero.hurt_time = g->boss.hit_time = g->training.hit_time = 0;
     for (int i = 0; i < BOAR_COUNT; i++) g->boars[i].hit_time = 0;
+    for (int i = 0; i < HUNT_COUNT; i++) g->hunt[i].hit_time = 0;
 }
 static Enemy *nearest_enemy(Game *g) {
     if (g->training.active)
@@ -561,6 +583,14 @@ static Enemy *nearest_enemy(Game *g) {
             if (g->boars[i].hp > 0 && d < best && world_segment(g->hero.pos, g->boars[i].pos, 0)) {
                 best = d;
                 e = &g->boars[i];
+            }
+        }
+    if (game_hunt_active(g))
+        for (int i = 0; i < HUNT_COUNT; i++) {
+            float d = distance(g->hero.pos, g->hunt[i].pos);
+            if (g->hunt[i].hp > 0 && d < best && world_segment(g->hero.pos, g->hunt[i].pos, 0)) {
+                best = d;
+                e = &g->hunt[i];
             }
         }
     return e;
@@ -664,7 +694,12 @@ void game_recover(Game *g) {
     }
     for (int i = 0; i < BOAR_COUNT; i++)
         if (g->boars[i].hp > 0)
-            g->boars[i] = make_enemy(g->boars[i].home, 38);
+            g->boars[i] = make_enemy(g->boars[i].home, BOAR_HP);
+    /* Like the quest boars, survivors heal at home; kills and their coins
+     * stand. Walking back in from the village starts a new round anyway. */
+    for (int i = 0; i < HUNT_COUNT; i++)
+        if (g->hunt[i].hp > 0)
+            g->hunt[i] = make_enemy(HUNT_SPAWNS[i], BOAR_HP);
     g->phase = PH_PLAY;
     g->shop = -1;
     game_toast(g, "마을에서 회복 · 여정 진행 유지");
@@ -694,7 +729,7 @@ typedef struct { Vec2 *pos; float radius, mass; } Body;
  * terrain collision, heavier bodies giving way less. */
 static void separate_bodies(Game *g, float dt) {
     world_select(g->map);
-    Body bodies[BOAR_COUNT + 2];
+    Body bodies[BOAR_COUNT + HUNT_COUNT + 2];
     int count = 0;
     /* A dodging hero slips between bodies; separation resumes after the dash. */
     if (!g->hero.dodging)
@@ -705,6 +740,10 @@ static void separate_bodies(Game *g, float dt) {
         for (int i = 0; i < BOAR_COUNT; i++)
             if (g->boars[i].hp > 0)
                 bodies[count++] = (Body){&g->boars[i].pos, BOAR_RADIUS, BODY_MASS_BOAR};
+    if (game_hunt_active(g))
+        for (int i = 0; i < HUNT_COUNT; i++)
+            if (g->hunt[i].hp > 0)
+                bodies[count++] = (Body){&g->hunt[i].pos, BOAR_RADIUS, BODY_MASS_BOAR};
     float close = 1 - expf(-dt / BODY_SEPARATE_SECONDS);
     for (int a = 0; a < count; a++)
         for (int b = a + 1; b < count; b++) {
@@ -725,6 +764,9 @@ static int boars_winding_up(const Game *g) {
     int n = 0;
     for (int i = 0; i < BOAR_COUNT; i++)
         n += g->boars[i].hp > 0 && (g->boars[i].state == AI_WINDUP || g->boars[i].state == AI_SWING);
+    /* Quest and ordinary boars share the same attack slots. */
+    for (int i = 0; i < HUNT_COUNT; i++)
+        n += g->hunt[i].hp > 0 && (g->hunt[i].state == AI_WINDUP || g->hunt[i].state == AI_SWING);
     return n;
 }
 /* A strike that meets a fresh dodge: true when the hero is early in the dash
@@ -1015,7 +1057,8 @@ static void begin_attack(Game *g, Enemy *enemy) {
     world_select(g->map);
     Hero *h = &g->hero;
     h->attacking = true; h->attack_hit = false; h->attack_elapsed = 0;
-    h->attack_target = enemy ? (enemy == &g->boss ? -1 : (int)(enemy - g->boars)) : -2;
+    h->attack_target = !enemy ? -2 : enemy == &g->boss ? -1
+        : is_hunt(g, enemy) ? BOAR_COUNT + (int)(enemy - g->hunt) : (int)(enemy - g->boars);
     h->attack_angle = enemy ? atan2f(enemy->pos.y - h->pos.y, enemy->pos.x - h->pos.x)
         : atan2f(h->dir.y, h->dir.x);
     if (enemy && fabsf(enemy->pos.x - h->pos.x) > .1f)
@@ -1131,7 +1174,9 @@ static void finish_impact(Game *game, int move, bool hit) {
 static Enemy *unlocked_attack_target(Game *g) {
     Enemy *best = NULL;
     float nearest = game_attack_range(g, MOVE_ATTACK);
-    Enemy *enemies[] = {&g->boss, &g->boars[0], &g->boars[1], &g->boars[2]};
+    Enemy *enemies[1 + BOAR_COUNT + HUNT_COUNT] = {&g->boss};
+    for (int i = 0; i < BOAR_COUNT; i++) enemies[1 + i] = &g->boars[i];
+    for (int i = 0; i < HUNT_COUNT; i++) enemies[1 + BOAR_COUNT + i] = &g->hunt[i];
     for (size_t i = 0; i < sizeof enemies / sizeof *enemies; i++) {
         Enemy *e = enemies[i];
         if (active_enemy(g, e) && e->hp > 0 &&
@@ -1154,7 +1199,9 @@ static void tick_attack(Game *g, float dt) {
         g->training.impact_damage = 0;
         Enemy *e = h->attack_target == -1 ? &g->boss
             : h->attack_target >= 0 && h->attack_target < BOAR_COUNT
-                ? &g->boars[h->attack_target] : unlocked_attack_target(g);
+                ? &g->boars[h->attack_target]
+            : h->attack_target >= BOAR_COUNT && h->attack_target < BOAR_COUNT + HUNT_COUNT
+                ? &g->hunt[h->attack_target - BOAR_COUNT] : unlocked_attack_target(g);
         if (e && active_enemy(g, e) && e->hp > 0 &&
             game_attack_contains(h->pos, h->attack_angle, game_attack_range(g, MOVE_ATTACK), MOVE_ATTACK, e->pos)) {
             float d = distance(h->pos, e->pos);
@@ -1176,11 +1223,17 @@ static bool technique_area(Game *g, float range, int damage) {
         if (game_attack_path_contains(g->hero.impact_start, g->hero.impact_origin,
                 g->hero.skill_angle, range, g->hero.technique, g->boss.pos))
             hit |= game_damage(g, &g->boss, damage, FX_HIT);
-    } else if (game_boars_active(g)) {
-        for (int i = 0; i < BOAR_COUNT; i++)
-            if (game_attack_path_contains(g->hero.impact_start, g->hero.impact_origin,
-                    g->hero.skill_angle, range, g->hero.technique, g->boars[i].pos))
-                hit |= game_damage(g, &g->boars[i], damage, FX_HIT);
+    } else {
+        if (game_boars_active(g))
+            for (int i = 0; i < BOAR_COUNT; i++)
+                if (game_attack_path_contains(g->hero.impact_start, g->hero.impact_origin,
+                        g->hero.skill_angle, range, g->hero.technique, g->boars[i].pos))
+                    hit |= game_damage(g, &g->boars[i], damage, FX_HIT);
+        if (game_hunt_active(g))
+            for (int i = 0; i < HUNT_COUNT; i++)
+                if (game_attack_path_contains(g->hero.impact_start, g->hero.impact_origin,
+                        g->hero.skill_angle, range, g->hero.technique, g->hunt[i].pos))
+                    hit |= game_damage(g, &g->hunt[i], damage, FX_HIT);
     }
     return hit;
 }
@@ -1244,6 +1297,8 @@ static void tick_falls(Game *g, float dt) {
     g->boss.dying = fmaxf(0, g->boss.dying - dt);
     for (int i = 0; i < BOAR_COUNT; i++)
         g->boars[i].dying = fmaxf(0, g->boars[i].dying - dt);
+    for (int i = 0; i < HUNT_COUNT; i++)
+        g->hunt[i].dying = fmaxf(0, g->hunt[i].dying - dt);
 }
 /* Integrate the decaying push exactly over dt, through terrain collision. */
 static void knock_back(Vec2 *pos, Vec2 *knock, float radius, float dt) {
@@ -1358,6 +1413,8 @@ void game_tick(Game *g, float dt, Vec2 input) {
         knock_back(&g->boss.pos, &g->boss.knock, BOSS_RADIUS, world_dt);
     for (int i = 0; (g->map == MAP_PASS || g->map == MAP_TRAINING) && i < BOAR_COUNT; i++)
         knock_back(&g->boars[i].pos, &g->boars[i].knock, BOAR_RADIUS, world_dt);
+    for (int i = 0; g->map == MAP_PASS && i < HUNT_COUNT; i++)
+        knock_back(&g->hunt[i].pos, &g->hunt[i].knock, BOAR_RADIUS, world_dt);
     g->cooldown = fmaxf(0, g->cooldown - dt);
     for (int i = 0; i < TECH_COUNT; i++)
         g->technique_cooldowns[i] = fmaxf(0, g->technique_cooldowns[i] - dt);
@@ -1387,6 +1444,8 @@ void game_tick(Game *g, float dt, Vec2 input) {
     g->boss.hit_time = fmaxf(0, g->boss.hit_time - dt);
     for (int i = 0; i < BOAR_COUNT; i++)
         g->boars[i].hit_time = fmaxf(0, g->boars[i].hit_time - dt);
+    for (int i = 0; i < HUNT_COUNT; i++)
+        g->hunt[i].hit_time = fmaxf(0, g->hunt[i].hit_time - dt);
     /* Compact in place, keeping spawn order so overlapping effects never
      * swap drawing order when an older one ends. */
     int kept = 0;
@@ -1424,10 +1483,16 @@ void game_tick(Game *g, float dt, Vec2 input) {
     if (g->training.active) return;
     if ((g->map == MAP_CAVE || g->map == MAP_TRAINING) && g->quest == Q_COMBAT)
         tick_boss(g, world_dt);
-    else if (game_boars_active(g))
-        for (int i = 0; i < BOAR_COUNT && g->phase == PH_PLAY; i++)
-            if (g->boars[i].hp > 0)
-                tick_boar(g, &g->boars[i], world_dt);
+    else {
+        if (game_boars_active(g))
+            for (int i = 0; i < BOAR_COUNT && g->phase == PH_PLAY; i++)
+                if (g->boars[i].hp > 0)
+                    tick_boar(g, &g->boars[i], world_dt);
+        if (game_hunt_active(g))
+            for (int i = 0; i < HUNT_COUNT && g->phase == PH_PLAY; i++)
+                if (g->hunt[i].hp > 0)
+                    tick_boar(g, &g->hunt[i], world_dt);
+    }
     separate_bodies(g, dt);
     tick_loot(g, dt);
 }
@@ -1480,6 +1545,13 @@ bool game_travel(Game *g, int index) {
         e->route=(Route){0};e->repath=0;e->walking=false;e->knock=(Vec2){0,0};
         if(e->hp>0) { e->pos=e->home;e->state=AI_IDLE;e->timer=.5f; }
     }
+    for(int i=0;i<HUNT_COUNT;i++) {
+        Enemy *e=&g->hunt[i];
+        e->route=(Route){0};e->repath=0;e->walking=false;e->knock=(Vec2){0,0};
+        if(e->hp>0) { e->pos=e->home;e->state=AI_IDLE;e->timer=.5f; }
+    }
+    /* Walking in from the village starts a new hunting round. */
+    if(from==MAP_VILLAGE && g->map==MAP_PASS) new_hunt_round(g);
     for(int i=0;i<BOAR_COUNT;i++) { g->drops[i].attracting=false;g->drops[i].magnet_time=0; }
     game_toast(g,game_map_name(g->map));
     return true;
