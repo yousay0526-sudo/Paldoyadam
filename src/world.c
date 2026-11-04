@@ -330,16 +330,19 @@ typedef struct {
     MapId map;
     unsigned char edges[NODES], clear[NODES];
 } NavGrid;
-static NavGrid grids[MAP_COUNT * 3];
+/* Room for every map's body radii plus the save check's point radius, so
+ * a later miss does not evict a prepared grid. */
+#define GRID_SLOTS (MAP_COUNT * 4)
+static NavGrid grids[GRID_SLOTS];
 static unsigned next_grid;
 static Vec2 center(int index) {
     return (Vec2){(index % COLS + .5f) * CELL, (index / COLS + .5f) * CELL};
 }
 static NavGrid *grid(float radius) {
-    for (int i = 0; i < MAP_COUNT * 3; i++)
+    for (int i = 0; i < GRID_SLOTS; i++)
         if (grids[i].ready && grids[i].map == selected && grids[i].radius == radius)
             return &grids[i];
-    NavGrid *g = &grids[next_grid++ % (MAP_COUNT * 3)];
+    NavGrid *g = &grids[next_grid++ % GRID_SLOTS];
     memset(g, 0, sizeof *g);
     g->radius = radius;
     g->map = selected;
@@ -361,9 +364,23 @@ static NavGrid *grid(float radius) {
     return g;
 }
 void world_prepare(void) {
+    /* The selected map gets every body radius, as before. The regions the
+     * hero walks into also get what they route with: boars and the save's
+     * point check (radius 0) on the pass, the butcher in the cave. The
+     * secret training ground builds its own on entry, behind that cut. */
+    static const struct { MapId map; float radius; } regions[] = {
+        {MAP_VILLAGE, HERO_RADIUS},
+        {MAP_PASS, HERO_RADIUS}, {MAP_PASS, BOAR_RADIUS}, {MAP_PASS, 0},
+        {MAP_CAVE, HERO_RADIUS}, {MAP_CAVE, BOSS_RADIUS}};
+    MapId previous = selected;
     grid(HERO_RADIUS);
     grid(BOAR_RADIUS);
     grid(BOSS_RADIUS);
+    for (size_t i = 0; i < sizeof regions / sizeof *regions; i++) {
+        world_select(regions[i].map);
+        grid(regions[i].radius);
+    }
+    world_select(previous);
 }
 bool world_route(Vec2 start, Vec2 goal, float radius, Route *out) {
     memset(out, 0, sizeof *out);
