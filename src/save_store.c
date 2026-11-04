@@ -114,10 +114,9 @@ SaveResult save_store_write(const SaveStore *s, const Game *game) {
     unsigned char bytes[SAVE_CAPACITY], old[SAVE_CAPACITY]; size_t size = 0, old_size = 0;
     SaveResult result = save_encode(game, bytes, &size);
     if (result != SAVE_OK) return result;
-    Game check;
     SaveResult existing = read_slot(s, false, old, &old_size);
     if (existing == SAVE_IO || existing == SAVE_UNAVAILABLE || existing == SAVE_FULL) return existing;
-    bool preserve = existing == SAVE_OK && save_decode(&check, old, old_size) == SAVE_OK;
+    bool preserve = existing == SAVE_OK && save_check(old, old_size) == SAVE_OK;
 #ifdef __EMSCRIPTEN__
     return (SaveResult)browser_write(bytes, (int)size, preserve);
 #else

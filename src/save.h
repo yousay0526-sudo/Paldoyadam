@@ -19,5 +19,8 @@ typedef enum {
 SaveResult save_encode(const Game *game, unsigned char *bytes, size_t *size);
 /* Validate into a temporary Game before touching the destination. */
 SaveResult save_decode(Game *game, const unsigned char *bytes, size_t size);
+/* Same accept/reject result as save_decode, without repairing positions
+ * (no route searches). For deciding whether stored bytes are loadable. */
+SaveResult save_check(const unsigned char *bytes, size_t size);
 const char *save_result_text(SaveResult result);
 #endif

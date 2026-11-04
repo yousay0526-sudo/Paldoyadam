@@ -24,6 +24,7 @@ static void ready(Game *g) {
 static Game rt(const Game *g) {
     Game out; MapId selected=world_selected();
     CHECK(save_encode(g,bytes,&size)==SAVE_OK && size==SAVE_V4_SIZE);
+    CHECK(save_check(bytes,size)==SAVE_OK);
     CHECK(save_decode(&out,bytes,size)==SAVE_OK && world_selected()==selected);
     return out;
 }
@@ -190,7 +191,7 @@ static void migration_and_training(void) {
     const size_t old_sizes[]={216,224,SAVE_V3_SIZE};
     for(int version=1;version<=3;version++) {
         CHECK(save_encode(&g,bytes,&size)==SAVE_OK); size=old_sizes[version-1]; sign_record(size,version);
-        Game out; CHECK(save_decode(&out,bytes,size)==SAVE_OK);
+        Game out; CHECK(save_check(bytes,size)==SAVE_OK && save_decode(&out,bytes,size)==SAVE_OK);
         CHECK(out.coins==g.coins && out.quest==g.quest && out.materials[0]==0 && out.materials[1]==0 && piles(&out)==0 && out.loot_rng);
         if(version==3) CHECK(out.hunt[0].hp==0 && out.hunt_respawn[0]==HUNT_RESPAWN_SECONDS);
         out=rt(&out); CHECK(piles(&out)==0); /* no retrofit lottery */
@@ -204,6 +205,7 @@ static void migration_and_training(void) {
     CHECK(piles(&bad)==1 && distance(bad.material_drops[0].drop.pos,HUNT_SPAWNS[0])==0);
     CHECK(save_encode(&g,bytes,&size)==SAVE_OK); bytes[272]=255; bytes[273]=255; bytes[274]=255; bytes[275]=127;
     sign_record(size,4); Game sentinel=g,out=g;
+    CHECK(save_check(bytes,size)==SAVE_CORRUPT);
     CHECK(save_decode(&out,bytes,size)==SAVE_CORRUPT && !memcmp(&out,&sentinel,sizeof out));
     Game saved; CHECK(game_enter_training(&g,&saved));
     int money=g.coins; uint32_t rng=g.loot_rng;

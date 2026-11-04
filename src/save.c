@@ -134,7 +134,11 @@ static bool reachable(Vec2 home, Vec2 p, float radius) {
         world_route(home, p, radius, &route) && route.count > 0 &&
         distance(route.points[route.count - 1], p) < 2;
 }
-SaveResult save_decode(Game *out, const unsigned char *b, size_t size) {
+/* repair = false skips only the position recovery below. That step never
+ * rejects a record (it moves unreachable points to known spots), so both
+ * modes accept and reject exactly the same bytes; it is merely the costly
+ * part, one route search per ground pile. */
+static SaveResult decode(Game *out, const unsigned char *b, size_t size, bool repair) {
     /* Versioned record sizes bound every read, including hostile input. */
     if (!out || !b || size < 16 || size > SAVE_CAPACITY) return SAVE_CORRUPT;
     size_t n = 0;
@@ -197,19 +201,21 @@ SaveResult save_decode(Game *out, const unsigned char *b, size_t size) {
         (resume == 1 && (g.quest != Q_RETURN || g.augment != AUG_NONE || g.replay)) ||
         (resume == 2 && g.quest != Q_MESSENGER && !(g.replay && g.quest == Q_RETURN)) ||
         (resume == 4 && g.quest != Q_MEET) || ((g.hero.hp == 0) != (resume == 3))) goto corrupt;
-    world_select(MAP_PASS);
-    for (int i = 0; i < BOAR_COUNT; i++)
-        if (g.drops[i].exists && !reachable(safe_home(MAP_PASS), g.drops[i].pos, HERO_RADIUS))
-            g.drops[i].pos = g.boars[i].home;
-    for (int i = 0; i < MATERIAL_DROP_MAX; i++) {
-        MaterialDrop *p = &g.material_drops[i];
-        /* No quantity/transaction repair. Coordinates alone can be recovered
-         * to a known reachable ordinary spawn without deleting materials. */
-        if (p->quantity && !reachable(safe_home(MAP_PASS), p->drop.pos, 0))
-            p->drop.pos = HUNT_SPAWNS[0];
+    if (repair) {
+        world_select(MAP_PASS);
+        for (int i = 0; i < BOAR_COUNT; i++)
+            if (g.drops[i].exists && !reachable(safe_home(MAP_PASS), g.drops[i].pos, HERO_RADIUS))
+                g.drops[i].pos = g.boars[i].home;
+        for (int i = 0; i < MATERIAL_DROP_MAX; i++) {
+            MaterialDrop *p = &g.material_drops[i];
+            /* No quantity/transaction repair. Coordinates alone can be recovered
+             * to a known reachable ordinary spawn without deleting materials. */
+            if (p->quantity && !reachable(safe_home(MAP_PASS), p->drop.pos, 0))
+                p->drop.pos = HUNT_SPAWNS[0];
+        }
+        world_select(g.map);
+        if (!reachable(safe_home(g.map), g.hero.pos, HERO_RADIUS)) g.hero.pos = safe_home(g.map);
     }
-    world_select(g.map);
-    if (!reachable(safe_home(g.map), g.hero.pos, HERO_RADIUS)) g.hero.pos = safe_home(g.map);
     g.boss.state = g.boss.hp == 0 ? AI_DEAD : AI_IDLE;
     g.phase = resume == 1 ? PH_AUGMENT : resume == 2 ? PH_COMPLETE : resume == 4 ? PH_PROLOGUE : PH_PLAY;
     if (resume == 3) {
@@ -218,6 +224,13 @@ SaveResult save_decode(Game *out, const unsigned char *b, size_t size) {
     *out = g; world_select(previous); return SAVE_OK;
 corrupt:
     world_select(previous); return SAVE_CORRUPT;
+}
+SaveResult save_decode(Game *out, const unsigned char *b, size_t size) {
+    return decode(out, b, size, true);
+}
+SaveResult save_check(const unsigned char *b, size_t size) {
+    Game scratch;
+    return decode(&scratch, b, size, false);
 }
 const char *save_result_text(SaveResult r) {
     switch (r) {

@@ -16,12 +16,19 @@ static int checks;
 #define CHECK(c) do { checks++; if (!(c)) { fprintf(stderr, "FAIL save:%d: %s\n", __LINE__, #c); exit(1); } } while (0)
 static unsigned char bytes[SAVE_CAPACITY];
 static size_t size;
+/* Every decode in this file also checks that the route-free acceptance test
+ * used by save_store_write agrees with the full decode. */
+static SaveResult decode_checked(Game *out, const unsigned char *b, size_t n) {
+    SaveResult quick = save_check(b, n), full = save_decode(out, b, n);
+    CHECK(quick == full);
+    return full;
+}
 static Game roundtrip(const Game *g) {
     Game loaded;
     CHECK(save_encode(g, bytes, &size) == SAVE_OK);
     CHECK(size == SAVE_V4_SIZE);
     MapId before = world_selected();
-    CHECK(save_decode(&loaded, bytes, size) == SAVE_OK);
+    CHECK(decode_checked(&loaded, bytes, size) == SAVE_OK);
     CHECK(world_selected() == before);
     return loaded;
 }
@@ -129,12 +136,12 @@ static void combat_state_and_v1(void) {
     g.dodge_recharge = .7f; CHECK(save_encode(&g, bytes, &size) == SAVE_OK);
     /* Exact old v1 layout: delete the two appended fields, then re-sign it. */
     size = 216; bytes[4] = 1; bytes[8] = 216; bytes[9] = 0; sum_again();
-    CHECK(save_decode(&loaded, bytes, size) == SAVE_OK);
+    CHECK(decode_checked(&loaded, bytes, size) == SAVE_OK);
     CHECK(loaded.quest == g.quest && loaded.coins == g.coins && loaded.hero.hp == g.hero.hp);
     CHECK(loaded.dodge_charges == DODGE_CHARGES && loaded.dodge_recharge == 0);
     CHECK(save_encode(&loaded, bytes, &size) == SAVE_OK && bytes[4] == SAVE_VERSION && size == SAVE_V4_SIZE);
     bytes[212] = 3; sum_again();
-    CHECK(save_decode(&loaded, bytes, size) == SAVE_CORRUPT);
+    CHECK(decode_checked(&loaded, bytes, size) == SAVE_CORRUPT);
 }
 static void invalid_input(void) {
     Game g; begin(&g); g.hero.pos = (Vec2){NAN, INFINITY};
@@ -146,22 +153,22 @@ static void invalid_input(void) {
     CHECK(distance(out.drops[0].pos, out.boars[0].home) == 0);
     g = out; Game sentinel = g;
     for (size_t n = 0; n < size; n++) {
-        CHECK(save_decode(&out, bytes, n) != SAVE_OK); CHECK(!memcmp(&out, &sentinel, sizeof out));
+        CHECK(decode_checked(&out, bytes, n) != SAVE_OK); CHECK(!memcmp(&out, &sentinel, sizeof out));
     }
     for (size_t i = 0; i < size; i++) {
         unsigned char old = bytes[i]; bytes[i] ^= 128;
-        CHECK(save_decode(&out, bytes, size) != SAVE_OK); CHECK(!memcmp(&out, &sentinel, sizeof out)); bytes[i] = old;
+        CHECK(decode_checked(&out, bytes, size) != SAVE_OK); CHECK(!memcmp(&out, &sentinel, sizeof out)); bytes[i] = old;
     }
-    bytes[4] = 99; CHECK(save_decode(&out, bytes, size) == SAVE_VERSION_NEW);
+    bytes[4] = 99; CHECK(decode_checked(&out, bytes, size) == SAVE_VERSION_NEW);
     CHECK(!memcmp(&out, &sentinel, sizeof out));
     CHECK(save_encode(&g, bytes, &size) == SAVE_OK);
     bytes[48] = 255; bytes[49] = 255; bytes[50] = 255; bytes[51] = 127; sum_again();
-    CHECK(save_decode(&out, bytes, size) == SAVE_CORRUPT);
+    CHECK(decode_checked(&out, bytes, size) == SAVE_CORRUPT);
     CHECK(save_encode(&g, bytes, &size) == SAVE_OK);
-    bytes[64] = 2; sum_again(); CHECK(save_decode(&out, bytes, size) == SAVE_CORRUPT);
+    bytes[64] = 2; sum_again(); CHECK(decode_checked(&out, bytes, size) == SAVE_CORRUPT);
     CHECK(save_encode(&g, bytes, &size) == SAVE_OK);
     bytes[156] = 0; sum_again(); /* Dead boar without its drop: reject coherently. */
-    CHECK(save_decode(&out, bytes, size) == SAVE_CORRUPT);
+    CHECK(decode_checked(&out, bytes, size) == SAVE_CORRUPT);
     Game training, saved; training = g;
     CHECK(game_enter_training(&training, &saved));
     CHECK(save_encode(&training, bytes, &size) == SAVE_INVALID);
@@ -184,6 +191,13 @@ static void storage(const char *dir) {
     CHECK(save_store_load(&s, &out, &recovered) == SAVE_OK && recovered && out.coins == 55);
     g.coins = 33; CHECK(save_store_write(&s, &g) == SAVE_OK);
     CHECK(save_store_load(&s, &out, &recovered) == SAVE_OK && !recovered && out.coins == 33);
+    /* The broken primary was not copied over the backup: it still holds 55. */
+    {
+        unsigned char kept[SAVE_CAPACITY]; size_t kept_size;
+        file_path(path, dir, names[1]); f = fopen(path, "rb"); CHECK(f != NULL);
+        kept_size = fread(kept, 1, sizeof kept, f); fclose(f);
+        CHECK(decode_checked(&out, kept, kept_size) == SAVE_OK && out.coins == 55);
+    }
     /* A directory at the temporary filename deterministically forces a write failure. */
     file_path(path, dir, names[2]); remove(path); CHECK(MAKE_DIR(path) == 0);
     g.coins = 22; CHECK(save_store_write(&s, &g) != SAVE_OK);

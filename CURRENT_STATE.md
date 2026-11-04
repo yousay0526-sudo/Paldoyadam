@@ -8,6 +8,15 @@
 - 정본: `src/*.c`, `src/*.h`; 주요 문서: `README.md`, `docs/CONTROLS.md`, `docs/VALIDATION.md`, `docs/WEB.md`
 
 
+## 2026-11-04 · 자동저장 쓰기 비용 줄이기 · PR 검토 대기
+
+- 사용자 요청: main 전체 점검(보고서: https://claude.ai/artifact/AosbtjjbbvCYS1Zd1XJcWL) 뒤 제안 1번 진행 승인. 기준 main `b80c033`, 브랜치 `claude/project-thread-4he5gj`.
+- 원인: 플레이 중 자동저장은 거의 매초 기록되고, `save_store_write`가 백업 보존 여부를 정하려고 기존 저장을 `save_decode`로 다시 해석했다. 이때 위치 복구용 길찾기가 바닥 재료 더미마다 돌아 더미 수에 비례해 느려졌다(PC -O2, 32더미 약 2.5ms/회).
+- 변경: `src/save.c`에 `save_check()` 추가. `save_decode`와 같은 검사(머리글·버전·크기·체크섬·필드·불변식·재개 상태)를 하되 위치 복구만 건너뛴다. 위치 복구는 기록을 거부하지 않으므로 받아들이는 바이트는 같다. `src/save_store.c`의 백업 판단만 이 함수로 바꿨다. 불러오기·저장 형식(v4 928바이트)·저장 주기·백업 정책은 그대로다.
+- 측정(PC -O2, 32더미): 판단 비용 약 2.5ms → 0.0025ms. 남은 쓰기 시간은 디스크 I/O(이 환경 약 1.4ms).
+- 테스트: Linux/GCC·SDL 2.30.0 CTest **22/22**, ASan+UBSan **22/22**(`detect_leaks=0`). `test_save`의 모든 해석에서 `save_check`와 `save_decode` 결과 일치 확인, 손상된 주 저장이 백업을 덮지 않는지 새 검사 추가, `test_economy`에서 32더미·잘못된 좌표·손상 기록 일치 확인.
+- 미검증: 웹 빌드·실제 휴대폰 프레임(로컬 Emscripten 없음, PR CI의 웹 빌드로 확인). `GAME_BIBLE.md` 없음. 병합·배포·버전 변경은 별도 승인 대기. 다음 후보: 2번 지역 길찾기 격자 미리 생성(승인 후).
+
 ## 2026-11-04 · 병렬 작업 누락 점검 · 문서 정리 PR 검토 대기
 
 - 사용자 요청: GPT·Claude 병렬 작업으로 main에 빠진 기능이 있는지 정리. 기준 main `6de51b8`(#53 병합 후), 브랜치 `claude/project-thread-rhvskv`.
