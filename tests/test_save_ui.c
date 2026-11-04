@@ -94,10 +94,20 @@ int main(int argc, char **argv) {
         }
         a->game = journey;
         SaveStore real_store = a->save_store;
+        /* Routine successful saves stay quiet; failures and the first success
+         * after a failure show the notice. */
+        a->save_message_time = 0; a->game.coins = 42; autosave(a, true);
+        CHECK(a->save_result == SAVE_OK && a->save_message_time == 0);
         save_store_init(&a->save_store, NULL); a->game.coins = 40; autosave(a, true);
-        CHECK(a->save_result == SAVE_UNAVAILABLE);
+        CHECK(a->save_result == SAVE_UNAVAILABLE && a->save_message_time > 0);
+        a->save_message_time = 0; a->game.coins = 39; autosave(a, true);
+        CHECK(a->save_result == SAVE_UNAVAILABLE && a->save_message_time > 0);
+        a->save_message_time = 0;
         a->save_store = real_store; a->game.coins = 41; autosave(a, true);
-        CHECK(a->save_result == SAVE_OK);
+        CHECK(a->save_result == SAVE_OK && a->save_message_time > 0);
+        a->save_message_time = 0; a->game.coins = 43; autosave(a, true);
+        CHECK(a->save_result == SAVE_OK && a->save_message_time == 0);
+        a->game.coins = 41; autosave(a, true);
         Game before = a->game;
         toggle_training(a); CHECK(a->game.training.active);
         a->game.coins = 999; a->save_elapsed = 3; autosave(a, true);

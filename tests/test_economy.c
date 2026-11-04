@@ -139,6 +139,14 @@ static void collection(void) {
     game_tick(&g,.05f,(Vec2){0}); CHECK(!strcmp(toast,g.toast));
     CHECK(g.material_notice[0]==1); g.toast_time=0; g.hitstop_time=0;
     game_tick(&g,.05f,(Vec2){0}); CHECK(strstr(g.toast,"재료 회수") && !g.material_notice[0]);
+    /* A pickup just before leaving the pass is announced in the village,
+     * after the arrival toast, instead of waiting for the next visit. */
+    ready(&g); kill(&g,0); g.hero.pos=g.material_drops[0].drop.pos;
+    CHECK(game_collect_material(&g,0) && g.material_notice[0]==1 && g.toast_time>0);
+    g.hero.pos=MAP_EXITS[2].pos; CHECK(game_travel(&g,2) && g.map==MAP_VILLAGE);
+    CHECK(!strcmp(g.toast,"마을") && g.material_notice[0]==1);
+    for(int i=0;i<200 && g.material_notice[0];i++) game_tick(&g,1.0f/60,(Vec2){0});
+    CHECK(strstr(g.toast,"재료 회수 · 가죽 +1") && !g.material_notice[0] && g.map==MAP_VILLAGE);
 }
 static void smith(Game *g) { g->phase=PH_PLAY; g->map=MAP_VILLAGE; g->hero.pos=NPCS[SMITH].pos; CHECK(game_open_shop(g,SMITH)); }
 static void sales(void) {

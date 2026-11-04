@@ -393,8 +393,11 @@ static void autosave(App *a, bool force) {
     if (r == SAVE_OK && a->save_result == SAVE_OK && size == a->saved_size &&
         !memcmp(bytes, a->saved_bytes, size)) return;
     if (r == SAVE_OK) r = save_store_write(&a->save_store, &a->game);
+    /* Routine successful saves stay quiet (they happen about every second
+     * while playing). A failure, and the first success after one or after
+     * starting, still shows; a failure keeps showing until it clears. */
+    if (r != SAVE_OK || a->save_result != SAVE_OK) a->save_message_time = 3;
     a->save_result = r;
-    a->save_message_time = 3;
     if (r == SAVE_OK) {
         memcpy(a->saved_bytes, bytes, size); a->saved_size = size;
         a->save_available = a->save_present = true;
