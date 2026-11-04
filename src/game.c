@@ -35,6 +35,55 @@ const ItemInfo ITEMS[ITEM_COUNT] = {{"단련한 환도", "기본 공격과 갈�
                                     {"탕약", "체력 45 회복 · 가방 또는 하단 버튼으로 사용", 12, HERBALIST},
                                     {"지혈산", "출혈 즉시 해제 · 가방 또는 하단 버튼으로 사용", 8, HERBALIST},
                                     {"국밥과 휴식", "체력 모두 회복 · 출혈 해제", 10, INNKEEPER}};
+/* Disjoint intervals in one 0..99 draw: leather 0..34, bone 35..54. */
+const MaterialInfo MATERIALS[MATERIAL_COUNT] = {
+    {"가죽 조각", "일반 재료 · 대장간에 매각", 35, 1, 3},
+    {"뼈 조각", "일반 재료 · 대장간에 매각", 20, 1, 2}
+};
+int game_material_roll(unsigned roll) {
+    if (roll >= 100) return -1;
+    unsigned end = 0;
+    for (int i = 0; i < MATERIAL_COUNT; i++) {
+        end += (unsigned)MATERIALS[i].chance;
+        if (roll < end) return i;
+    }
+    return -1;
+}
+int game_material_total(const Game *g, Material material) {
+    if ((unsigned)material >= MATERIAL_COUNT) return -1;
+    int total = g->materials[material];
+    int first = (int)material * MATERIAL_PILES_PER_KIND;
+    for (int i = first; i < first + MATERIAL_PILES_PER_KIND; i++) {
+        int q = g->material_drops[i].quantity;
+        if (q < 0 || q > MATERIAL_LIMIT || total < 0 || total > MATERIAL_LIMIT - q) return -1;
+        total += q;
+    }
+    return total;
+}
+static void hunt_material(Game *g, Vec2 pos) {
+    /* Exactly one PRNG transition even for no-drop/cap results. Health, coins,
+     * RNG and the new pile are then serialized together, never re-rolled. */
+    uint32_t x = g->loot_rng;
+    x ^= x << 13; x ^= x >> 17; x ^= x << 5;
+    g->loot_rng = x;
+    int kind = game_material_roll((unsigned)(((uint64_t)x * 100) >> 32));
+    if (kind < 0) return;
+    int quantity = MATERIALS[kind].quantity;
+    int total = game_material_total(g, (Material)kind);
+    if (total < 0 || total > MATERIAL_LIMIT - quantity) {
+        game_toast(g, "멧돼지 제압 +9문 · 재료 한도 도달(9,999개)");
+        return;
+    }
+    int first = kind * MATERIAL_PILES_PER_KIND, slot = first;
+    for (int i = first; i < first + MATERIAL_PILES_PER_KIND; i++)
+        if (g->material_drops[i].quantity == 0) { slot = i; break; }
+    MaterialDrop *pile = &g->material_drops[slot];
+    if (pile->quantity == 0)
+        pile->drop = (Drop){.pos = pos, .exists = true};
+    else
+        game_toast(g, "멧돼지 제압 +9문 · 재료는 기존 바닥 더미에 합산");
+    pile->quantity += quantity;
+}
 const AugmentInfo AUGMENTS[3] = {
     {"강철 대검", "무기", "베는 범위가 넓어지고 한 번의 베기가 무거워집니다.\n공격 범위 +18 · 기본 피해 +4"},
     {"바람의 깃", "패시브", "검 끝에서 바람 칼날이 뻗어 나갑니다.\n거리 120 안의 적에게 바람 피해 6"},
@@ -138,6 +187,7 @@ void game_reset(Game *g) {
     g->tonics = 2;
     g->bandages = 1;
     g->shop = -1;
+    g->loot_rng = 0x50445931u;
     g->attack_cooldown = 0;
     g->queued_move = g->last_move = g->last_hit_move = g->input_move = MOVE_NONE;
     g->swipe_bindings[SWIPE_UP] = TECH_CLEAVE;
@@ -237,6 +287,11 @@ int game_pickup_count(const Game *g) {
     for (int i = 0; i < BOAR_COUNT; i++)
         if (can_pickup(g, i))
             count++;
+    if (!g->training.active && g->map == MAP_PASS && g->phase == PH_PLAY)
+        for (int i = 0; i < MATERIAL_DROP_MAX; i++)
+            if (g->material_drops[i].quantity > 0 &&
+                distance(g->hero.pos, g->material_drops[i].drop.pos) < PICKUP_RADIUS &&
+                world_segment(g->hero.pos, g->material_drops[i].drop.pos, 0)) count++;
     return count;
 }
 int game_pickup_nearby(Game *g) {
@@ -250,7 +305,25 @@ int game_pickup_nearby(Game *g) {
         snprintf(text, sizeof text, "약재 +%d · 회수 %d/3", count, g->herbs);
         game_toast(g, text);
     }
+    for (int i = 0; i < MATERIAL_DROP_MAX; i++)
+        if (game_collect_material(g, i)) count++;
     return count;
+}
+bool game_collect_material(Game *g, int i) {
+    world_select(g->map);
+    if (g->training.active || g->map != MAP_PASS || g->phase != PH_PLAY ||
+        i < 0 || i >= MATERIAL_DROP_MAX) return false;
+    MaterialDrop *pile = &g->material_drops[i];
+    int kind = i / MATERIAL_PILES_PER_KIND, q = pile->quantity;
+    if (q <= 0 || q > MATERIAL_LIMIT || g->materials[kind] < 0 ||
+        g->materials[kind] > MATERIAL_LIMIT - q ||
+        distance(g->hero.pos, pile->drop.pos) >= PICKUP_RADIUS ||
+        !world_segment(g->hero.pos, pile->drop.pos, 0)) return false;
+    /* No callback/save boundary inside the inventory + pile transaction. */
+    g->materials[kind] += q;
+    g->material_notice[kind] = (int)fminf(MATERIAL_LIMIT, g->material_notice[kind] + q);
+    *pile = (MaterialDrop){0};
+    return true;
 }
 Vec2 game_objective(const Game *g) {
     world_select(g->map);
@@ -373,6 +446,28 @@ bool game_open_shop(Game *g, int n) {
         return false;
     g->shop = n;
     g->phase = PH_SHOP;
+    return true;
+}
+const char *game_sale_error(const Game *g, Material material, int quantity) {
+    if (g->training.active || g->map != MAP_VILLAGE || g->phase != PH_SHOP ||
+        g->shop != SMITH || !near_npc(g, SMITH)) return "대장간에서 매각하세요";
+    if ((unsigned)material >= MATERIAL_COUNT) return "매각할 수 없는 물품";
+    if (quantity <= 0 || quantity > MATERIAL_LIMIT || g->materials[material] < quantity ||
+        g->materials[material] > MATERIAL_LIMIT) return "재료 수량 부족 또는 오류";
+    int price = MATERIALS[material].price;
+    /* Check before multiplication/addition; never clamp away paid materials. */
+    if (price <= 0 || g->coins < 0 || g->coins > COIN_LIMIT ||
+        quantity > (COIN_LIMIT - g->coins) / price) return "소지금 한도 초과";
+    return NULL;
+}
+bool game_sell_material(Game *g, Material material, int quantity) {
+    if (game_sale_error(g, material, quantity)) return false;
+    int proceeds = quantity * MATERIALS[material].price;
+    g->materials[material] -= quantity;
+    g->coins += proceeds;
+    char text[160];
+    snprintf(text, sizeof text, "%s %d개 매각 · +%d문", MATERIALS[material].name, quantity, proceeds);
+    game_toast(g, text);
     return true;
 }
 bool game_equip(Game *g, Item item, bool equipped) {
@@ -525,6 +620,7 @@ bool game_damage(Game *g, Enemy *e, int amount, EffectKind kind) {
             g->coins += HUNT_REWARD;
             g->hunt_respawn[e - g->hunt] = HUNT_RESPAWN_SECONDS;
             game_toast(g, "멧돼지 제압 +9문");
+            hunt_material(g, e->pos);
         } else {
             for (int i = 0; i < BOAR_COUNT; i++)
                 if (e == &g->boars[i])
@@ -952,35 +1048,52 @@ static void tick_hunt_respawn(Game *g, float dt) {
         effect(g, (Effect){.kind = FX_DUST, .pos = e->pos, .life = .55f, .amount = 3});
     }
 }
-/* Follow only an unobstructed segment. Menus pause this with the rest of the world. */
+/* Shared herb/material magnet: same delay, acceleration, radius and wall
+ * checks. Caller owns the single inventory transaction when this returns true. */
+static bool magnet_drop(Game *g, Drop *drop, float dt) {
+    drop->attracting = false;
+    drop->age += dt;
+    if (drop->age < DROP_REST_SECONDS) return false;
+    float d = distance(g->hero.pos, drop->pos);
+    if (d > MAGNET_RADIUS || !world_segment(drop->pos, g->hero.pos, 0)) {
+        drop->magnet_time = 0;
+        return false;
+    }
+    drop->attracting = true;
+    drop->magnet_time += dt;
+    if (d > COLLECT_RADIUS) {
+        float speed = 70 + 150 * clampf(drop->magnet_time / .7f, 0, 1);
+        float step = fminf(d, speed * dt);
+        drop->pos = world_move(drop->pos,
+            (Vec2){(g->hero.pos.x - drop->pos.x) * step / d,
+                   (g->hero.pos.y - drop->pos.y) * step / d}, 0);
+    }
+    return drop->magnet_time >= .25f && distance(g->hero.pos, drop->pos) <= COLLECT_RADIUS;
+}
 static void tick_loot(Game *g, float dt) {
     world_select(g->map);
-    if ((g->map != MAP_PASS && g->map != MAP_TRAINING) || g->phase != PH_PLAY || g->quest != Q_RECOVER || dt <= 0)
-        return;
-    for (int i = 0; i < BOAR_COUNT; i++) {
-        Drop *drop = &g->drops[i];
-        drop->attracting = false;
-        if (!drop->exists || drop->collected)
-            continue;
-        drop->age += dt;
-        if (drop->age < DROP_REST_SECONDS)
-            continue;
-        float d = distance(g->hero.pos, drop->pos);
-        if (d > MAGNET_RADIUS || !world_segment(drop->pos, g->hero.pos, 0)) {
-            drop->magnet_time = 0;
-            continue;
+    if (g->training.active || (g->map != MAP_PASS && g->map != MAP_TRAINING) ||
+        g->phase != PH_PLAY || dt <= 0) return;
+    if (g->quest == Q_RECOVER)
+        for (int i = 0; i < BOAR_COUNT; i++)
+            if (g->drops[i].exists && !g->drops[i].collected && magnet_drop(g, &g->drops[i], dt))
+                game_collect(g, i);
+    if (g->map == MAP_PASS)
+        for (int i = 0; i < MATERIAL_DROP_MAX; i++) {
+            MaterialDrop *pile = &g->material_drops[i];
+            if (pile->quantity <= 0) continue;
+            bool arrived = magnet_drop(g, &pile->drop, dt);
+            pile->drop.age = fminf(DROP_REST_SECONDS, pile->drop.age);
+            pile->drop.magnet_time = fminf(1, pile->drop.magnet_time);
+            if (arrived) game_collect_material(g, i);
         }
-        drop->attracting = true;
-        drop->magnet_time += dt;
-        if (d > COLLECT_RADIUS) {
-            float speed = 70 + 150 * clampf(drop->magnet_time / .7f, 0, 1);
-            float step = fminf(d, speed * dt);
-            drop->pos = world_move(drop->pos,
-                (Vec2){(g->hero.pos.x - drop->pos.x) * step / d,
-                       (g->hero.pos.y - drop->pos.y) * step / d}, 0);
-        }
-        if (drop->magnet_time >= .25f && distance(g->hero.pos, drop->pos) <= COLLECT_RADIUS)
-            game_collect(g, i);
+    /* One combined, deferred notice in the existing slot, without masking
+     * combat/quest toasts or creating a second HUD overlay beside saving. */
+    if (g->toast_time <= 0 && (g->material_notice[0] || g->material_notice[1])) {
+        char text[160];
+        snprintf(text, sizeof text, "재료 회수 · 가죽 +%d · 뼈 +%d", g->material_notice[0], g->material_notice[1]);
+        game_toast(g, text);
+        memset(g->material_notice, 0, sizeof g->material_notice);
     }
 }
 static void chain_move(Game *g, int move) {
@@ -1572,6 +1685,10 @@ bool game_travel(Game *g, int index) {
     /* Walking in from the village starts a new hunting round. */
     if(from==MAP_VILLAGE && g->map==MAP_PASS) new_hunt_round(g);
     for(int i=0;i<BOAR_COUNT;i++) { g->drops[i].attracting=false;g->drops[i].magnet_time=0; }
+    for (int i=0;i<MATERIAL_DROP_MAX;i++) {
+        g->material_drops[i].drop.attracting=false;
+        g->material_drops[i].drop.magnet_time=0;
+    }
     game_toast(g,game_map_name(g->map));
     return true;
 }

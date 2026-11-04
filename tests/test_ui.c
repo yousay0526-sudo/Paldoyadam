@@ -390,6 +390,38 @@ static void health_trails(void) {
     trail_health(&ghost, &hold, &seen, 90, 100, .016f);
     CHECK(ghost == 127 && hold > .3f);
 }
+static void material_sale_controls(App *a) {
+    const Vec2 views[]={{432,270},{480,306},{568,320},{844,390},{1280,720}};
+    for(int view=0;view<5;view++) for(int touch=0;touch<2;touch++) for(int qcase=0;qcase<3;qcase++) {
+        game_reset(&a->game); game_start(&a->game);
+        a->game.hero.pos=NPCS[SMITH].pos; CHECK(game_open_shop(&a->game,SMITH));
+        a->game.materials[0]=qcase==0?0:qcase==1?7:MATERIAL_LIMIT;
+        a->game.materials[1]=3; a->smith_selling=true;
+        a->width=views[view].x; a->height=views[view].y; a->touch_input=touch!=0;
+        a->button_count=0; draw_shop(a);
+        int sale=0,select=0;
+        for(int i=0;i<a->button_count;i++) {
+            Button b=a->buttons[i];
+            CHECK(b.rect.w>=44 && b.rect.h>=44);
+            CHECK(b.rect.x>=0 && b.rect.y>=0 && b.rect.x+b.rect.w<=a->width && b.rect.y+b.rect.h<=a->height);
+            for(int j=0;j<i;j++) CHECK(!rects_overlap(b.rect,a->buttons[j].rect));
+            if(b.action==ACT_SELL_ONE||b.action==ACT_SELL_ALL) { sale++; CHECK(b.enabled==(qcase!=0)); }
+            if(b.action==ACT_MATERIAL_SELECT) select++;
+        }
+        CHECK(sale==2 && select==2);
+        BagEntry entries[8]; int count=bag_entries(&a->game,2,entries);
+        CHECK(count==(qcase?2:1));
+        for(int i=0;i<count;i++) CHECK(entries[i].key==150+(qcase?i:1));
+        int money=a->game.coins,qty=a->game.materials[0];
+        dispatch(a,ACT_SELL_ALL,0); dispatch(a,ACT_SELL_ALL,0);
+        CHECK(a->game.materials[0]==0 && a->game.materials[1]==3);
+        CHECK(a->game.coins==money+qty*MATERIALS[0].price);
+        game_close_panel(&a->game); CHECK(!game_sell_material(&a->game,MAT_BONE,1));
+        a->game.phase=PH_BAG; a->bag_tab=2; a->bag_selected=-999;
+        a->button_count=0; draw_bag(a); CHECK(a->bag_selected==151);
+        for(int i=0;i<a->button_count;i++) CHECK(a->buttons[i].action!=ACT_USE && a->buttons[i].action!=ACT_EQUIP);
+    }
+}
 int main(int argc,char **argv) {
     SDL_SetMainReady();
     SDL_setenv("SDL_VIDEODRIVER","dummy",1);
@@ -400,6 +432,7 @@ int main(int argc,char **argv) {
     a->renderer = SDL_CreateSoftwareRenderer(surface);
     if (!a->renderer || !gfx_load(&a->gfx,a->renderer,argc > 1 ? argv[1] : "assets")) return 1;
     health_trails();
+    material_sale_controls(a);
     all_narratives(a);
     panel_controls_fit(a);
     training_controls_fit(a);

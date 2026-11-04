@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <errno.h>
 #ifdef _WIN32
 #include <direct.h>
 #define MAKE_DIR(p) _mkdir(p)
@@ -92,6 +93,7 @@ static void observed_present(SDL_Renderer *renderer) {
         return;
     }
     if (stage == 0 && a->game.phase == PH_TITLE) {
+        if (a->save_available) fprintf(stderr, "unexpected initial save: profile=%s store=%s result=%d recovered=%d argc-write=%d\n", profile, a->save_store.directory, a->save_result, a->save_recovered, writing);
         CHECK(!a->save_available); control(a, ACT_SKIP, 0); stage = 1;
     } else if (stage == 1 && a->game.phase == PH_PLAY) {
         float zoom = world_zoom(a->height);
@@ -118,7 +120,15 @@ int main(int argc, char **argv) {
     CHECK(argc == 4); writing = !strcmp(argv[1], "write"); profile = argv[2]; MAKE_DIR(profile);
     if (writing) {
         const char *files[] = {"journey-autosave.sav", "journey-autosave.bak", "keys.txt", "expected.txt"};
-        for (int i = 0; i < 4; i++) { char p[2400]; snprintf(p, sizeof p, "%s/%s", profile, files[i]); remove(p); }
+        for (int i = 0; i < 4; i++) {
+            char p[2400]; snprintf(p, sizeof p, "%s/%s", profile, files[i]);
+            int result = remove(p);
+            if (result && errno != ENOENT) fprintf(stderr, "fixture cleanup: %s: %s\n", p, strerror(errno));
+            CHECK(result == 0 || errno == ENOENT);
+        }
+        SaveStore empty; Game probe; bool recovered;
+        save_store_init(&empty, profile);
+        CHECK(save_store_load(&empty, &probe, &recovered) == SAVE_MISSING);
     }
     SDL_SetMainReady(); SDL_SetHint(SDL_HINT_VIDEODRIVER, "dummy");
     char *args[] = {argv[0], "--assets", argv[3], "--size", "1100x650"};

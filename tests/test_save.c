@@ -19,7 +19,7 @@ static size_t size;
 static Game roundtrip(const Game *g) {
     Game loaded;
     CHECK(save_encode(g, bytes, &size) == SAVE_OK);
-    CHECK(size == SAVE_V3_SIZE);
+    CHECK(size == SAVE_V4_SIZE);
     MapId before = world_selected();
     CHECK(save_decode(&loaded, bytes, size) == SAVE_OK);
     CHECK(world_selected() == before);
@@ -132,7 +132,7 @@ static void combat_state_and_v1(void) {
     CHECK(save_decode(&loaded, bytes, size) == SAVE_OK);
     CHECK(loaded.quest == g.quest && loaded.coins == g.coins && loaded.hero.hp == g.hero.hp);
     CHECK(loaded.dodge_charges == DODGE_CHARGES && loaded.dodge_recharge == 0);
-    CHECK(save_encode(&loaded, bytes, &size) == SAVE_OK && bytes[4] == SAVE_VERSION && size == SAVE_V3_SIZE);
+    CHECK(save_encode(&loaded, bytes, &size) == SAVE_OK && bytes[4] == SAVE_VERSION && size == SAVE_V4_SIZE);
     bytes[212] = 3; sum_again();
     CHECK(save_decode(&loaded, bytes, size) == SAVE_CORRUPT);
 }

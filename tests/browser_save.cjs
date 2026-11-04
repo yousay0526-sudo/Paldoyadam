@@ -115,10 +115,10 @@ function same(a, b) { for (const f of fields) assert.equal(a[f], b[f], f); }
     await click(page, 'start'); await click(page, 'confirm'); await phase(page, 1);
     await saved(page, 0); assert.equal((await state(page)).keyAttack, 98);
     const record = await page.evaluate(k => localStorage.getItem(k), key);
-    assert.equal(record.length, 276 * 2); assert.equal(record.slice(8, 10), '03');
+    assert.equal(record.length, 928 * 2); assert.equal(record.slice(8, 10), '04');
     await page.reload(); await page.waitForSelector('body[data-game-ready="true"]'); await phase(page, 0);
     await click(page, 'continue'); await phase(page, 1); assert.equal((await state(page)).keyAttack, 98);
-    console.log('PASS confirmed new journey writes v3, restarts prologue and preserves separate keys');
+    console.log('PASS confirmed new journey writes v4, restarts prologue and preserves separate keys');
     assert.deepEqual(errors, []);
     console.log('PASS browser_save: no page errors; profile and screenshots: ' + output);
   } finally {

@@ -14,7 +14,7 @@ static size_t size;
 static Game roundtrip(const Game *g) {
     Game loaded;
     CHECK(save_encode(g, bytes, &size) == SAVE_OK);
-    CHECK(size == SAVE_V3_SIZE);
+    CHECK(size == SAVE_V4_SIZE);
     CHECK(save_decode(&loaded, bytes, size) == SAVE_OK);
     return loaded;
 }
@@ -95,8 +95,8 @@ static void rewards_apart_from_quest(void) {
         CHECK(!game_damage(&g, &g.hunt[i], 99, FX_HIT));
         CHECK(!strcmp(g.toast, "멧돼지 제압 +9문"));
     }
-    /* No herb, no drop, no quest step, nothing to pick up. */
-    CHECK(g.quest == Q_RECOVER && g.herbs == 0 && game_pickup_count(&g) == 0);
+    /* Ordinary materials are separate; no herb drop or quest step. */
+    CHECK(g.quest == Q_RECOVER && g.herbs == 0);
     for (int i = 0; i < BOAR_COUNT; i++) CHECK(!g.drops[i].exists && g.boars[i].hp == BOAR_HP);
     char text[128]; game_objective_brief(&g, text, sizeof text); CHECK(strstr(text, "0/3"));
     /* The falls play out, then nothing is left to draw or tick. */
@@ -320,9 +320,9 @@ static void v2_migration(void) {
     CHECK(save_decode(&loaded, bytes, size) == SAVE_OK);
     CHECK(loaded.quest == Q_RECOVER && loaded.coins == g.coins && loaded.boars[1].hp == 0 && loaded.drops[1].exists);
     CHECK(loaded.hunt_round == 1 && alive(&loaded) == HUNT_COUNT);
-    CHECK(save_encode(&loaded, bytes, &size) == SAVE_OK && size == SAVE_V3_SIZE && bytes[4] == 3);
+    CHECK(save_encode(&loaded, bytes, &size) == SAVE_OK && size == SAVE_V4_SIZE && bytes[4] == SAVE_VERSION);
     /* Unknown future versions are still refused. */
-    bytes[4] = 4; CHECK(save_decode(&loaded, bytes, size) == SAVE_VERSION_NEW);
+    bytes[4] = SAVE_VERSION + 1; CHECK(save_decode(&loaded, bytes, size) == SAVE_VERSION_NEW);
 }
 
 /* Dying on the pass: home to the village, kills and coins kept; walking back
@@ -368,7 +368,7 @@ static void chapter(void) {
         g = roundtrip(&g);
     }
     CHECK(g.quest == Q_DELIVER && g.herbs == 3 && g.coins == 82 + hunted * HUNT_REWARD);
-    /* Ordinary boars after the herbs still pay only coins. */
+    /* Ordinary boar materials never enter the herb ledger. */
     g.hero.pos = g.hunt[0].pos; CHECK(game_damage(&g, &g.hunt[0], 99, FX_HIT)); hunted++;
     CHECK(g.herbs == 3 && g.quest == Q_DELIVER);
     to_village(&g);
@@ -376,7 +376,7 @@ static void chapter(void) {
     CHECK(!game_deliver(&g) && g.coins == 137 + hunted * HUNT_REWARD);
     to_pass(&g); /* Hunting after the delivery. */
     for (int i = 0; i < HUNT_COUNT; i++) { g.hero.pos = g.hunt[i].pos; CHECK(game_damage(&g, &g.hunt[i], 99, FX_HIT)); hunted++; }
-    CHECK(g.quest == Q_REPORT && g.herbs == 0 && game_pickup_count(&g) == 0);
+    CHECK(g.quest == Q_REPORT && g.herbs == 0);
     g = roundtrip(&g); to_village(&g);
     g.hero.pos = NPCS[ELDER].pos; CHECK(game_report(&g)); g = roundtrip(&g);
     g.hero.pos = MAP_EXITS[1].pos; CHECK(game_travel(&g, 1));

@@ -2,6 +2,7 @@
 #define PALDO_GAME_H
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 
 #define WORLD_W 2304.0f
 #define WORLD_H 1536.0f
@@ -17,6 +18,14 @@
 #define HUNT_RESPAWN_CLEAR 420.0f
 #define BOAR_HP 38
 #define HUNT_REWARD 9
+/* Independent ground stacks, never indexed by a respawning enemy slot.
+ * Reserve half for each material; full lanes merge at an existing position.
+ * No expiry, including map changes. The bag + ground limit bounds quantities. */
+#define MATERIAL_COUNT 2
+#define MATERIAL_PILES_PER_KIND 16
+#define MATERIAL_DROP_MAX (MATERIAL_COUNT * MATERIAL_PILES_PER_KIND)
+#define MATERIAL_LIMIT 9999
+#define COIN_LIMIT 1000000 /* Existing save currency ceiling. */
 #define NPC_COUNT 5
 #define TRACE_COUNT 2
 #define EFFECT_MAX 48
@@ -203,6 +212,15 @@ typedef struct {
     bool exists, collected, attracting;
     float age, magnet_time;
 } Drop;
+typedef enum { MAT_LEATHER, MAT_BONE } Material;
+typedef struct {
+    const char *name, *use;
+    int chance, quantity, price;
+} MaterialInfo;
+typedef struct {
+    Drop drop;
+    int quantity; /* zero = unused; kind is fixed by the pool lane */
+} MaterialDrop;
 typedef struct {
     Vec2 pos;
     const char *name, *role;
@@ -250,6 +268,11 @@ typedef struct {
     /* Seconds of play on the pass left before each fallen boar returns. */
     float hunt_respawn[HUNT_COUNT];
     Drop drops[BOAR_COUNT];
+    int materials[MATERIAL_COUNT];
+    MaterialDrop material_drops[MATERIAL_DROP_MAX];
+    uint32_t loot_rng;
+    /* Coalesced pickup notice waits until the existing toast is free. */
+    int material_notice[MATERIAL_COUNT];
     bool traces[TRACE_COUNT], sword, armor, supplies_delivered, boss_rewarded, replay;
     bool owned_sword, owned_armor;
     int coins, tonics, bandages, herbs, shop;
@@ -295,6 +318,13 @@ extern const Npc NPCS[NPC_COUNT];
 extern const Trace TRACES[TRACE_COUNT];
 extern const QuestInfo QUESTS[QUEST_COUNT];
 extern const ItemInfo ITEMS[ITEM_COUNT];
+extern const MaterialInfo MATERIALS[MATERIAL_COUNT];
+/* One table lookup after one persisted PRNG step per ordinary kill. */
+int game_material_roll(unsigned roll); /* 0..99; -1 = no drop */
+int game_material_total(const Game *g, Material material);
+bool game_collect_material(Game *g, int drop_index);
+const char *game_sale_error(const Game *g, Material material, int quantity);
+bool game_sell_material(Game *g, Material material, int quantity);
 extern const AugmentInfo AUGMENTS[3];
 extern const TechniqueInfo TECHNIQUES[TECH_COUNT];
 
