@@ -14,7 +14,8 @@ for ($y=545; $y -lt 720; $y++) { for ($x=1330; $x -lt 1536; $x++) {
   $p=$base.GetPixel($x,$y); $q=$edit.GetPixel($x,$y)
   $base.SetPixel($x,$y,[Drawing.Color]::FromArgb(255,[int]($p.R*(1-$a)+$q.R*$a),[int]($p.G*(1-$a)+$q.G*$a),[int]($p.B*(1-$a)+$q.B*$a)))
 } }
-$base.Save((Join-Path $repo 'assets/maps/village.png'),[Drawing.Imaging.ImageFormat]::Png)
+# Lossless master; run scripts/prepare_web_paintings.py to refresh assets/maps/village.jpg.
+$base.Save((Join-Path $repo 'art/maps/village.png'),[Drawing.Imaging.ImageFormat]::Png)
 $base.Dispose(); $edit.Dispose()
 $src=New-Object Drawing.Bitmap((Join-Path $art 'waypost-generated.png'))
 $out=New-Object Drawing.Bitmap(256,256,[Drawing.Imaging.PixelFormat]::Format32bppArgb)

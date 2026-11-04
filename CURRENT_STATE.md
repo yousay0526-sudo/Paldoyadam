@@ -8,13 +8,22 @@
 - 정본: `src/*.c`, `src/*.h`; 주요 문서: `README.md`, `docs/CONTROLS.md`, `docs/VALIDATION.md`, `docs/WEB.md`
 
 
-## 2026-11-04 · 재료 알림 멈춤 · 자동저장 안내 상시 표시 · PR 검토 대기
+## 2026-11-04 · 웹 다운로드 용량 줄이기(큰 그림 JPEG 사본) · PR 검토 대기
+
+- 점검 보고서 제안 4번. 2배 확대 비교 이미지를 본 뒤 사용자 승인. 기준 main `ab1ed39`, 브랜치 `claude/project-thread-4he5gj`.
+- 변경: 불투명한 큰 그림 7장(수련장 `village`, 마을·솔바람재·탐식굴 배경, 프롤로그 3장)을 같은 크기의 JPEG(품질 95, 4:4:4)로 바꿨다. 무손실 원본 PNG는 `art/maps/`, `art/prologue/`로 옮겨 바이트 그대로 보존했다(수련장 원본은 이미 같은 바이트의 `art/village/village-remake-pass1-master.png`). `scripts/prepare_web_paintings.py`가 원본에서 사본을 만든다. `src/draw.c` stb_image에 JPEG 해독을 켜고, `src/draw.c`·`src/game.c`의 파일 경로만 `.jpg`로 바꿨다. 투명 배경 캐릭터·몬스터·아이콘·이정표는 PNG 그대로.
+- 결과: `assets` 45MB → 24MB(그림 7장 30.1MB → 8.4MB). 원본 대비 PSNR 38.3~43.9dB. 해독 시간(PC, SIMD 끔) 맵 약 52→48ms, 프롤로그 약 90→41ms.
+- 테스트: Linux/GCC·SDL 2.30.0 CTest **23/23**, ASan+UBSan **23/23**. 새 `web_paintings` 테스트가 각 JPEG가 게임과 같은 stb_image로 해독되고 원본과 크기가 같으며 PSNR 36dB 이상인지 확인한다(다른 그림으로 바꿔 넣으면 10.7dB로 실패함을 확인). `hero_animation`의 지도 픽셀 일치 검사는 `village.jpg` 기준으로 그대로 통과. 네이티브 화면(솔바람재 사냥, 프롤로그) 확인.
+- 문서: `art/maps/provenance.json`(원본 경로·실행 사본), `docs/MAP_INTEGRATION.md`, `docs/WEB.md`, `THIRD_PARTY_NOTICES.md`. 원본 경로를 쓰는 제작 스크립트 2개(`review_village_asset.py`, `prepare_map_waypoints.ps1`)는 원본 경로로만 고쳤다.
+- 미검증: 실제 웹 빌드 용량과 휴대폰 로딩 체감(이 환경에 Emscripten 없음, PR CI 빌드로 확인). 폰트 6.5MB 줄이기는 이번 범위 밖. 병합·배포는 별도 승인 대기.
+
+## 2026-11-04 · 재료 알림 멈춤 · 자동저장 안내 상시 표시 · PR #57 (사용자 승인, main 병합·Pages 배포)
 
 - 점검 보고서 제안 3번, 사용자 승인. 기준 main `836c273`, 브랜치 `claude/project-thread-4he5gj`.
 - 재료 알림: 다른 알림이 떠 있을 때 재료를 줍고 바로 마을로 가면 합산 알림이 솔바람재를 다시 찾을 때까지 나오지 않았다(테스트로 재현). `src/game.c` 알림 표시를 `tick_loot`의 솔바람재 조건 밖 `flush_material_notice`로 분리해 모든 지역에서 기존 알림이 끝난 뒤 표시한다. 회수·수량·저장은 그대로.
 - 저장 안내: 성공할 때마다 안내 시간을 3초로 되돌려, 플레이 중 거의 매초 저장되며 "자동저장 완료"가 사실상 상시 표시됐다. `src/main.c` `autosave`에서 평상시 성공은 표시하지 않고, 실패(복구될 때까지 계속)·실패 뒤 첫 성공·새 여정 첫 저장은 기존처럼 표시한다. 타이틀·이어하기 표시, 저장 주기·형식 변경 없음.
 - 테스트: Linux/GCC·SDL 2.30.0 CTest **22/22**, ASan+UBSan **22/22**. `test_economy`에 솔바람재에서 줍고 바로 마을로 간 뒤 마을에서 알림이 나오는 검사, `test_save_ui`(native_save_session_restart)에 평상시 성공 무표시·실패 표시·실패 뒤 첫 성공 표시 검사를 추가했다. 두 검사 모두 변경 전 코드에서 실패함을 확인했다.
-- 미검증: 실제 화면·휴대폰에서의 체감. `GAME_BIBLE.md` 없음. 병합·배포는 별도 승인 대기.
+- 사용자 "승인"으로 squash 병합 main `ab1ed39`. 미검증: 실제 화면·휴대폰에서의 체감. `GAME_BIBLE.md` 없음.
 
 ## 2026-11-04 · 지역 길찾기 격자 미리 만들기 · PR #56 (사용자 승인, main 병합·Pages 배포)
 

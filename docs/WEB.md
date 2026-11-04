@@ -30,6 +30,8 @@ Pages를 설정하지 않았을 때는 배포를 건너뛰고 Actions 요약에 
 | 게임 화면을 그리는 방식 | `src/draw.c` |
 | 이미지·폰트 | `assets/` |
 
+큰 불투명 그림(마을·지역 배경, 프롤로그 3장)은 웹 다운로드를 줄이려고 JPEG 사본을 씁니다. 원본 PNG는 `art/`에 있으며, 원본을 바꾸면 `python3 scripts/prepare_web_paintings.py`(Pillow 필요)로 `assets/`의 사본을 다시 만듭니다. 투명 배경 캐릭터·몬스터·아이콘은 PNG 그대로입니다.
+
 ## 링크 대신 HTML 파일로 실행
 
 Actions에서 완료된 실행을 열고 **Artifacts → paldo-browser**를 다운로드합니다. 압축을 풀면:

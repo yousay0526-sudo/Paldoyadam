@@ -46,8 +46,10 @@ def main():
                         default=ROOT / 'docs/village-remake-pass1-layout.json')
     args = parser.parse_args()
     old_bytes = git_bytes(args.baseline, 'assets/village.png')
-    new_bytes = (ROOT / 'assets/village.png').read_bytes()
+    # The game now loads assets/village.jpg made from this master
+    # (scripts/prepare_web_paintings.py); review the lossless master.
     master = ROOT / 'art/village/village-remake-pass1-master.png'
+    new_bytes = master.read_bytes()
     before, after = Image.open(io.BytesIO(old_bytes)), Image.open(io.BytesIO(new_bytes))
     assert before.size == after.size == (1536, 1024), 'Canvas registration changed'
     assert after.convert('RGBA').getchannel('A').getextrema() == (255, 255)
