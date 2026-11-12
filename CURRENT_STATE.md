@@ -1,12 +1,19 @@
 # CURRENT_STATE.md — 팔도야담 개발 상태
 
-최종 갱신: 2026-11-04
+최종 갱신: 2026-11-12
 
 ## 기준
 - GitHub 저장소: `yousay0526-sudo/Paldoyadam`
 - 현재 버전: `0.8.0` (C11/SDL2 기반 게임 및 Emscripten 웹 빌드)
 - 정본: `src/*.c`, `src/*.h`; 주요 문서: `README.md`, `docs/CONTROLS.md`, `docs/VALIDATION.md`, `docs/WEB.md`
 
+
+## 2026-11-12 · 팔도 에셋 스튜디오 1차 MVP (에셋 제작 GUI 툴) · PR 검토 대기
+
+- 사용자 지시서의 1차 MVP. 기준 main `1ced1a0`, 브랜치 `claude/project-thread-pyb6e1`. 게임 코드·빌드 설정·`assets/`·기존 문서는 바꾸지 않았고 `tools/asset_studio/`만 추가했다(Python 3 + PySide6 + Pillow + NumPy).
+- 기능: 프로젝트 생성·저장·불러오기, PNG/시트 셀 가져오기(원본은 프로젝트 `sources/`에 복사·SHA-256 기록, 원본 무변경), 투명 격자·배경 전환, 종류별 에셋 목록·레이어 목록(표시·순서·잠금·복제·삭제), 드래그·키·숫자 위치 조절, 배율, 발 기준점·레이어 기준점과 "기준점 맞추기", 중심축·발 접지선, 게임 크기 미리보기, 실행 취소, 내보내기 전 검사(정상/경고/오류), 프로젝트 `exports/`로 PNG+메타데이터 내보내기. 규격 프리셋은 `art/hero/*/preparation.json`과 `src/draw.c`에서 읽는다.
+- 테스트: Linux/Python 3.13·PySide6 6.12·Pillow 12.3 `python -m unittest discover -s tools/asset_studio/tests` **22/22**(코어 19, offscreen 실제 창 3). 기존 정지 S 셀을 가져와 내보내면 원본 셀과 픽셀 동일함을 확인. 게임 코어 CTest 11/11(게임 미변경 확인용). 실행 화면은 `tools/asset_studio/docs/screenshots/`.
+- 미검증·남음: Windows 실행, 실제 화면(모니터)에서의 조작감. 레이어 회전·반전·가림 마스크, 8방향·애니메이션·시트 출력은 2차 이후(승인 대기). 레이어 순서·장비 기준점 규격은 PR #42·#44와 GPT 에셋 제작 표준 검토 결과를 따른다. `GAME_BIBLE.md` 없음. 병합·배포·버전 변경 없음.
 
 ## 2026-11-04 · 웹 다운로드 용량 줄이기(큰 그림 JPEG 사본) · PR 검토 대기
 

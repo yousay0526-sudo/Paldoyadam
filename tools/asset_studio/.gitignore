@@ -1,0 +1,4 @@
+__pycache__/
+*.pyc
+# Studio projects are kept outside the repository by default; ignore any made here by accident.
+*/project.paldo.json
