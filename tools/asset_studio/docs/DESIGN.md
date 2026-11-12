@@ -1,4 +1,4 @@
-# 팔도 에셋 스튜디오 · 조사와 설계 (1차 MVP · 2차)
+# 팔도 에셋 스튜디오 · 조사와 설계 (1차 MVP · 2차 · 3차)
 
 기준: main `1ced1a0` (2026-11-12). 이 문서는 툴의 설계 기록이다. 게임 에셋 규격 자체를 정하는 문서가 아니며, 규격은 저장소의 실제 파일과 GPT Work의 [에셋 제작 표준 검토안](https://github.com/yousay0526-sudo/Paldoyadam/blob/07c3b19/docs/ASSET_PRODUCTION_STANDARD.md)(브랜치 `docs/asset-production-standard-phase1`, 미병합)을 따른다. 그 표준과 다른 값이 생기면 툴이 아니라 표준 쪽 결정을 우선한다.
 
@@ -64,7 +64,10 @@ tools/asset_studio/
     "id", "name", "kind": "character|npc|monster|weapon|equipment|item",
     "width", "height", "anchor": [x, y], "preset", "export_name",
     "layers": [{"id", "name", "source", "crop": [x, y, w, h] | null, "x", "y",
-                "pivot": [x, y] | null, "scale", "smooth", "slot", "visible", "opacity", "locked"}]
+                "pivot": [x, y] | null, "scale", "smooth", "slot", "visible", "opacity", "locked",
+                "view", "group", "frame"}],
+    "directions", "hidden_groups", "combos", "tolerances",
+    "frames", "fps", "frame_anchors": {"<프레임>": [x, y]}, "sheet_layout", "sheet_columns"
   }]
 }
 ```
@@ -111,7 +114,7 @@ GPT 원화 PNG 다운로드 → **가져오기 → 기준 셀(참고 레이어)�
 ## 6. 다음 단계 제안 (각각 승인 후)
 
 - **2차 (구현함, 6-1 참고. 기준점 이름 가져오기는 제외)**: 에셋 하나에 8방향 셀(+시트 레이아웃) 관리, 방향별 기준선·중심축 비교 오버레이, 장비 조합(같은 몸에 레이어 세트 교체), PR #42/#44·GPT 표준의 기준점 이름(`foot/head/grip…`)을 가져오기 형식으로 지원, 규격 검사(셀 크기·알파·방향 누락·중심축/접지 변화·셀 가장자리 여백 4px·장비 기준점 누락).
-- **3차**: 타임라인·FPS·재생, 어니언 스킨, 프레임별 레이어 순서(앞/뒤 바뀌는 무기), 스프라이트 시트 출력(기존 4×2·3×2 배치 그대로).
+- **3차 (구현함, 6-2 참고)**: 타임라인·FPS·재생, 어니언 스킨, 프레임별 레이어 순서(앞/뒤 바뀌는 무기), 스프라이트 시트 출력(기존 4×2·3×2 배치 그대로).
 - **4차**: NPC·몬스터 템플릿, 자동 보정, 배경 제거·파츠 분리·AI 연계 플러그인 검토.
 
 ## 6-1. 2차 구현 기록 (2026-11-12, 기준 main `0805c14`)
@@ -121,9 +124,19 @@ GPT 원화 PNG 다운로드 → **가져오기 → 기준 셀(참고 레이어)�
 - 검사 기본값은 새로 정한 규격이 아니라 현재 실행 셀이 통과하는 범위다. 장비 레이어 순서·기준점 이름은 여전히 PR #42·#44·GPT 표준 결정을 기다린다. 기준점 이름 가져오기(`foot/head/grip…`)는 그 결정 전이라 넣지 않았다.
 - 시연(`docs/screenshots/studio2-*.png`): 기존 정지 시트와 PR #43의 다리 제거 몸 8방향 + E 방향 다리 연구 그림. 다리가 E에만 있으므로 검사가 "장비 묶음이 7방향에 없음"과 나머지 방향의 발 뜸을 경고한다. 이는 연구 그림의 실제 상태다.
 
+## 6-2. 3차 구현 기록 (2026-11-12, 기준 main `59cd457`)
+
+- 모델: `Layer.frame`, `Asset.frames`·`fps`(편집기 재생 전용)·`frame_anchors`(프레임 번호 문자열 → 발 기준점, 없으면 `anchor`)·`sheet_layout`·`sheet_columns`. 모두 기본값이 있어 1·2차 프로젝트 파일을 그대로 연다(형식 문자열 유지). 프레임 추가·복제·삭제·순서 바꾸기는 `Asset.insert_frame/delete_frame/move_frame`이 모든 방향의 레이어와 프레임별 기준점을 함께 옮긴다.
+- 시트 배치(`imaging.SHEET_LAYOUTS`)는 게임이 이미 읽는 네 가지뿐이다: `cells`, `per_view`(gfx_hero 걷기 4×2·공격/무공 3×2), `views_in_cells`(정지 4×2), `rows_by_view`(gfx_enemy, 행 = 방향). 새 배치·새 셀 크기는 만들지 않았다.
+- 기본 공격 프레임별 발 기준점은 `src/draw.c`의 `roots`를 192/512로 환산한 1차 프리셋 값(`hero-attack-0..5`)을 그대로 쓴다. 게임의 `fit` 배율·공격 속도·판정은 건드리지 않는다.
+- 프레임 간 이동 검사는 그림 전체의 알파 가중 중심으로 잰다. 허용 30px는 현재 걷기 8장·공격·무공 4장의 연속 프레임 최대 이동보다 크게 잡은 값이다(`test_runtime_motion_sheets_pass_the_jump_tolerance`).
+- 현재 실행 시트를 그대로 검사하면 나오는 경고(규격을 바꾸지 않고 그대로 보고): `warrior-attack-v1` 6프레임 모두 셀 가장자리 여백 0~1px(기준 4px), 5번째 프레임 바닥이 draw.c 기준점보다 4px 위; `warrior-retreat-v1` 4번째 프레임 발 중심 +29.4px(허용 26). 2차 허용값은 정지·걷기 셀로 정했기 때문이며, 공격·무공용 허용값을 따로 둘지는 GPT 규격·사용자 결정 사항이다. `cleave`·`sweep`·`thrust`는 정상.
+
 ## 7. 미해결·한계
 
 - Windows 실행은 이 환경에서 확인하지 못했다(코드는 경로를 `pathlib`로 다루고 OS 전용 호출이 없다).
 - 레이어 회전·좌우 반전·마스크(가림 처리)는 1차에 없다. 비대칭 장비의 방향별 처리는 방향별 원화를 따로 가져오는 방식으로만 가능하다.
 - 큰 원화(수천 px)를 여러 장 겹치면 Python 합성이 느려질 수 있다(1차는 192~768px 셀 기준으로 확인).
+- `warrior-attack-v1.png`는 완전히 투명한 픽셀에도 RGB 값이 남아 있다. 스튜디오 합성은 투명 픽셀을 0,0,0,0으로 쓰므로 보이는 픽셀은 같지만 파일 바이트는 원본과 다르다. 보간 축소로 그리는 텍스처라면 가장자리 색이 조금 달라질 수 있으나, 게임 화면에서 차이가 나는지는 확인하지 않았다.
+- 프레임 시간은 프레임마다 다르게 둘 수 없다(FPS 하나). 게임의 프레임 시간은 코드에 있고 편집기는 바꾸지 않는다.
 - 그리기(붓) 기능은 없다. 그림 수정은 외부 프로그램(Krita 등)에서 하고 다시 가져온다.

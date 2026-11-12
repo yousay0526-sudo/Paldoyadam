@@ -54,7 +54,8 @@ class Overview(QWidget):
         layout.addWidget(self.summary)
         layout.addStretch(1)
 
-    def refresh(self, project: Project | None, asset: Asset | None, current: str, size: int = 92):
+    def refresh(self, project: Project | None, asset: Asset | None, current: str, frame: int = 0,
+                size: int = 92):
         if asset is None or not asset.directions:
             for cell in self.cells.values():
                 cell.clear()
@@ -70,13 +71,14 @@ class Overview(QWidget):
             if view not in asset.directions:
                 cell.clear()
                 continue
-            image = compose(project, asset, self.cache, view=view)
+            image = compose(project, asset, self.cache, view=view, frame=frame)
             m = measure(image)
             pixmap = QPixmap(round(asset.width * scale), round(asset.height * scale))
             pixmap.fill(QColor(150, 150, 150) if view != current else QColor(170, 160, 120))
             p = QPainter(pixmap)
             p.drawImage(pixmap.rect(), pil_to_qimage(image))
-            ax, ay = asset.anchor[0] * scale, asset.anchor[1] * scale
+            anchor = asset.anchor_for(frame)
+            ax, ay = anchor[0] * scale, anchor[1] * scale
             p.setPen(QPen(QColor(80, 220, 255), 1))
             p.drawLine(QPointF(ax, 0), QPointF(ax, pixmap.height()))
             p.setPen(QPen(QColor(60, 200, 80), 1))
@@ -103,4 +105,6 @@ class Overview(QWidget):
         if bottoms:
             rows.append(f"방향 간 차이: 바닥 {min(bottoms)}~{max(bottoms)} ({max(bottoms) - min(bottoms)}px), "
                         f"발중심 {min(feet):.1f}~{max(feet):.1f} ({max(feet) - min(feet):.1f}px)")
+        if asset.frames > 1:
+            rows.insert(0, f"프레임 {frame + 1}/{asset.frames}의 8방향")
         self.summary.setText("\n".join(rows))

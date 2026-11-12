@@ -27,7 +27,8 @@ from PySide6.QtWidgets import QApplication  # noqa: E402
 
 from paldo_studio.game_specs import find_repo, load_specs  # noqa: E402
 from paldo_studio.imaging import open_png  # noqa: E402
-from paldo_studio.ui.dialogs import CellImportDialog, CheckDialog  # noqa: E402
+from paldo_studio.imaging import SHEET_LAYOUTS  # noqa: E402
+from paldo_studio.ui.dialogs import CellImportDialog, CheckDialog, SheetImportDialog, SheetPreviewDialog  # noqa: E402
 from paldo_studio.ui.main_window import MainWindow  # noqa: E402
 
 
@@ -125,6 +126,53 @@ def main() -> int:
         check.show()
         app.processEvents()
         check.grab().save(str(args.out / "studio2-check.png"))
+        check.close()
+        window.c_onion.setCurrentIndex(0)
+
+        # ---- phase 3: an 8-frame walk and a 6-frame attack ----------------
+        walk = repo / "assets/warrior-walk-e-v1.png"
+        dialog = SheetImportDialog(walk, open_png(walk), specs, [], [])
+        dialog.show()
+        app.processEvents()
+        dialog.grab().save(str(args.out / "studio3-sheet-import.png"))
+        dialog.close()
+        window.new_asset("주인공 걷기 E", "character", 192, 192, (96, 176), "hero-move")
+        window.asset.export_name = "warrior-walk-e-demo"
+        window.import_sheet(walk, {("", f): [f % 4 * 192, f // 4 * 192, 192, 192] for f in range(8)},
+                            "걷기", slot="body")
+        window.asset.sheet_layout, window.asset.sheet_columns = "per_view", 4
+        window.set_frame(2)
+        window.t_onion.setChecked(True)
+        window.findChild(type(window.overview_dock), "right").raise_()
+        window.refresh_all()
+        window.canvas.fit()
+        app.processEvents()
+        window.grab().save(str(args.out / "studio3-timeline.png"))
+        preview = SheetPreviewDialog(window.sheet_preview(), SHEET_LAYOUTS["per_view"])
+        preview.show()
+        app.processEvents()
+        preview.grab().save(str(args.out / "studio3-sheet-preview.png"))
+        preview.close()
+        window.t_onion.setChecked(False)
+
+        attack = repo / "assets/warrior-attack-v1.png"
+        window.new_asset("주인공 기본 공격", "character", 192, 192, specs.preset("hero-attack-0").anchor,
+                         "hero-attack-0")
+        window.asset.export_name = "warrior-attack-demo"
+        window.import_sheet(attack, {("", f): [f % 3 * 192, f // 3 * 192, 192, 192] for f in range(6)},
+                            "기본 공격", slot="body")
+        window.fill_attack_anchors()
+        window.asset.layers[3].x += 40  # deliberately jolt frame 4 to show the frame-jump warning
+        window.set_frame(3)
+        window.refresh_all()
+        app.processEvents()
+        window.grab().save(str(args.out / "studio3-attack.png"))
+        report = window.run_check()
+        check = CheckDialog(report, "검사 (프레임)", False)
+        check.resize(900, 360)
+        check.show()
+        app.processEvents()
+        check.grab().save(str(args.out / "studio3-check.png"))
         check.close()
         window.dirty = False
         window.close()

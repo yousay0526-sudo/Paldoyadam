@@ -198,6 +198,115 @@ class GuiSmokeTest(unittest.TestCase):
         pngs, _ = w.export_current()
         self.assertEqual(len(pngs), 8)
 
+    def test_timeline_animation_flow(self):
+        import numpy as np
+        from PIL import Image
+        w = self.window
+        w.new_project(self.dir / "anim", "애니메이션")
+        w.new_asset("warrior-walk-e-v1", "character", 192, 192, (96, 176), "hero-move")
+        crops = {("", f): [f % 4 * 192, f // 4 * 192, 192, 192] for f in range(8)}
+        made = w.import_sheet(REPO / "assets/warrior-walk-e-v1.png", crops, "걷기", slot="body")
+        self.assertEqual((len(made), w.asset.frames), (8, 8))
+        self.assertEqual(w.frame_strip.count(), 8)
+        self.assertEqual(w.frame_label.text(), "프레임 1/8")
+
+        # Clicking a thumbnail selects that frame; layers and canvas follow.
+        rect = w.frame_strip.visualItemRect(w.frame_strip.item(3))
+        QTest.mouseClick(w.frame_strip.viewport(), Qt.LeftButton, Qt.NoModifier, rect.center())
+        self.assertEqual((w.frame, w.canvas.frame, w.layer.frame), (3, 3, 3))
+        self.assertEqual(w.layer_list.count(), 1)
+        w.step_frame(+1)
+        self.assertEqual(w.frame, 4)
+        w.set_frame(7)
+        w.step_frame(+1)
+        self.assertEqual(w.frame, 0)  # wraps
+
+        # Playback: the timer advances frames; FPS only sets the editor interval.
+        w.t_fps.setValue(12)
+        self.assertEqual(w.asset.fps, 12.0)
+        w.toggle_play()
+        self.assertTrue(w.timer.isActive())
+        self.assertEqual(w.timer.interval(), round(1000 / 12))
+        w._tick()
+        w._tick()
+        self.assertEqual(w.frame, 2)
+        w.toggle_play()
+        self.assertFalse(w.timer.isActive())
+        self.assertEqual(w.t_buttons["play"].text(), "▶ 재생")
+
+        # Onion skin of the previous and next frame.
+        w.t_onion.setChecked(True)
+        self.assertEqual(len(w.canvas._onion_frames), 2)
+        w.t_onion.setChecked(False)
+
+        # Frame operations, each one undo step.
+        w.add_frame(copy=True)
+        self.assertEqual((w.asset.frames, w.frame), (9, 3))
+        self.assertEqual(w.asset.cell_layers("", 3)[0].crop, w.asset.cell_layers("", 2)[0].crop)
+        w.undo()
+        self.assertEqual(w.asset.frames, 8)
+        w.add_frame(copy=False)
+        self.assertEqual(w.layer_list.count(), 0)
+        self.assertEqual(w.run_check()[0]["level"], "error")
+        w.delete_frame()
+        self.assertEqual(w.asset.frames, 8)
+        w.set_frame(1)
+        w.move_frame(+1)
+        self.assertEqual(w.frame, 2)
+        self.assertEqual(w.asset.cell_layers("", 2)[0].crop[0], 192)
+        w.undo()
+        self.assertEqual(w.asset.cell_layers("", 1)[0].crop[0], 192)
+
+        # One frame gets its own foot root; the anchor fields then edit that frame only.
+        w.set_frame(5)
+        w.t_anchor.setChecked(True)
+        self.assertIn("5", w.asset.frame_anchors)
+        w.f_ay.setValue(168)
+        self.assertEqual((w.asset.anchor_for(5)[1], w.asset.anchor[1]), (168, 176))
+        report = w.run_check()
+        lifted = [i for i in report if i["message"].startswith("발 접지")]
+        self.assertEqual([(i["frame"], i["level"]) for i in lifted], [(5, "warn")], report)
+        w.set_frame(0)
+        w.goto_check_item(lifted[0])
+        self.assertEqual(w.frame, 5)
+        w.t_anchor.setChecked(False)
+        self.assertEqual(w.asset.frame_anchors, {})
+
+        # Sheet preview and export in the runtime 4×2 layout reproduce the walk sheet.
+        w.f_layout.setCurrentIndex(w.f_layout.findData("per_view"))
+        w.f_columns.setValue(4)
+        sheets = w.sheet_preview()
+        self.assertEqual([(n, im.size) for n, im in sheets], [("warrior-walk-e-v1.png", (768, 384))])
+        report = w.run_check()
+        self.assertEqual([i["level"] for i in report], ["ok"], report)
+        pngs, _ = w.export_current(report)
+        with Image.open(REPO / "assets/warrior-walk-e-v1.png") as want, Image.open(pngs[0]) as got:
+            self.assertTrue(np.array_equal(np.asarray(got.convert("RGBA")), np.asarray(want.convert("RGBA"))))
+
+        # Save and reopen keeps frames and layout.
+        self.assertTrue(w.save_project())
+        w.open_project(self.dir / "anim")
+        self.assertEqual((w.asset.frames, w.asset.sheet_layout, w.asset.fps), (8, "per_view", 12.0))
+
+    def test_sheet_import_dialog_modes(self):
+        from paldo_studio.imaging import open_png
+        from paldo_studio.ui.dialogs import SheetImportDialog
+        order = self.window.specs.direction_order
+        path = REPO / "assets/monsters/boar-walk-8dir-v1.png"
+        d = SheetImportDialog(path, open_png(path), self.window.specs, order, [], view="E", frame=2)
+        self.assertEqual(d.mode.currentData(), "rows_all")
+        crops = d.crops()
+        self.assertEqual(len(crops), 32)
+        self.assertEqual(crops[("SE", 1)], [192, 3 * 192, 192, 192])
+        d.mode.setCurrentIndex(d.mode.findData("rows"))
+        d.frame.setValue(3)
+        self.assertEqual(sorted({f for _, f in d.crops()}), [2])  # into the current frame
+        d.mode.setCurrentIndex(d.mode.findData("frames"))
+        self.assertEqual(list(d.crops())[:2], [("E", 0), ("E", 1)])
+        path = REPO / "assets/warrior-attack-v1.png"
+        d = SheetImportDialog(path, open_png(path), self.window.specs, [], [])
+        self.assertEqual((d.mode.count(), d.mode.currentData(), len(d.crops())), (1, "frames", 6))
+
     def test_projects_cannot_live_in_runtime_assets(self):
         with self.assertRaises(ValueError):
             self.window.new_project(REPO / "assets" / "studio-test", "x")
