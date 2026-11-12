@@ -107,8 +107,10 @@ class MainWindow(QMainWindow):
                                          lambda: self.snap_foot(True))
         self.act_height = self._action(c, "키 맞추기: 선택 레이어를 참고 레이어 키로", QKeySequence(),
                                        self.match_reference_height)
+        self.act_height_px = self._action(c, "키 맞추기: 선택 레이어 그림 키를 px로…", QKeySequence("Ctrl+Shift+H"),
+                                          self.ask_match_height)
         self.fix_actions = (self.act_artwork, self.act_bg, self.act_noise, self.act_snap, self.act_snap_all,
-                            self.act_height)
+                            self.act_height, self.act_height_px)
 
         x = menu.addMenu("내보내기(&X)")
         self.act_check = self._action(x, "검사", QKeySequence("F7"), self.show_check)
@@ -281,8 +283,16 @@ class MainWindow(QMainWindow):
         self.l_group.setEditable(True)
         self.l_group.setToolTip("같은 이름의 레이어는 모든 방향에서 함께 켜고 끕니다 (비우면 몸)")
         self.l_x, self.l_y = self._spin(-8192, 8192), self._spin(-8192, 8192)
-        self.l_scale = self._spin(0.01, 16, 3)
+        self.l_scale = self._spin(0.0001, 16, 4)
         self.l_scale.setSingleStep(0.05)
+        # Target size in canvas pixels: big artworks are easier to size by px than by ratio.
+        self.l_w, self.l_h = self._spin(1, 16384), self._spin(1, 16384)
+        self.l_w.setToolTip("레이어 그림 전체의 가로 크기(px). 바꾸면 비율을 유지한 채 배율이 정해집니다.")
+        self.l_h.setToolTip("레이어 그림 전체의 세로 크기(px). 바꾸면 비율을 유지한 채 배율이 정해집니다.")
+        self.l_fit = QPushButton("보이는 그림 키를 px로 맞추기…")
+        self.l_fit.setToolTip("투명한 여백을 빼고, 실제 그림의 높이가 입력한 px가 되도록 줄이거나 키웁니다")
+        self.l_fit.clicked.connect(self.ask_match_height)
+        self.l_source_size = QLabel()
         self.l_smooth = QCheckBox("부드럽게 축소 (끄면 최근접)")
         self.l_pivot_on = QCheckBox("기준점 사용 (원본 픽셀 좌표)")
         self.l_px, self.l_py = self._spin(-8192, 8192, 1), self._spin(-8192, 8192, 1)
@@ -298,6 +308,10 @@ class MainWindow(QMainWindow):
         form.addRow("위치 X", self.l_x)
         form.addRow("위치 Y", self.l_y)
         form.addRow("배율", self.l_scale)
+        form.addRow("크기 가로 (px)", self.l_w)
+        form.addRow("크기 세로 (px)", self.l_h)
+        form.addRow("원본 크기", self.l_source_size)
+        form.addRow(self.l_fit)
         form.addRow(self.l_smooth)
         form.addRow(self.l_pivot_on)
         form.addRow("기준점 X", self.l_px)
@@ -354,6 +368,8 @@ class MainWindow(QMainWindow):
         self.l_x.valueChanged.connect(lambda v: self._layer_field("x", int(v)))
         self.l_y.valueChanged.connect(lambda v: self._layer_field("y", int(v)))
         self.l_scale.valueChanged.connect(self._layer_scale)
+        self.l_w.valueChanged.connect(lambda v: self._layer_size(0, v))
+        self.l_h.valueChanged.connect(lambda v: self._layer_size(1, v))
         self.l_smooth.toggled.connect(lambda v: self._layer_field("smooth", bool(v)))
         self.l_pivot_on.toggled.connect(self._pivot_toggled)
         self.l_px.valueChanged.connect(lambda v: self._layer_pivot(0, v))
@@ -648,6 +664,11 @@ class MainWindow(QMainWindow):
             self.l_x.setValue(l.x)
             self.l_y.setValue(l.y)
             self.l_scale.setValue(l.scale)
+            base = self._layer_base_size(l)
+            if base:
+                self.l_w.setValue(max(1, round(base[0] * l.scale)))
+                self.l_h.setValue(max(1, round(base[1] * l.scale)))
+                self.l_source_size.setText(f"{base[0]}×{base[1]} px" + ("" if l.crop is None else " (자른 영역)"))
             self.l_smooth.setChecked(l.smooth)
             self.l_pivot_on.setChecked(l.pivot is not None)
             self.l_px.setEnabled(l.pivot is not None)
@@ -783,7 +804,42 @@ class MainWindow(QMainWindow):
         setattr(l, field, value)
         self._after_edit(layers=field in ("name", "slot", "visible", "locked", "group"))
 
-    def _layer_scale(self, value: float):
+    def _layer_base_size(self, l) -> tuple[int, int] | None:
+        """Unscaled size of the layer picture (crop or whole source)."""
+        if l.crop:
+            return l.crop[2], l.crop[3]
+        s = self.project.source(l.source) if self.project else None
+        return (s.width, s.height) if s else None
+
+    def _layer_size(self, axis: int, value: int):
+        """Set the layer's on-canvas width (axis 0) or height (axis 1) in px, keeping the aspect ratio."""
+        l = self.layer
+        base = self._layer_base_size(l) if l else None
+        if self._syncing or not base or value <= 0 or round(base[axis] * l.scale) == value:
+            return
+        self._layer_scale(value / base[axis], digits=8)
+
+    def ask_match_height(self):
+        l = self.layer
+        if l is None:
+            return
+        image = self.cache.layer_image(self.project, l)
+        current = autofix.visible_height(image) if image is not None else None
+        target, ok = QInputDialog.getInt(self, "그림 키 맞추기", "보이는 그림의 높이 (px, 투명 여백 제외)",
+                                         current or 100, 1, 16384)
+        if ok:
+            self.match_height_px(target)
+
+    def match_height_px(self, target: int):
+        l = self.layer
+        if l is None:
+            return None
+        self._checkpoint()
+        scale = autofix.match_height(self.project, l, self.cache, float(target))
+        self._after_edit()
+        return scale
+
+    def _layer_scale(self, value: float, digits: int = 4):
         """Scale around the pivot (or the bottom-centre) so the layer stays put."""
         a, l = self.asset, self.layer
         if self._syncing or l is None or value <= 0 or l.scale == value:
@@ -797,7 +853,7 @@ class MainWindow(QMainWindow):
         else:
             fx = fy = 0
         cx, cy = l.x + fx * l.scale, l.y + fy * l.scale
-        l.scale = round(float(value), 4)
+        l.scale = round(float(value), digits)
         l.x, l.y = round(cx - fx * l.scale), round(cy - fy * l.scale)
         self._after_edit()
 
