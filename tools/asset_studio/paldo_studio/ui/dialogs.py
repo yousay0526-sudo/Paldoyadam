@@ -1,4 +1,4 @@
-"""Small dialogs: new asset, atlas cell import, sheet import, check results, sheet preview."""
+"""Small dialogs: new asset, cell/sheet import, check results, sheet preview, templates, artwork import."""
 
 from __future__ import annotations
 
@@ -8,12 +8,15 @@ from PIL import Image
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QPainter, QPixmap
 from PySide6.QtWidgets import (QCheckBox, QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox,
-                               QFormLayout, QLabel, QLineEdit, QScrollArea, QSpinBox, QTableWidget,
-                               QTableWidgetItem, QVBoxLayout, QHeaderView, QWidget)
+                               QFormLayout, QHBoxLayout, QHeaderView, QLabel, QLineEdit, QListWidget,
+                               QListWidgetItem, QScrollArea, QSpinBox, QTableWidget, QTableWidgetItem,
+                               QVBoxLayout, QWidget)
 
+from ..autofix import background_colour, clean_alpha_noise, remove_background
 from ..checks import LEVEL_LABEL
 from ..game_specs import Specs, sheet_layout
 from ..model import EIGHT_DIRECTIONS, KINDS, SLOTS
+from ..templates import Template
 from .canvas import pil_to_qimage
 
 
@@ -387,3 +390,156 @@ def _checker_pixmap(image: Image.Image, tile: int = 16) -> QPixmap:
     painter.drawImage(0, 0, pil_to_qimage(image))
     painter.end()
     return pixmap
+
+
+class TemplateDialog(QDialog):
+    """Pick a template (built-in from the repository, or a user template) for a new asset."""
+
+    def __init__(self, entries: list[tuple[str, Template]], notes: list[str], parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("템플릿에서 새 에셋")
+        self.resize(760, 520)
+        self.entries = entries   # (group label, Template)
+        self.list = QListWidget()
+        for group, template in entries:
+            item = QListWidgetItem(f"[{group}] {template.label}")
+            item.setToolTip(template.summary())
+            self.list.addItem(item)
+        self.detail = QLabel()
+        self.detail.setWordWrap(True)
+        self.detail.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        self.name = QLineEdit()
+        self.reference = QCheckBox("기존 실행 그림을 참고 레이어로 넣기 (내보내기 제외, 원본은 복사본만 사용)")
+        form = QFormLayout()
+        form.addRow("에셋 이름", self.name)
+        form.addRow(self.reference)
+        layout = QVBoxLayout(self)
+        layout.addWidget(self.list, 2)
+        layout.addWidget(self.detail, 1)
+        layout.addLayout(form)
+        if notes:
+            note = QLabel("\n".join(notes))
+            note.setWordWrap(True)
+            note.setStyleSheet("color: #8a6d1d")
+            layout.addWidget(note)
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+        self.ok_button = buttons.button(QDialogButtonBox.Ok)
+        self.list.currentRowChanged.connect(self._picked)
+        if entries:
+            self.list.setCurrentRow(0)
+        else:
+            self.ok_button.setEnabled(False)
+
+    def template(self):
+        row = self.list.currentRow()
+        return self.entries[row][1] if 0 <= row < len(self.entries) else None
+
+    def _picked(self, row: int):
+        t = self.template()
+        if t is None:
+            return
+        lines = [f"<b>{t.label}</b>", t.summary(), f"근거: {t.source or '-'}"]
+        if t.notes:
+            lines.append(t.notes)
+        lines.append(f"참고 그림 칸: {len(t.reference)}개" if t.reference else "참고 그림 없음")
+        self.detail.setText("<br>".join(lines))
+        self.reference.setEnabled(bool(t.reference))
+        self.reference.setChecked(bool(t.reference))
+        self.name.setText(t.label.split(" (")[0])
+
+    def values(self) -> dict:
+        return {"template": self.template(), "name": self.name.text().strip() or "새 에셋",
+                "with_reference": self.reference.isChecked() and self.reference.isEnabled()}
+
+
+class ArtworkImportDialog(QDialog):
+    """GPT 원화 가져오기: local, step-by-step clean-up of one downloaded artwork before it becomes a layer."""
+
+    def __init__(self, path: Path, image: Image.Image, has_reference: bool, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(f"원화 가져오기 — {path.name}")
+        self.image = image.convert("RGBA")
+        self.remove_bg = QCheckBox("배경 제거 (네 모서리 색과 이어진 부분만)")
+        self.tolerance = QSpinBox()
+        self.tolerance.setRange(1, 128)
+        self.tolerance.setValue(24)
+        self.feather = QCheckBox("경계 1px 부드럽게")
+        self.feather.setChecked(True)
+        self.noise = QCheckBox("알파 1~4 잡점 지우기")
+        self.noise.setChecked(True)
+        self.height_mode = QComboBox()
+        self.height_mode.addItem("키 그대로", "")
+        if has_reference:
+            self.height_mode.addItem("참고 레이어(기존 그림)와 같은 키", "reference")
+        self.height_mode.addItem("키를 숫자로 (px)", "number")
+        self.height_px = QSpinBox()
+        self.height_px.setRange(4, 4096)
+        self.height_px.setValue(136)
+        self.snap = QCheckBox("발 맞추기 (그림 바닥·발 중심을 발 기준점에)")
+        self.snap.setChecked(True)
+        self.slot = QComboBox()
+        for key, label in SLOTS.items():
+            self.slot.addItem(label, key)
+        self.before, self.after = QLabel(), QLabel()
+        self.info = QLabel()
+        self.info.setWordWrap(True)
+        colour = background_colour(self.image)
+        self.remove_bg.setChecked(colour is not None)
+        form = QFormLayout()
+        form.addRow(self.remove_bg)
+        form.addRow("배경 색 허용 차이", self.tolerance)
+        form.addRow(self.feather)
+        form.addRow(self.noise)
+        form.addRow("키", self.height_mode)
+        form.addRow("목표 키 (px)", self.height_px)
+        form.addRow(self.snap)
+        form.addRow("부위", self.slot)
+        pics = QHBoxLayout()
+        pics.addWidget(self.before)
+        pics.addWidget(self.after)
+        layout = QVBoxLayout(self)
+        layout.addWidget(QLabel(f"원본 {image.width}×{image.height}, {image.mode}. 원본 파일은 바꾸지 않고, "
+                                "보정한 그림은 프로젝트 sources/에 새 사본으로 저장합니다. 네트워크는 쓰지 않습니다."))
+        layout.addLayout(pics)
+        layout.addWidget(self.info)
+        layout.addLayout(form)
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+        for w in (self.remove_bg, self.feather, self.noise):
+            w.toggled.connect(self._update)
+        self.tolerance.valueChanged.connect(self._update)
+        self.height_mode.currentIndexChanged.connect(self._update)
+        self._update()
+
+    def processed(self) -> tuple[Image.Image, list[str]]:
+        image, notes = self.image, []
+        if self.remove_bg.isChecked():
+            result = remove_background(image, self.tolerance.value(), self.feather.isChecked())
+            image = result.image
+            notes.append(f"배경 {result.colour} 제거 {result.removed}px" if result.colour else result.reason)
+        if self.noise.isChecked():
+            image, changed = clean_alpha_noise(image)
+            notes.append(f"잡점 {changed}px")
+        return image, notes
+
+    def _update(self):
+        self.height_px.setEnabled(self.height_mode.currentData() == "number")
+        image, notes = self.processed()
+        side = 220
+        for label, im in ((self.before, self.image), (self.after, image)):
+            k = side / max(im.width, im.height)
+            small = im.resize((max(1, round(im.width * k)), max(1, round(im.height * k))))
+            label.setPixmap(_checker_pixmap(small, 10))
+        self.info.setText("왼쪽 원본 · 오른쪽 보정 결과.  " + ", ".join(notes))
+
+    def values(self) -> dict:
+        mode = self.height_mode.currentData()
+        return {"remove_bg": self.remove_bg.isChecked(), "tolerance": self.tolerance.value(),
+                "feather": self.feather.isChecked(), "clean_noise": self.noise.isChecked(),
+                "height": float(self.height_px.value()) if mode == "number" else (mode or None),
+                "snap": self.snap.isChecked(), "slot": self.slot.currentData()}

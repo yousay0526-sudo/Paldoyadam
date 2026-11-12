@@ -72,6 +72,9 @@ class Source:
     width: int
     height: int
     mode: str
+    # Set when the studio made this image from another source (자동 보정):
+    # {"from": source id, "from_sha256", "operation", "params"}. Originals keep None.
+    derived: dict | None = None
 
 
 @dataclass
@@ -269,7 +272,7 @@ class Project:
         self.assets.append(asset)
         return asset
 
-    def import_png(self, path: Path, width: int, height: int, mode: str) -> Source:
+    def import_png(self, path: Path, width: int, height: int, mode: str, derived: dict | None = None) -> Source:
         """Copy ``path`` into ``sources/``. Re-importing identical bytes reuses the copy."""
         if self.root is None:
             raise ValueError("save the project before importing images")
@@ -284,7 +287,7 @@ class Project:
         if not target.exists():
             shutil.copyfile(path, target)
         source = Source(_new_id("src"), target.relative_to(self.root).as_posix(), path.name,
-                        str(path), digest, width, height, mode)
+                        str(path), digest, width, height, mode, derived)
         self.sources.append(source)
         return source
 
