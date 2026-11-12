@@ -189,15 +189,15 @@ class ImagingTests(Base):
 
 class CheckAndExportTests(Base):
     def test_levels(self):
-        a = self.project.add_asset("hero", "character", 16, 16, (8, 15))
+        a = self.project.add_asset("hero", "character", 32, 32, (16, 28))
         report = check_asset(self.project, a, self.cache)
         self.assertTrue(has_errors(report))                   # no layers
         layer = self.add(a, png(self.dir / "ok.png", (4, 4), (5, 5, 5, 255), (0, 0, 4, 4)))
         report = check_asset(self.project, a, self.cache)
         self.assertEqual([i["level"] for i in report], ["ok"])
-        layer.x = 14                                          # visible art leaves the canvas
+        layer.x = 30                                          # visible art leaves the canvas
         self.assertIn("warn", [i["level"] for i in check_asset(self.project, a, self.cache)])
-        layer.x = 6
+        layer.x = 14
         layer.y = 2                                           # floats above the ground line
         self.assertTrue(any("발 기준선" in i["message"] for i in check_asset(self.project, a, self.cache)))
         (self.project.root / self.project.source(layer.source).file).unlink()
@@ -221,11 +221,11 @@ class CheckAndExportTests(Base):
         self.add(a, png(self.dir / "e.png", (4, 4), (200, 10, 10, 255), (0, 0, 4, 4)))
         report = check_asset(self.project, a, self.cache)
         out, meta = export_asset(self.project, a, self.cache, report)
-        self.assertEqual(out, self.project.root / "exports" / "hero.png")
-        with Image.open(out) as im:
+        self.assertEqual(out, [self.project.root / "exports" / "hero.png"])
+        with Image.open(out[0]) as im:
             self.assertEqual((im.size, im.mode), ((16, 16), "RGBA"))
         data = json.loads(meta.read_text("utf-8"))
-        self.assertEqual(data["output"]["sha256"], sha(out))
+        self.assertEqual(data["outputs"][0]["sha256"], sha(out[0]))
         self.assertEqual(data["asset"]["anchor"], [8.0, 15.0])
         self.assertEqual(len(data["sources"]), 1)
         with self.assertRaises(FileExistsError):
@@ -234,6 +234,92 @@ class CheckAndExportTests(Base):
         a.export_name = "../escape"
         with self.assertRaises(ValueError):
             export_asset(self.project, a, self.cache, report)
+
+
+class DirectionAndGroupTests(Base):
+    DIRS = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
+
+    def make(self, groups=("",)):
+        """8-direction 32x32 asset: one 4x6 'body' block per view standing on (16, 28)."""
+        a = self.project.add_asset("hero", "character", 32, 32, (16, 28), directions=self.DIRS)
+        body = png(self.dir / "body.png", (4, 6), (90, 60, 30, 255), (0, 0, 4, 6))
+        for v in self.DIRS:
+            for g in groups:
+                path = body if not g else png(self.dir / f"{g}.png", (4, 2), (20, 20, 200, 255), (0, 0, 4, 2))
+                image = open_png(path)
+                source = self.project.import_png(path, image.width, image.height, image.mode)
+                layer = self.project.add_layer(a, source, g or "몸", view=v, group=g)
+                if g:
+                    layer.y = 26 - 2
+        return a
+
+    def test_views_compose_and_export_per_direction(self):
+        a = self.make()
+        a.layers[2].x += 3        # E only
+        self.assertNotEqual(compose(self.project, a, self.cache, view="E").getbbox(),
+                            compose(self.project, a, self.cache, view="N").getbbox())
+        with self.assertRaises(ValueError):
+            self.project.add_layer(a, self.project.sources[0], "x", view="UP")
+        report = check_asset(self.project, a, self.cache)
+        self.assertFalse(has_errors(report), report)
+        pngs, meta = export_asset(self.project, a, self.cache, report)
+        self.assertEqual([p.name for p in pngs], [f"hero-{d.lower()}.png" for d in self.DIRS])
+        data = json.loads(meta.read_text("utf-8"))
+        self.assertEqual([o["view"] for o in data["outputs"]], self.DIRS)
+        self.assertEqual(data["asset"]["directions"], self.DIRS)
+
+    def test_missing_direction_is_an_error_naming_the_view(self):
+        a = self.make()
+        a.layers = [l for l in a.layers if l.view != "SW"]
+        errors = [i for i in check_asset(self.project, a, self.cache) if i["level"] == "error"]
+        self.assertEqual([i["view"] for i in errors], ["SW"])
+
+    def test_ground_axis_and_margin_warnings_name_the_view(self):
+        a = self.make()
+        a.layers[4].y -= 5        # S: floating
+        a.layers[6].x += 10       # W: off axis but inside the canvas
+        a.tolerances["axis"] = 8  # the 26 px default suits 192 px hero cells, not this 32 px test
+        report = check_asset(self.project, a, self.cache)
+        found = {(i["view"], i["message"].split(":")[0]) for i in report if i["level"] == "warn"}
+        self.assertIn(("S", "발 접지"), found)
+        self.assertIn(("W", "발 중심축"), found)
+        self.assertEqual({v for v, _ in found}, {"S", "W"})
+        a.tolerances["axis"] = 12
+        self.assertNotIn(("W", "발 중심축"), {(i["view"], i["message"].split(":")[0])
+                                             for i in check_asset(self.project, a, self.cache)})
+        a.layers[0].x = 0         # N touches the left edge
+        self.assertTrue(any(i["view"] == "N" and "가장자리" in i["message"]
+                            for i in check_asset(self.project, a, self.cache)))
+
+    def test_move_layer_stays_inside_its_view(self):
+        a = self.make(groups=("", "바지"))
+        n_body, n_pants = a.view_layers("N")
+        self.assertFalse(Project.move_layer(a, n_pants.id, +1))     # already top of N
+        self.assertTrue(Project.move_layer(a, n_pants.id, -1))
+        self.assertEqual([l.id for l in a.view_layers("N")], [n_pants.id, n_body.id])
+        self.assertEqual([l.group for l in a.view_layers("NE")], ["", "바지"])
+
+    def test_groups_combos_and_group_checks(self):
+        a = self.make(groups=("", "바지"))
+        with_pants = compose(self.project, a, self.cache, view="S")
+        a.save_combo("착용")
+        a.hidden_groups = ["바지"]
+        a.save_combo("맨몸")
+        self.assertNotEqual(compose(self.project, a, self.cache, view="S").tobytes(), with_pants.tobytes())
+        self.assertTrue(a.apply_combo("착용"))
+        self.assertEqual(a.hidden_groups, [])
+        self.assertEqual(compose(self.project, a, self.cache, view="S").tobytes(), with_pants.tobytes())
+        self.assertFalse(a.apply_combo("없는 조합"))
+        # A 장비 묶음 missing in one direction, and one with a different size.
+        a.layers = [l for l in a.layers if not (l.group == "바지" and l.view == "W")]
+        odd = png(self.dir / "odd.png", (6, 2), (20, 20, 200, 255), (0, 0, 6, 2))
+        source = self.project.import_png(odd, 6, 2, "RGBA")
+        next(l for l in a.layers if l.group == "바지" and l.view == "E").source = source.id
+        messages = " ".join(i["message"] for i in check_asset(self.project, a, self.cache))
+        self.assertIn("W 방향에 없습니다", messages)
+        self.assertIn("크기가 방향마다 다릅니다", messages)
+        loaded = Project.load(self.project.save().parent)
+        self.assertEqual(loaded.assets[0].combos, a.combos)
 
 
 @unittest.skipIf(REPO is None, "game repository not found")
@@ -259,6 +345,37 @@ class GameSpecTests(unittest.TestCase):
         self.assertEqual([p.key for p in specs.presets], ["free"])
         self.assertTrue(specs.notes)
 
+    def test_default_tolerances_pass_every_runtime_idle_and_walk_cell(self):
+        from paldo_studio.imaging import measure
+        from paldo_studio.model import DEFAULT_TOLERANCES
+        sheets = ["warrior-idle-8dir-v1.png"] + [f"warrior-walk-{d}-v1.png"
+                                                 for d in ("n", "ne", "e", "se", "s", "sw", "w", "nw")]
+        count = 0
+        for name in sheets:
+            sheet = open_png(REPO / "assets" / name).convert("RGBA")
+            for i in range(8):
+                m = measure(sheet.crop((i % 4 * 192, i // 4 * 192, i % 4 * 192 + 192, i // 4 * 192 + 192)))
+                self.assertLessEqual(abs(m.contact_y - 176), DEFAULT_TOLERANCES["ground"], (name, i))
+                self.assertLessEqual(abs(m.foot_x - 96), DEFAULT_TOLERANCES["axis"], (name, i))
+                self.assertGreaterEqual(m.margin, DEFAULT_TOLERANCES["margin"], (name, i))
+                count += 1
+        self.assertEqual(count, 72)
+
+    def test_runtime_idle_sheet_as_eight_direction_asset_checks_clean(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Project("p", root=Path(tmp))
+            project.save()
+            specs = load_specs(REPO)
+            a = project.add_asset("warrior-idle", "character", 192, 192, (96, 176), "hero-move",
+                                  specs.direction_order)
+            sheet = REPO / "assets/warrior-idle-8dir-v1.png"
+            image = open_png(sheet)
+            source = project.import_png(sheet, image.width, image.height, image.mode)
+            for i, v in enumerate(a.directions):
+                project.add_layer(a, source, v, [i % 4 * 192, i // 4 * 192, 192, 192], "body", (96, 176), view=v)
+            report = check_asset(project, a, ImageCache(), specs)
+            self.assertEqual([r["level"] for r in report], ["ok"], report)
+
     def test_runtime_hero_cell_composes_pixel_identical(self):
         """Importing an existing runtime cell and exporting it reproduces the same pixels."""
         with tempfile.TemporaryDirectory() as tmp:
@@ -276,7 +393,7 @@ class GameSpecTests(unittest.TestCase):
             self.assertFalse(has_errors(report))
             out, _ = export_asset(project, a, cache, report)
             expected = np.asarray(image.convert("RGBA").crop((0, 192, 192, 384)))
-            with Image.open(out) as im:
+            with Image.open(out[0]) as im:
                 self.assertTrue(np.array_equal(np.asarray(im.convert("RGBA")), expected))
             self.assertEqual(sha(sheet), before)
 

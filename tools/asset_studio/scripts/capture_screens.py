@@ -93,6 +93,39 @@ def main() -> int:
         app.processEvents()
         check.grab().save(str(args.out / "studio-check-warnings.png"))
         check.close()
+
+        # ---- phase 2: one 8-direction asset -----------------------------
+        order = specs.direction_order
+        crops = {v: [i % 4 * 192, i // 4 * 192, 192, 192] for i, v in enumerate(order)}
+        window.new_asset("주인공 정지 8방향", "character", 192, 192, (96, 176), "hero-move", order)
+        window.asset.export_name = "warrior-idle-8dir-demo"
+        if args.body_sheet and args.legs:
+            window.import_sheet(idle, crops, "기존 주인공 (비교)", slot="reference")
+            for layer in window.asset.layers:
+                layer.visible = False
+            window.import_sheet(args.body_sheet, crops, "몸 (다리 제거)", slot="body")
+            window.set_view("E")
+            window.import_png(args.legs, name="무명 바지·짚신 (4배 원화)", slot="bottom", group="무명 바지·짚신")
+            window.layer.pivot = [384.0, 704.0]
+            window.l_scale.setValue(0.25)
+            window.project.snap_pivot_to_anchor(window.asset, window.layer)
+        else:
+            window.import_sheet(idle, crops, "정지", slot="body")
+            window.set_view("E")
+        window.c_onion.setCurrentIndex(window.c_onion.findData("SE"))
+        window.refresh_all()
+        window.canvas.fit()
+        window.overview_dock.raise_()
+        app.processEvents()
+        window.grab().save(str(args.out / "studio2-eight-directions.png"))
+
+        report = window.run_check()
+        check = CheckDialog(report, "내보내기 전 검사 (8방향)", True)
+        check.resize(820, 360)
+        check.show()
+        app.processEvents()
+        check.grab().save(str(args.out / "studio2-check.png"))
+        check.close()
         window.dirty = False
         window.close()
     print(f"saved to {args.out}")

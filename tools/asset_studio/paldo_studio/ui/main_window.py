@@ -16,9 +16,10 @@ from .. import __version__
 from ..checks import check_asset, has_errors
 from ..game_specs import Specs
 from ..imaging import ImageCache, compose, export_asset, inspect, open_png
-from ..model import KINDS, PROJECT_FILE, SLOTS, History, Project
+from ..model import EIGHT_DIRECTIONS, KINDS, PROJECT_FILE, SLOTS, TOLERANCE_LABELS, History, Project
 from .canvas import BACKGROUNDS, Canvas, pil_to_qimage, preview_pixmap
-from .dialogs import CellImportDialog, CheckDialog, NewAssetDialog
+from .dialogs import CellImportDialog, CheckDialog, NewAssetDialog, SheetImportDialog
+from .overview import Overview
 
 
 def _short(text: str, limit: int = 34) -> str:
@@ -33,6 +34,7 @@ class MainWindow(QMainWindow):
         self.history: History | None = None
         self.asset_id = ""
         self.layer_id = ""
+        self.view = ""
         self.dirty = False
         self.cache = ImageCache()
         self._syncing = False
@@ -51,6 +53,7 @@ class MainWindow(QMainWindow):
         self._build_left()
         self._build_right()
         self._build_bottom()
+        self._build_overview()
         self.refresh_all()
 
     # ================================================================ build
@@ -74,6 +77,8 @@ class MainWindow(QMainWindow):
         self.act_import = self._action(a, "PNG 가져오기…", QKeySequence("Ctrl+I"), self.ask_import_png)
         self.act_import_cell = self._action(a, "시트에서 셀 가져오기…", QKeySequence("Ctrl+Shift+I"),
                                             lambda: self.ask_import_png(cell=True))
+        self.act_import_sheet = self._action(a, "8방향 시트 한 번에 가져오기…", QKeySequence("Ctrl+Alt+I"),
+                                             self.ask_import_sheet)
 
         x = menu.addMenu("내보내기(&X)")
         self.act_check = self._action(x, "검사", QKeySequence("F7"), self.show_check)
@@ -83,7 +88,7 @@ class MainWindow(QMainWindow):
         h = menu.addMenu("도움말(&H)")
         h.addAction("정보", lambda: QMessageBox.information(
             self, "Paldo Asset Studio",
-            f"팔도 에셋 스튜디오 {__version__} (1차 MVP)\n\n"
+            f"팔도 에셋 스튜디오 {__version__} (2차)\n\n"
             "원본 PNG는 프로젝트 sources/에 복사해 보관하고 수정하지 않습니다.\n"
             "내보내기는 프로젝트 exports/에만 씁니다. 게임 assets/는 바꾸지 않습니다.\n\n"
             + ("게임 저장소: " + str(self.specs.repo) if self.specs.repo else "게임 저장소를 찾지 못했습니다.")))
@@ -112,6 +117,7 @@ class MainWindow(QMainWindow):
         bar.addSeparator()
         bar.addAction(self.act_import)
         bar.addAction(self.act_import_cell)
+        bar.addAction(self.act_import_sheet)
         bar.addAction(self.act_check)
         bar.addAction(self.act_export)
 
@@ -160,7 +166,24 @@ class MainWindow(QMainWindow):
             b.clicked.connect(slot)
             row.addWidget(b)
         v.addLayout(row)
-        box.setMinimumWidth(240)
+
+        v.addWidget(QLabel("장비 묶음 (체크 = 착용, 모든 방향에 적용)"))
+        self.group_list = QListWidget()
+        self.group_list.itemChanged.connect(self._group_item_changed)
+        v.addWidget(self.group_list, 1)
+        row = QHBoxLayout()
+        self.combo_box = QComboBox()
+        self.combo_box.setToolTip("저장한 장비 조합")
+        self.combo_box.activated.connect(lambda _i: self.apply_combo(self.combo_box.currentText()))
+        b_save = QPushButton("조합 저장")
+        b_save.clicked.connect(self.ask_save_combo)
+        b_drop = QPushButton("조합 삭제")
+        b_drop.clicked.connect(self.delete_combo)
+        row.addWidget(self.combo_box, 1)
+        row.addWidget(b_save)
+        row.addWidget(b_drop)
+        v.addLayout(row)
+        box.setMinimumWidth(260)
         self._dock("프로젝트", box, Qt.LeftDockWidgetArea, "left")
 
     def _spin(self, lo, hi, decimals=None):
@@ -196,6 +219,14 @@ class MainWindow(QMainWindow):
         form.addRow("발 기준점 X", self.f_ax)
         form.addRow("발 기준점 Y", self.f_ay)
         form.addRow("내보낼 파일명", self.f_export)
+        self.f_dirs = QLabel()
+        form.addRow("방향", self.f_dirs)
+        self.f_tol = {}
+        for key, label in TOLERANCE_LABELS.items():
+            box = self._spin(0, 512, 1)
+            box.valueChanged.connect(lambda val, k=key: self._asset_tolerance(k, val))
+            self.f_tol[key] = box
+            form.addRow(label, box)
         v.addWidget(g)
         self.asset_group = g
 
@@ -205,6 +236,9 @@ class MainWindow(QMainWindow):
         self.l_slot = QComboBox()
         for key, label in SLOTS.items():
             self.l_slot.addItem(label, key)
+        self.l_group = QComboBox()
+        self.l_group.setEditable(True)
+        self.l_group.setToolTip("같은 이름의 레이어는 모든 방향에서 함께 켜고 끕니다 (비우면 몸)")
         self.l_x, self.l_y = self._spin(-8192, 8192), self._spin(-8192, 8192)
         self.l_scale = self._spin(0.01, 16, 3)
         self.l_scale.setSingleStep(0.05)
@@ -219,6 +253,7 @@ class MainWindow(QMainWindow):
         self.l_locked = QCheckBox("잠금")
         form.addRow("이름", self.l_name)
         form.addRow("부위(제안 분류)", self.l_slot)
+        form.addRow("장비 묶음", self.l_group)
         form.addRow("위치 X", self.l_x)
         form.addRow("위치 Y", self.l_y)
         form.addRow("배율", self.l_scale)
@@ -271,6 +306,8 @@ class MainWindow(QMainWindow):
         self.f_export.editingFinished.connect(lambda: self._asset_field("export_name", self.f_export.text().strip()))
         self.l_name.editingFinished.connect(lambda: self._layer_field("name", self.l_name.text().strip()))
         self.l_slot.currentIndexChanged.connect(lambda: self._layer_field("slot", self.l_slot.currentData()))
+        self.l_group.lineEdit().editingFinished.connect(self._layer_group_edited)
+        self.l_group.activated.connect(lambda _i: self._layer_group_edited())
         self.l_x.valueChanged.connect(lambda v: self._layer_field("x", int(v)))
         self.l_y.valueChanged.connect(lambda v: self._layer_field("y", int(v)))
         self.l_scale.valueChanged.connect(self._layer_scale)
@@ -284,7 +321,10 @@ class MainWindow(QMainWindow):
 
     def _build_bottom(self):
         box = QWidget()
-        h = QHBoxLayout(box)
+        outer = QVBoxLayout(box)
+        outer.setContentsMargins(4, 2, 4, 2)
+        h = QHBoxLayout()
+        outer.addLayout(h)
         for text, slot in (("−", lambda: self.canvas.set_zoom(self.canvas.zoom / 1.25)),
                            ("+", lambda: self.canvas.set_zoom(self.canvas.zoom * 1.25)),
                            ("1:1", lambda: self.canvas.set_zoom(1)),
@@ -309,15 +349,56 @@ class MainWindow(QMainWindow):
         h.addWidget(self.c_guides)
         h.addWidget(QLabel("배경"))
         h.addWidget(self.c_bg)
-        h.addSpacing(16)
+        h.addStretch(1)
+        h = QHBoxLayout()
+        outer.addLayout(h)
+        h.addWidget(QLabel("방향"))
+        self.dir_buttons = {}
+        for d in EIGHT_DIRECTIONS:
+            b = QPushButton(d)
+            b.setCheckable(True)
+            b.setMaximumWidth(40)
+            b.clicked.connect(lambda _=False, v=d: self.set_view(v))
+            self.dir_buttons[d] = b
+            h.addWidget(b)
+        h.addWidget(QLabel("겹쳐 보기"))
+        self.c_onion = QComboBox()
+        self.c_onion.addItem("없음", "")
+        for d in EIGHT_DIRECTIONS:
+            self.c_onion.addItem(d, d)
+        self.c_onion.currentIndexChanged.connect(self._onion_changed)
+        self.c_onion_alpha = QSlider(Qt.Horizontal)
+        self.c_onion_alpha.setRange(5, 90)
+        self.c_onion_alpha.setValue(35)
+        self.c_onion_alpha.setMaximumWidth(90)
+        self.c_onion_alpha.valueChanged.connect(self._onion_changed)
+        self.c_measure = QCheckBox("측정선")
+        self.c_measure.setChecked(True)
+        self.c_measure.toggled.connect(lambda v: (setattr(self.canvas, "show_measure", v), self.canvas.update()))
+        h.addWidget(self.c_onion)
+        h.addWidget(self.c_onion_alpha)
+        h.addWidget(self.c_measure)
+        h.addStretch(1)
         self.coord_label = QLabel("좌표 -")
         self.coord_label.setMinimumWidth(170)
         h.addWidget(self.coord_label)
         h.addStretch(1)
-        later = QLabel("타임라인·방향 전환·프레임 선택: 2·3차 단계 (승인 후)")
+        later = QLabel("타임라인·프레임: 3차 (승인 후)")
         later.setEnabled(False)
         h.addWidget(later)
         self._dock("보기", box, Qt.BottomDockWidgetArea, "bottom")
+
+    def _build_overview(self):
+        self.overview = Overview(self.cache)
+        self.overview.viewClicked.connect(self.set_view)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setWidget(self.overview)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        dock = self._dock("8방향 한눈에 보기", scroll, Qt.RightDockWidgetArea, "overview")
+        self.tabifyDockWidget(self.findChild(QDockWidget, "right"), dock)
+        self.findChild(QDockWidget, "right").raise_()
+        self.overview_dock = dock
 
     def _ground_sample(self):
         """A patch of the village painting for the readability background (read only)."""
@@ -363,12 +444,16 @@ class MainWindow(QMainWindow):
         self._fill_assets()
         self._fill_layers()
         self._fill_properties()
-        self.canvas.set_asset(self.project, self.asset, self.layer_id)
+        self._fill_groups()
+        self._fill_view_bar()
+        self.canvas.set_asset(self.project, self.asset, self.layer_id, self.view)
+        self.overview.refresh(self.project, self.asset, self.view)
         has_project, has_asset = self.project is not None, self.asset is not None
         for act in (self.act_save, self.act_save_as, self.act_new_asset):
             act.setEnabled(has_project)
         for act in (self.act_import, self.act_import_cell, self.act_check, self.act_export):
             act.setEnabled(has_asset)
+        self.act_import_sheet.setEnabled(bool(has_asset and self.asset.directions))
         self.act_undo.setEnabled(bool(self.history and self.history.can_undo))
         self.act_redo.setEnabled(bool(self.history and self.history.can_redo))
         self._update_title()
@@ -384,7 +469,8 @@ class MainWindow(QMainWindow):
                 self.asset_tree.addTopLevelItem(item)
                 groups[key] = item
             for a in self.project.assets:
-                child = QTreeWidgetItem([f"{a.name}  ({a.width}×{a.height}, 레이어 {len(a.layers)})"])
+                kind = "8방향" if a.directions else f"레이어 {len(a.layers)}"
+                child = QTreeWidgetItem([f"{a.name}  ({a.width}×{a.height}, {kind})"])
                 child.setData(0, Qt.UserRole, a.id)
                 groups[a.kind].addChild(child)
                 if a.id == self.asset_id:
@@ -399,8 +485,9 @@ class MainWindow(QMainWindow):
         self.layer_list.clear()
         a = self.asset
         if a:
-            for layer in reversed(a.layers):
+            for layer in reversed(a.view_layers(self.view)):
                 item = QListWidgetItem(f"{layer.name}  [{SLOTS.get(layer.slot, layer.slot)}]"
+                                       + (f"  〈{layer.group}〉" if layer.group else "")
                                        + ("  🔒" if layer.locked else ""))
                 item.setData(Qt.UserRole, layer.id)
                 item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
@@ -408,6 +495,8 @@ class MainWindow(QMainWindow):
                 if self.project.source(layer.source) is None or \
                         not self.project.source_path(self.project.source(layer.source)).is_file():
                     item.setForeground(QColor(220, 70, 70))
+                elif layer.group in a.hidden_groups:
+                    item.setForeground(QColor(140, 140, 140))
                 self.layer_list.addItem(item)
                 if layer.id == self.layer_id:
                     item.setSelected(True)
@@ -428,9 +517,15 @@ class MainWindow(QMainWindow):
             self.f_ax.setValue(a.anchor[0])
             self.f_ay.setValue(a.anchor[1])
             self.f_export.setText(a.export_name)
+            self.f_dirs.setText(" ".join(a.directions) if a.directions else "단일 (방향 없음)")
+            for key, box in self.f_tol.items():
+                box.setValue(a.tolerance(key))
         if l:
             self.l_name.setText(l.name)
             self.l_slot.setCurrentIndex(max(0, self.l_slot.findData(l.slot)))
+            self.l_group.clear()
+            self.l_group.addItems([""] + a.groups())
+            self.l_group.setCurrentText(l.group)
             self.l_x.setValue(l.x)
             self.l_y.setValue(l.y)
             self.l_scale.setValue(l.scale)
@@ -465,7 +560,7 @@ class MainWindow(QMainWindow):
                     lines.append(f"셀 영역 {l.crop}")
                 lines += info.summary()
         if a is not None:
-            result = compose(self.project, a, self.cache)
+            result = compose(self.project, a, self.cache, view=self.view)
             info = inspect(result)
             lines.append("<b>합성 결과</b>")
             lines += info.summary()
@@ -494,7 +589,8 @@ class MainWindow(QMainWindow):
     def select_asset(self, asset_id: str):
         self.asset_id = asset_id
         a = self.asset
-        self.layer_id = a.layers[-1].id if a and a.layers else ""
+        self.view = a.views()[0] if a else ""
+        self._pick_top_layer()
         self.refresh_all()
         self.canvas.fit()
 
@@ -509,7 +605,7 @@ class MainWindow(QMainWindow):
         self.layer_id = layer_id
         self._fill_layers()
         self._fill_properties()
-        self.canvas.set_asset(self.project, self.asset, self.layer_id)
+        self.canvas.set_asset(self.project, self.asset, self.layer_id, self.view)
 
     def _layer_item_changed(self, item):
         if self._syncing:
@@ -528,13 +624,16 @@ class MainWindow(QMainWindow):
             self._fill_assets()
         if layers:
             self._fill_layers()
+            self._fill_groups()
         self._fill_properties()
-        self.canvas.set_asset(self.project, self.asset, self.layer_id)
+        self.canvas.set_asset(self.project, self.asset, self.layer_id, self.view)
+        self.overview.refresh(self.project, self.asset, self.view)
 
     def _changed_from_canvas(self):
         self._mark()
         self._fill_properties()
-        self.canvas.update()
+        self.canvas.set_asset(self.project, self.asset, self.layer_id, self.view)
+        self.overview.refresh(self.project, self.asset, self.view)
 
     def _asset_field(self, field: str, value):
         a = self.asset
@@ -552,13 +651,14 @@ class MainWindow(QMainWindow):
         a.anchor[index] = float(value)
         self._after_edit()
 
-    def _layer_field(self, field: str, value):
+    def _layer_field(self, field: str, value, allow_empty: bool = False):
         l = self.layer
-        if self._syncing or l is None or getattr(l, field) == value or value in ("", None):
+        if self._syncing or l is None or getattr(l, field) == value or \
+                value is None or (value == "" and not allow_empty):
             return
         self._checkpoint(f"{l.id}-{field}")
         setattr(l, field, value)
-        self._after_edit(layers=field in ("name", "slot", "visible", "locked"))
+        self._after_edit(layers=field in ("name", "slot", "visible", "locked", "group"))
 
     def _layer_scale(self, value: float):
         """Scale around the pivot (or the bottom-centre) so the layer stays put."""
@@ -631,9 +731,11 @@ class MainWindow(QMainWindow):
         a, l = self.asset, self.layer
         if a and l:
             self._checkpoint()
-            index = a.layers.index(l)
+            same = a.view_layers(self.view)
+            index = same.index(l)
             a.layers.remove(l)
-            self.layer_id = a.layers[min(index, len(a.layers) - 1)].id if a.layers else ""
+            same.remove(l)
+            self.layer_id = same[min(index, len(same) - 1)].id if same else ""
             self._after_edit(layers=True, assets=True)
 
     def delete_asset(self):
@@ -668,9 +770,11 @@ class MainWindow(QMainWindow):
     def _after_undo(self):
         if self.asset is None:
             self.asset_id = self.project.assets[0].id if self.project.assets else ""
-        if self.layer is None:
-            a = self.asset
-            self.layer_id = a.layers[-1].id if a and a.layers else ""
+        a = self.asset
+        if a is None or self.view not in a.views():
+            self.view = a.views()[0] if a else ""
+        if self.layer is None or self.layer.view != self.view:
+            self._pick_top_layer()
         self._mark()
         self.refresh_all()
 
@@ -746,7 +850,8 @@ class MainWindow(QMainWindow):
         self.history = History(self.project)
         self.asset_id = self.project.assets[0].id if self.project.assets else ""
         a = self.asset
-        self.layer_id = a.layers[-1].id if a and a.layers else ""
+        self.view = a.views()[0] if a else ""
+        self._pick_top_layer()
         self.dirty = False
         self.refresh_all()
         self.canvas.fit()
@@ -791,10 +896,10 @@ class MainWindow(QMainWindow):
         if dialog.exec():
             self.new_asset(**dialog.values())
 
-    def new_asset(self, name, kind, width, height, anchor, preset="free"):
+    def new_asset(self, name, kind, width, height, anchor, preset="free", directions=None):
         self._checkpoint()
-        a = self.project.add_asset(name, kind, width, height, anchor, preset)
-        self.asset_id, self.layer_id = a.id, ""
+        a = self.project.add_asset(name, kind, width, height, anchor, preset, directions)
+        self.asset_id, self.layer_id, self.view = a.id, "", a.views()[0]
         self._mark()
         self.refresh_all()
         self.canvas.fit()
@@ -821,11 +926,12 @@ class MainWindow(QMainWindow):
             crop, align, label = dialog.crop(), dialog.align_anchor(), dialog.label()
         self.import_png(Path(path), crop=crop, align_to_anchor=align, name=label)
 
-    def import_png(self, path: Path, crop=None, align_to_anchor=None, name=None, slot="other"):
+    def import_png(self, path: Path, crop=None, align_to_anchor=None, name=None, slot="other", group=""):
         image = open_png(Path(path))
         self._checkpoint()
         source = self.project.import_png(Path(path), image.width, image.height, image.mode)
-        layer = self.project.add_layer(self.asset, source, name or Path(path).stem, crop, slot, align_to_anchor)
+        layer = self.project.add_layer(self.asset, source, name or Path(path).stem, crop, slot, align_to_anchor,
+                                       view=self.view, group=group)
         self.layer_id = layer.id
         self._mark()
         self.refresh_all()
@@ -833,13 +939,182 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage(f"주의: 원본 모드가 {image.mode}입니다 (RGBA 아님)", 6000)
         return layer
 
+    # ================================================================ directions & 장비 묶음
+    def _pick_top_layer(self):
+        a = self.asset
+        same = a.view_layers(self.view) if a else []
+        self.layer_id = same[-1].id if same else ""
+
+    def set_view(self, view: str):
+        a = self.asset
+        if a is None or view not in a.views():
+            self._fill_view_bar()
+            return
+        if view != self.view:
+            # Keep editing the same 장비 묶음 / layer name in the new direction when possible.
+            old = self.layer
+            self.view = view
+            match = None
+            if old is not None:
+                def base(layer):  # "정지 SW" -> "정지" for layers made by the 8-direction sheet import
+                    suffix = f" {layer.view}"
+                    return layer.name[:-len(suffix)] if layer.view and layer.name.endswith(suffix) else layer.name
+                same = a.view_layers(view)
+                match = next((l for l in same if l.group == old.group and base(l) == base(old)), None) or \
+                    next((l for l in same if old.group and l.group == old.group), None) or \
+                    next((l for l in same if base(l) == base(old)), None)
+            if match is not None:
+                self.layer_id = match.id
+            else:
+                self._pick_top_layer()
+        self.refresh_all()
+
+    def _fill_view_bar(self):
+        a = self.asset
+        for d, b in self.dir_buttons.items():
+            b.setEnabled(bool(a and d in a.directions))
+            b.setChecked(bool(a and d == self.view))
+
+    def _onion_changed(self):
+        self.canvas.onion_view = self.c_onion.currentData() or None
+        self.canvas.onion_opacity = self.c_onion_alpha.value() / 100
+        self.canvas.set_asset(self.project, self.asset, self.layer_id, self.view)
+
+    def _fill_groups(self):
+        self._syncing = True
+        self.group_list.clear()
+        a = self.asset
+        if a:
+            for g in a.groups():
+                count = len({l.view for l in a.layers if l.group == g})
+                item = QListWidgetItem(f"{g}  ({count}/{len(a.views())} 방향)" if a.directions else g)
+                item.setData(Qt.UserRole, g)
+                item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
+                item.setCheckState(Qt.Unchecked if g in a.hidden_groups else Qt.Checked)
+                self.group_list.addItem(item)
+        current = self.combo_box.currentText()
+        self.combo_box.clear()
+        if a:
+            self.combo_box.addItems(list(a.combos))
+            if current in a.combos:
+                self.combo_box.setCurrentText(current)
+        self._syncing = False
+
+    def _group_item_changed(self, item):
+        a = self.asset
+        if self._syncing or a is None:
+            return
+        g, on = item.data(Qt.UserRole), item.checkState() == Qt.Checked
+        if on == (g not in a.hidden_groups):
+            return
+        self._checkpoint()
+        if on:
+            a.hidden_groups.remove(g)
+        else:
+            a.hidden_groups.append(g)
+        self._after_edit(layers=True)
+
+    def set_group_visible(self, group: str, visible: bool):
+        for i in range(self.group_list.count()):
+            item = self.group_list.item(i)
+            if item.data(Qt.UserRole) == group:
+                item.setCheckState(Qt.Checked if visible else Qt.Unchecked)
+
+    def ask_save_combo(self):
+        a = self.asset
+        if a is None:
+            return
+        name, ok = QInputDialog.getText(self, "장비 조합 저장", "조합 이름 (현재 착용 상태를 저장)",
+                                        text=self.combo_box.currentText())
+        if ok and name.strip():
+            self.save_combo(name.strip())
+
+    def save_combo(self, name: str):
+        self._checkpoint()
+        self.asset.save_combo(name)
+        self._after_edit(layers=True)
+        self.combo_box.setCurrentText(name)
+
+    def apply_combo(self, name: str):
+        a = self.asset
+        if a is None or name not in a.combos:
+            return
+        self._checkpoint()
+        a.apply_combo(name)
+        self._after_edit(layers=True)
+
+    def delete_combo(self):
+        a = self.asset
+        name = self.combo_box.currentText()
+        if a is None or name not in a.combos:
+            return
+        self._checkpoint()
+        del a.combos[name]
+        self._after_edit(layers=True)
+
+    def _layer_group_edited(self):
+        self._layer_field("group", self.l_group.currentText().strip(), allow_empty=True)
+
+    def _asset_tolerance(self, key: str, value: float):
+        a = self.asset
+        if self._syncing or a is None or a.tolerance(key) == value:
+            return
+        self._checkpoint(f"{a.id}-tol-{key}")
+        a.tolerances[key] = float(value)
+        self._after_edit()
+
+    def ask_import_sheet(self):
+        a = self.asset
+        if not a or not a.directions:
+            return
+        start = str(self.specs.repo / "assets") if self.specs.repo else ""
+        path, _ = QFileDialog.getOpenFileName(self, "8방향 시트 가져오기", start, "PNG 이미지 (*.png)")
+        if not path:
+            return
+        try:
+            image = open_png(Path(path))
+        except (OSError, ValueError) as exc:
+            QMessageBox.critical(self, "가져오기 실패", str(exc))
+            return
+        dialog = SheetImportDialog(Path(path), image, self.specs, a.directions, a.groups(), self)
+        if dialog.exec():
+            v = dialog.values()
+            self.import_sheet(Path(path), v["crops"], v["name"], v["group"], v["slot"])
+
+    def import_sheet(self, path: Path, crops: dict, name: str, group: str = "", slot: str = "other"):
+        """One layer per direction from one sheet; one undo step."""
+        a = self.asset
+        image = open_png(Path(path))
+        self._checkpoint()
+        source = self.project.import_png(Path(path), image.width, image.height, image.mode)
+        made = {}
+        for view, crop in crops.items():
+            align = tuple(a.anchor) if (crop[2], crop[3]) == (a.width, a.height) else None
+            made[view] = self.project.add_layer(a, source, f"{name} {view}", crop, slot, align,
+                                                view=view, group=group)
+        self.layer_id = made[self.view].id if self.view in made else self.layer_id
+        self._mark()
+        self.refresh_all()
+        return made
+
+    def goto_check_item(self, item: dict):
+        a = self.asset
+        if a is None:
+            return
+        if item.get("view") in a.views() and item.get("view") != self.view:
+            self.set_view(item["view"])
+        if item.get("layer_id") and a.layer(item["layer_id"]):
+            self.select_layer(item["layer_id"])
+
     # ================================================================ check & export
     def run_check(self) -> list[dict]:
         return check_asset(self.project, self.asset, self.cache, self.specs)
 
     def show_check(self):
         if self.asset:
-            CheckDialog(self.run_check(), f"검사 — {self.asset.name}", False, self).exec()
+            dialog = CheckDialog(self.run_check(), f"검사 — {self.asset.name}", False, self)
+            dialog.on_pick = self.goto_check_item
+            dialog.exec()
 
     def ask_export(self):
         if not self.asset:
@@ -847,7 +1122,9 @@ class MainWindow(QMainWindow):
         if self.dirty and not self.save_project():
             return
         report = self.run_check()
-        if not CheckDialog(report, f"내보내기 전 검사 — {self.asset.name}", True, self).exec():
+        dialog = CheckDialog(report, f"내보내기 전 검사 — {self.asset.name}", True, self)
+        dialog.on_pick = self.goto_check_item
+        if not dialog.exec():
             return
         if has_errors(report):
             return
@@ -860,7 +1137,7 @@ class MainWindow(QMainWindow):
         except ValueError as exc:
             QMessageBox.critical(self, "내보내기 실패", str(exc))
             return
-        QMessageBox.information(self, "내보내기 완료", f"{png}\n{meta}")
+        QMessageBox.information(self, "내보내기 완료", "\n".join(str(p) for p in [*png, meta]))
 
     def export_current(self, report=None, overwrite=False):
         report = report if report is not None else self.run_check()
