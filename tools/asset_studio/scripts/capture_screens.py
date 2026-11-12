@@ -28,7 +28,8 @@ from PySide6.QtWidgets import QApplication  # noqa: E402
 from paldo_studio.game_specs import find_repo, load_specs  # noqa: E402
 from paldo_studio.imaging import open_png  # noqa: E402
 from paldo_studio.imaging import SHEET_LAYOUTS  # noqa: E402
-from paldo_studio.ui.dialogs import CellImportDialog, CheckDialog, SheetImportDialog, SheetPreviewDialog  # noqa: E402
+from paldo_studio.ui.dialogs import (ArtworkImportDialog, CellImportDialog, CheckDialog, SheetImportDialog,  # noqa: E402
+                                    SheetPreviewDialog, TemplateDialog)
 from paldo_studio.ui.main_window import MainWindow  # noqa: E402
 
 
@@ -174,6 +175,43 @@ def main() -> int:
         app.processEvents()
         check.grab().save(str(args.out / "studio3-check.png"))
         check.close()
+
+        # ---- phase 4: monster from a template + a GPT-style artwork ----------
+        from PIL import Image, ImageDraw
+        entries, notes = window.template_entries()
+        dialog = TemplateDialog(entries, notes)
+        dialog.list.setCurrentRow(next(i for i, (_, t) in enumerate(entries) if t.key == "monster-boar-walk"))
+        dialog.resize(820, 560)
+        dialog.show()
+        app.processEvents()
+        dialog.grab().save(str(args.out / "studio4-templates.png"))
+        dialog.close()
+        boar = next(t for _, t in entries if t.key == "monster-boar-walk")
+        window.new_asset_from_template(boar, "멧돼지 새 걷기 (시연)", with_reference=True)
+        window.set_view("E")
+        # Stand-in for a downloaded artwork: flat paper background, a simple dark beast shape.
+        art = Image.new("RGBA", (520, 420), (246, 243, 234, 255))
+        draw = ImageDraw.Draw(art)
+        draw.ellipse((90, 120, 430, 330), fill=(70, 52, 40, 255))
+        draw.ellipse((360, 150, 470, 250), fill=(62, 45, 35, 255))
+        for x in (140, 200, 320, 380):
+            draw.rectangle((x, 300, x + 26, 385), fill=(55, 40, 30, 255))
+        draw.polygon([(455, 215), (500, 200), (462, 232)], fill=(235, 228, 205, 255))
+        art_path = Path(tmp) / "gpt-art-demo.png"
+        art.save(art_path)
+        dialog = ArtworkImportDialog(art_path, art, True)
+        dialog.height_mode.setCurrentIndex(dialog.height_mode.findData("reference"))
+        dialog.show()
+        app.processEvents()
+        dialog.grab().save(str(args.out / "studio4-artwork-import.png"))
+        values = dialog.values()
+        dialog.close()
+        window.import_artwork(art_path, **{**values, "slot": "body"})
+        window.c_onion.setCurrentIndex(0)
+        window.refresh_all()
+        window.canvas.fit()
+        app.processEvents()
+        window.grab().save(str(args.out / "studio4-artwork-placed.png"))
         window.dirty = False
         window.close()
     print(f"saved to {args.out}")

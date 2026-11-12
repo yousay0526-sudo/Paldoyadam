@@ -13,12 +13,16 @@ from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QComboBox, QDockWid
                                QToolBar, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget)
 
 from .. import __version__
+from .. import autofix
 from ..checks import check_asset, has_errors
 from ..game_specs import Specs
 from ..imaging import SHEET_LAYOUTS, ImageCache, build_sheets, compose, export_asset, inspect, layout_problem, open_png
 from ..model import EIGHT_DIRECTIONS, KINDS, PROJECT_FILE, SLOTS, TOLERANCE_LABELS, History, Project
 from .canvas import BACKGROUNDS, Canvas, pil_to_qimage, preview_pixmap
-from .dialogs import CellImportDialog, CheckDialog, NewAssetDialog, SheetImportDialog, SheetPreviewDialog
+from ..templates import (TEMPLATE_SUFFIX, Template, asset_from_template, builtin_templates, load_template,
+                         project_templates, save_template)
+from .dialogs import (ArtworkImportDialog, CellImportDialog, CheckDialog, NewAssetDialog, SheetImportDialog,
+                      SheetPreviewDialog, TemplateDialog)
 from .overview import Overview
 
 
@@ -78,11 +82,33 @@ class MainWindow(QMainWindow):
 
         a = menu.addMenu("에셋(&A)")
         self.act_new_asset = self._action(a, "새 에셋…", QKeySequence("Ctrl+Shift+N"), self.ask_new_asset)
+        self.act_from_template = self._action(a, "템플릿에서 새 에셋…", QKeySequence("Ctrl+T"),
+                                              self.ask_new_from_template)
+        self.act_save_template = self._action(a, "현재 에셋을 템플릿으로 저장…", QKeySequence("Ctrl+Shift+T"),
+                                              self.ask_save_template)
+        self.act_template_file = self._action(a, "템플릿 파일 가져오기…", QKeySequence(), self.ask_import_template_file)
+        a.addSeparator()
         self.act_import = self._action(a, "PNG 가져오기…", QKeySequence("Ctrl+I"), self.ask_import_png)
         self.act_import_cell = self._action(a, "시트에서 셀 가져오기…", QKeySequence("Ctrl+Shift+I"),
                                             lambda: self.ask_import_png(cell=True))
         self.act_import_sheet = self._action(a, "시트 여러 셀 한 번에 가져오기 (방향·프레임)…",
                                              QKeySequence("Ctrl+Alt+I"), self.ask_import_sheet)
+
+        c = menu.addMenu("보정(&C)")
+        self.act_artwork = self._action(c, "GPT 원화 가져오기 (현재 칸)…", QKeySequence("Ctrl+G"),
+                                        self.ask_import_artwork)
+        c.addSeparator()
+        self.act_bg = self._action(c, "선택 레이어 배경 제거…", QKeySequence("Ctrl+Shift+B"), self.ask_remove_background)
+        self.act_noise = self._action(c, "선택 레이어 잡점(알파 1~4) 지우기", QKeySequence(), self.clean_noise)
+        c.addSeparator()
+        self.act_snap = self._action(c, "발 맞추기: 현재 칸", QKeySequence("Ctrl+Shift+F"),
+                                     lambda: self.snap_foot(False))
+        self.act_snap_all = self._action(c, "발 맞추기: 모든 방향·프레임", QKeySequence(),
+                                         lambda: self.snap_foot(True))
+        self.act_height = self._action(c, "키 맞추기: 선택 레이어를 참고 레이어 키로", QKeySequence(),
+                                       self.match_reference_height)
+        self.fix_actions = (self.act_artwork, self.act_bg, self.act_noise, self.act_snap, self.act_snap_all,
+                            self.act_height)
 
         x = menu.addMenu("내보내기(&X)")
         self.act_check = self._action(x, "검사", QKeySequence("F7"), self.show_check)
@@ -94,7 +120,7 @@ class MainWindow(QMainWindow):
         h = menu.addMenu("도움말(&H)")
         h.addAction("정보", lambda: QMessageBox.information(
             self, "Paldo Asset Studio",
-            f"팔도 에셋 스튜디오 {__version__} (3차)\n\n"
+            f"팔도 에셋 스튜디오 {__version__} (4차)\n\n"
             "원본 PNG는 프로젝트 sources/에 복사해 보관하고 수정하지 않습니다.\n"
             "내보내기는 프로젝트 exports/에만 씁니다. 게임 assets/는 바꾸지 않습니다.\n\n"
             + ("게임 저장소: " + str(self.specs.repo) if self.specs.repo else "게임 저장소를 찾지 못했습니다.")))
@@ -526,8 +552,12 @@ class MainWindow(QMainWindow):
         self._fill_timeline()
         self._show()
         has_project, has_asset = self.project is not None, self.asset is not None
-        for act in (self.act_save, self.act_save_as, self.act_new_asset):
+        for act in (self.act_save, self.act_save_as, self.act_new_asset, self.act_from_template,
+                    self.act_template_file):
             act.setEnabled(has_project)
+        for act in self.fix_actions:
+            act.setEnabled(has_asset)
+        self.act_save_template.setEnabled(has_asset)
         for act in (self.act_import, self.act_import_cell, self.act_check, self.act_export,
                     self.act_import_sheet, self.act_sheet_preview):
             act.setEnabled(has_asset)
@@ -1408,6 +1438,190 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "시트 미리보기", str(exc))
             return
         SheetPreviewDialog(sheets, SHEET_LAYOUTS[a.sheet_layout], self).exec()
+
+    # ================================================================ templates
+    def template_entries(self) -> tuple[list[tuple[str, Template]], list[str]]:
+        builtins, notes = builtin_templates(self.specs)
+        entries = [("기본", t) for t in builtins]
+        entries += [("내 템플릿", t) for _, t in project_templates(self.project)]
+        return entries, notes
+
+    def ask_new_from_template(self):
+        if not self.project:
+            return
+        entries, notes = self.template_entries()
+        dialog = TemplateDialog(entries, notes, self)
+        if dialog.exec():
+            v = dialog.values()
+            if v["template"] is not None:
+                self.new_asset_from_template(v["template"], v["name"], v["with_reference"])
+
+    def new_asset_from_template(self, template: Template, name: str, with_reference: bool = False):
+        self._checkpoint()
+        a = asset_from_template(self.project, template, name, self.specs.repo, with_reference)
+        self.asset_id, self.view, self.frame = a.id, a.views()[0], 0
+        self._pick_top_layer()
+        self._mark()
+        self.refresh_all()
+        self.canvas.fit()
+        return a
+
+    def ask_save_template(self):
+        a = self.asset
+        if a is None:
+            return
+        label, ok = QInputDialog.getText(self, "템플릿으로 저장",
+                                         "템플릿 이름 (그림은 빼고 크기·발 기준점·방향·프레임·내보내기 형식만 저장)",
+                                         text=a.name)
+        if ok and label.strip():
+            path = self.save_as_template(label.strip())
+            self.statusBar().showMessage(f"템플릿 저장: {path}", 6000)
+
+    def save_as_template(self, label: str) -> Path:
+        slug = "".join(c if c.isascii() and c.isalnum() else "-" for c in label.lower()).strip("-") or \
+            f"template-{self.asset.id[-8:]}"
+        folder = self.project.root / "templates"
+        path = folder / (slug + TEMPLATE_SUFFIX)
+        n = 2
+        while path.exists():
+            path = folder / f"{slug}-{n}{TEMPLATE_SUFFIX}"
+            n += 1
+        return save_template(Template.from_asset(self.asset, label), path)
+
+    def ask_import_template_file(self):
+        if not self.project:
+            return
+        path, _ = QFileDialog.getOpenFileName(self, "템플릿 파일 가져오기", "", f"팔도 템플릿 (*{TEMPLATE_SUFFIX})")
+        if path:
+            try:
+                saved = self.import_template_file(Path(path))
+            except (OSError, ValueError, TypeError) as exc:
+                QMessageBox.critical(self, "템플릿 가져오기 실패", str(exc))
+                return
+            self.statusBar().showMessage(f"템플릿을 프로젝트에 넣었습니다: {saved.name}", 6000)
+
+    def import_template_file(self, path: Path) -> Path:
+        """Copy a template file from elsewhere into this project's templates/ (validated first)."""
+        template = load_template(path)
+        return save_template(template, self.project.root / "templates" / Path(path).name)
+
+    # ================================================================ 자동 보정
+    def _cell_has_reference(self) -> bool:
+        a = self.asset
+        return bool(a and any(l.slot == "reference" for l in a.cell_layers(self.view, self.frame)))
+
+    def ask_import_artwork(self):
+        if not self.asset:
+            return
+        path, _ = QFileDialog.getOpenFileName(self, "GPT 원화 가져오기", "", "PNG 이미지 (*.png)")
+        if not path:
+            return
+        try:
+            image = open_png(Path(path))
+        except (OSError, ValueError) as exc:
+            QMessageBox.critical(self, "가져오기 실패", str(exc))
+            return
+        dialog = ArtworkImportDialog(Path(path), image, self._cell_has_reference(), self)
+        if dialog.exec():
+            layer = self.import_artwork(Path(path), **dialog.values())
+            self.statusBar().showMessage(f"원화 레이어 '{layer.name}' 배율 {layer.scale:g}", 6000)
+
+    def import_artwork(self, path: Path, remove_bg=True, tolerance=24, feather=True, clean_noise=True,
+                       height=None, snap=True, slot="body"):
+        """GPT 원화 → (배경 제거 · 잡점 제거 → 새 사본) → 키 맞추기 → 발 맞추기, as ONE undo step."""
+        a = self.asset
+        original = open_png(Path(path))
+        self._checkpoint()
+        source = self.project.import_png(Path(path), original.width, original.height, original.mode)
+        layer = self.project.add_layer(a, source, Path(path).stem, None, slot, None, view=self.view,
+                                       frame=self.frame)
+        image, params = original.convert("RGBA"), {}
+        if remove_bg:
+            result = autofix.remove_background(image, tolerance, feather)
+            if result.colour is not None:
+                image = result.image
+                params["background"] = {"colour": list(result.colour), "tolerance": tolerance, "feather": feather,
+                                        "removed": result.removed}
+        if clean_noise:
+            image, changed = autofix.clean_alpha_noise(image)
+            params["noise"] = {"cutoff": autofix.NOISE_ALPHA, "changed": changed}
+        if params.get("background") or params.get("noise", {}).get("changed"):
+            autofix.add_derived_source(self.project, image, layer, "cleaned", params)
+        target = None
+        if height == "reference":
+            target = autofix.reference_height(self.project, a, self.cache, self.view, self.frame)
+        elif isinstance(height, (int, float)):
+            target = float(height)
+        if target:
+            autofix.match_height(self.project, layer, self.cache, target)
+        if snap:
+            autofix.snap_cell_to_foot(self.project, a, self.cache, self.view, self.frame, layers=[layer])
+        self.layer_id = layer.id
+        self._mark()
+        self.refresh_all()
+        return layer
+
+    def ask_remove_background(self):
+        l = self.layer
+        if l is None:
+            return
+        tolerance, ok = QInputDialog.getInt(self, "배경 제거", "배경 색 허용 차이 (1~128)", 24, 1, 128)
+        if ok:
+            result = self.remove_background(tolerance)
+            if result.colour is None:
+                QMessageBox.information(self, "배경 제거", result.reason)
+
+    def remove_background(self, tolerance: int = 24, feather: bool = True):
+        l = self.layer
+        result = autofix.remove_background(self.cache.get(self.project, l.source), tolerance, feather)
+        if result.colour is None:
+            return result
+        self._checkpoint()
+        autofix.add_derived_source(self.project, result.image, l, "background",
+                                   {"colour": list(result.colour), "tolerance": tolerance, "feather": feather})
+        self._after_edit(layers=True)
+        return result
+
+    def clean_noise(self) -> int:
+        l = self.layer
+        if l is None:
+            return 0
+        image, changed = autofix.clean_alpha_noise(self.cache.get(self.project, l.source))
+        if changed:
+            self._checkpoint()
+            autofix.add_derived_source(self.project, image, l, "noise", {"cutoff": autofix.NOISE_ALPHA})
+            self._after_edit(layers=True)
+        self.statusBar().showMessage(f"잡점 {changed}px", 4000)
+        return changed
+
+    def snap_foot(self, every_cell: bool = False):
+        a = self.asset
+        if a is None:
+            return None
+        self._checkpoint()
+        if every_cell:
+            moved = autofix.snap_all_to_foot(self.project, a, self.cache)
+            text = f"발 맞추기: {len(moved)}칸 이동"
+        else:
+            moved = autofix.snap_cell_to_foot(self.project, a, self.cache, self.view, self.frame)
+            text = f"발 맞추기: {moved}" if moved else "발 맞추기: 그림 없음"
+        self._after_edit()
+        self._fill_timeline()
+        self.statusBar().showMessage(text, 5000)
+        return moved
+
+    def match_reference_height(self):
+        a, l = self.asset, self.layer
+        if a is None or l is None or l.slot == "reference":
+            return None
+        target = autofix.reference_height(self.project, a, self.cache, self.view, self.frame)
+        if not target:
+            self.statusBar().showMessage("이 칸에 보이는 참고 레이어가 없습니다", 5000)
+            return None
+        self._checkpoint()
+        scale = autofix.match_height(self.project, l, self.cache, target)
+        self._after_edit()
+        return scale
 
     # ================================================================ check & export
     def run_check(self) -> list[dict]:

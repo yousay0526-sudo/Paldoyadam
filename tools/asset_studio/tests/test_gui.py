@@ -307,6 +307,75 @@ class GuiSmokeTest(unittest.TestCase):
         d = SheetImportDialog(path, open_png(path), self.window.specs, [], [])
         self.assertEqual((d.mode.count(), d.mode.currentData(), len(d.crops())), (1, "frames", 6))
 
+    def test_templates_and_auto_correction_flow(self):
+        import numpy as np
+        from PIL import Image
+        from paldo_studio.imaging import measure
+        w = self.window
+        w.new_project(self.dir / "p4", "4차")
+        entries, notes = w.template_entries()
+        boar = next(t for g, t in entries if t.key == "monster-boar-walk")
+        a = w.new_asset_from_template(boar, "멧돼지 새 걷기", with_reference=True)
+        self.assertEqual((a.kind, a.frames, len(a.directions), a.sheet_layout), ("monster", 4, 8, "rows_by_view"))
+        self.assertEqual(w.frame_strip.count(), 4)
+        self.assertEqual(w.layer_list.count(), 1)  # the runtime cell, as a reference layer
+        self.assertEqual(w.layer.slot, "reference")
+        self.assertTrue(any(i["level"] == "error" for i in w.run_check()))
+
+        # A "GPT artwork": flat background, figure much larger than the game cell.
+        art = Image.new("RGBA", (400, 500), (248, 246, 240, 255))
+        art.paste(Image.new("RGBA", (200, 300), (90, 60, 40, 255)), (110, 120))
+        path = self.dir / "gpt-boar.png"
+        art.save(path)
+        before = path.read_bytes()
+        w.set_view("E")
+        layer = w.import_artwork(path, height="reference", snap=True, slot="body")
+        self.assertEqual(path.read_bytes(), before)
+        source = w.project.source(layer.source)
+        self.assertEqual(source.derived["operation"], "cleaned")
+        self.assertIn("background", source.derived["params"])
+        from paldo_studio import autofix
+        ref = autofix.reference_height(w.project, w.asset, w.cache, "E", 0)
+        own = autofix._composite(w.project, w.asset, w.cache, [layer])
+        m = measure(own)
+        self.assertLessEqual(abs(m.bbox[3] - m.bbox[1] - ref), 1)  # resampling: within 1 px
+        self.assertEqual(m.contact_y, 176)
+        self.assertLessEqual(abs(m.foot_x - 96), 0.5)
+        self.assertEqual(int(np.asarray(own)[5, 5, 3]), 0)  # background gone
+        w.undo()  # the whole import is one step
+        self.assertEqual(len(w.asset.cell_layers("E", 0)), 1)
+        w.redo()
+        w.select_layer(layer.id)
+        self.assertEqual(w.layer.slot, "body")
+
+        # Placement corrections.
+        w.l_y.setValue(w.layer.y - 9)
+        moved = w.snap_foot(False)
+        self.assertEqual(moved[1], 9)
+        w.l_scale.setValue(w.layer.scale * 2)
+        w.match_reference_height()
+        m = measure(autofix._composite(w.project, w.asset, w.cache, [w.layer]))
+        self.assertLessEqual(abs(m.bbox[3] - m.bbox[1] - ref), 1)  # resampling: within 1 px
+
+        # Image corrections on a plain layer: a new source each time, undoable.
+        w.import_png(path, name="그대로", slot="other")
+        old = w.layer.source
+        result = w.remove_background(24)
+        self.assertEqual(result.colour, (248, 246, 240))
+        self.assertNotEqual(w.layer.source, old)
+        w.undo()
+        self.assertEqual(w.layer.source, old)
+
+        # User template round trip.
+        saved = w.save_as_template("내 멧돼지 걷기")
+        self.assertTrue(saved.is_file())
+        entries, _ = w.template_entries()
+        mine = [t for g, t in entries if g == "내 템플릿"]
+        self.assertEqual([t.label for t in mine], ["내 멧돼지 걷기"])
+        b = w.new_asset_from_template(mine[0], "도깨비")
+        self.assertEqual((b.frames, b.sheet_layout, b.layers), (4, "rows_by_view", []))
+        self.assertTrue(w.save_project())
+
     def test_projects_cannot_live_in_runtime_assets(self):
         with self.assertRaises(ValueError):
             self.window.new_project(REPO / "assets" / "studio-test", "x")
