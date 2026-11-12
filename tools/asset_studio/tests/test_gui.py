@@ -376,6 +376,32 @@ class GuiSmokeTest(unittest.TestCase):
         self.assertEqual((b.frames, b.sheet_layout, b.layers), (4, "rows_by_view", []))
         self.assertTrue(w.save_project())
 
+    def test_big_image_resized_by_pixels(self):
+        from PIL import Image
+        w = self.window
+        w.new_project(self.dir / "px", "픽셀 크기")
+        w.new_asset("큰 원화", "character", 192, 192, (96, 176), "hero-move")
+        big = Image.new("RGBA", (3000, 2400), (0, 0, 0, 0))
+        big.paste(Image.new("RGBA", (1000, 2000), (120, 40, 40, 255)), (1000, 300))
+        path = self.dir / "big.png"
+        big.save(path)
+        w.import_png(path)
+        self.assertEqual(w.l_source_size.text(), "3000×2400 px")
+        w.l_w.setValue(192)  # whole picture 192 px wide
+        image = w.cache.layer_image(w.project, w.layer)
+        self.assertEqual(image.size, (192, 154))
+        self.assertEqual(w.l_h.value(), 154)
+        w.l_h.setValue(100)
+        self.assertEqual(w.cache.layer_image(w.project, w.layer).size, (125, 100))
+        self.assertEqual(w.l_w.value(), 125)
+        w.undo()  # one undo for the size edits on the same layer
+        self.assertEqual(w.layer.scale, 1.0)
+        w.match_height_px(140)  # the visible figure, transparent margin excluded
+        from paldo_studio import autofix
+        height = autofix.visible_height(w.cache.layer_image(w.project, w.layer))
+        self.assertLessEqual(abs(height - 140), 1)
+        self.assertGreater(w.l_h.value(), 140)  # whole picture incl. margin is taller
+
     def test_projects_cannot_live_in_runtime_assets(self):
         with self.assertRaises(ValueError):
             self.window.new_project(REPO / "assets" / "studio-test", "x")
