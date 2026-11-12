@@ -91,6 +91,7 @@ class Layer:
     locked: bool = False
     view: str = ""                      # direction code ("N".."NW") or "" for a single-view asset
     group: str = ""                     # 장비 묶음 (e.g. "무명 바지"); "" = always part of the body
+    frame: int = 0                      # animation frame index (0 for still assets)
 
 
 @dataclass
@@ -108,6 +109,11 @@ class Asset:
     hidden_groups: list[str] = field(default_factory=list)  # 장비 묶음 currently switched off
     combos: dict[str, list[str]] = field(default_factory=dict)  # 장비 조합 name -> visible groups
     tolerances: dict[str, float] = field(default_factory=dict)  # overrides of DEFAULT_TOLERANCES
+    frames: int = 1                     # animation frames per direction
+    fps: float = 8.0                    # editor playback only; never written into the game
+    frame_anchors: dict[str, list[float]] = field(default_factory=dict)  # per-frame foot root overrides
+    sheet_layout: str = "cells"         # export: see imaging.SHEET_LAYOUTS
+    sheet_columns: int = 4
 
     def layer(self, layer_id: str) -> Layer | None:
         return next((l for l in self.layers if l.id == layer_id), None)
@@ -117,6 +123,63 @@ class Asset:
 
     def view_layers(self, view: str) -> list[Layer]:
         return [l for l in self.layers if l.view == view]
+
+    def cell_layers(self, view: str, frame: int) -> list[Layer]:
+        """Layers of one direction and one frame, back to front."""
+        return [l for l in self.layers if l.view == view and l.frame == frame]
+
+    def anchor_for(self, frame: int) -> list[float]:
+        return self.frame_anchors.get(str(frame), self.anchor)
+
+    # ---- frame operations (apply to every direction at once) ----------
+    def insert_frame(self, at: int, copy_from: int | None = None) -> list[Layer]:
+        """Insert a frame at ``at``; with ``copy_from``, duplicate that frame's layers into it."""
+        at = max(0, min(at, self.frames))
+        source = None if copy_from is None else (copy_from + 1 if copy_from >= at else copy_from)
+        for l in self.layers:
+            if l.frame >= at:
+                l.frame += 1
+        self.frame_anchors = {str(int(k) + 1 if int(k) >= at else int(k)): v for k, v in self.frame_anchors.items()}
+        self.frames += 1
+        made: list[Layer] = []
+        if source is not None:
+            for l in [l for l in self.layers if l.frame == source]:
+                twin = copy.deepcopy(l)
+                twin.id = _new_id("layer")
+                twin.frame = at
+                made.append(twin)
+                self.layers.insert(self.layers.index(l) + 1, twin)
+            if str(source) in self.frame_anchors:
+                self.frame_anchors[str(at)] = list(self.frame_anchors[str(source)])
+        return made
+
+    def delete_frame(self, index: int) -> bool:
+        if self.frames <= 1 or not 0 <= index < self.frames:
+            return False
+        self.layers = [l for l in self.layers if l.frame != index]
+        for l in self.layers:
+            if l.frame > index:
+                l.frame -= 1
+        self.frame_anchors = {str(int(k) - 1 if int(k) > index else int(k)): v
+                              for k, v in self.frame_anchors.items() if int(k) != index}
+        self.frames -= 1
+        return True
+
+    def move_frame(self, index: int, delta: int) -> bool:
+        other = index + delta
+        if not (0 <= index < self.frames and 0 <= other < self.frames) or delta == 0:
+            return False
+        for l in self.layers:
+            if l.frame == index:
+                l.frame = other
+            elif l.frame == other:
+                l.frame = index
+        a, b = self.frame_anchors.pop(str(index), None), self.frame_anchors.pop(str(other), None)
+        if a is not None:
+            self.frame_anchors[str(other)] = a
+        if b is not None:
+            self.frame_anchors[str(index)] = b
+        return True
 
     def groups(self) -> list[str]:
         seen: list[str] = []
@@ -147,8 +210,11 @@ class Asset:
 # (measured with imaging.measure on main 0805c14): lowest visible row 175..176 for
 # foot root y=176, foot-band centre 72.3..120.4 for root x=96 (largest offset 24.4),
 # smallest edge margin 13. scripts/prepare_direction_assets.py requires >= 4 px margin.
-DEFAULT_TOLERANCES = {"ground": 2.0, "axis": 26.0, "margin": 4.0}
-TOLERANCE_LABELS = {"ground": "발 접지 허용 (px)", "axis": "발 중심축 허용 (px)", "margin": "셀 가장자리 여백 (px)"}
+# "jump": largest move of the whole-art centre between consecutive frames. Current runtime
+# sheets: walk <= 2.9 x / 6.9 y, basic attack and techniques up to about 21 x / 20 y (lunges).
+DEFAULT_TOLERANCES = {"ground": 2.0, "axis": 26.0, "margin": 4.0, "jump": 30.0}
+TOLERANCE_LABELS = {"ground": "발 접지 허용 (px)", "axis": "발 중심축 허용 (px)", "margin": "셀 가장자리 여백 (px)",
+                    "jump": "프레임 간 이동 허용 (px)"}
 
 # Game direction order (art/hero/directions/preparation.json, src/draw.h HeroDirection).
 EIGHT_DIRECTIONS = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
@@ -225,29 +291,34 @@ class Project:
     def add_layer(self, asset: Asset, source: Source, name: str,
                   crop: list[int] | None = None, slot: str = "other",
                   align_to_anchor: tuple[float, float] | None = None,
-                  view: str = "", group: str = "") -> Layer:
+                  view: str = "", group: str = "", frame: int = 0) -> Layer:
         if view not in asset.views():
             raise ValueError(f"에셋에 없는 방향입니다: {view!r}")
+        if frame < 0:
+            raise ValueError("프레임 번호는 0 이상이어야 합니다")
+        asset.frames = max(asset.frames, frame + 1)
         layer = Layer(_new_id("layer"), name, source.id, list(crop) if crop else None, slot=slot,
-                      view=view, group=group)
+                      view=view, group=group, frame=frame)
         w, h = (crop[2], crop[3]) if crop else (source.width, source.height)
+        anchor = asset.anchor_for(frame)
         if align_to_anchor is not None:
             # Same cell geometry: put the layer's own foot point on the asset anchor.
             layer.pivot = [float(align_to_anchor[0]), float(align_to_anchor[1])]
-            layer.x = round(asset.anchor[0] - align_to_anchor[0])
-            layer.y = round(asset.anchor[1] - align_to_anchor[1])
+            layer.x = round(anchor[0] - align_to_anchor[0])
+            layer.y = round(anchor[1] - align_to_anchor[1])
         else:
             # Centre horizontally, bottom on the ground line.
-            layer.x = round(asset.anchor[0] - w / 2)
-            layer.y = round(asset.anchor[1] - h)
+            layer.x = round(anchor[0] - w / 2)
+            layer.y = round(anchor[1] - h)
         asset.layers.append(layer)
         return layer
 
     def snap_pivot_to_anchor(self, asset: Asset, layer: Layer) -> bool:
         if layer.pivot is None:
             return False
-        layer.x = round(asset.anchor[0] - layer.pivot[0] * layer.scale)
-        layer.y = round(asset.anchor[1] - layer.pivot[1] * layer.scale)
+        anchor = asset.anchor_for(layer.frame)
+        layer.x = round(anchor[0] - layer.pivot[0] * layer.scale)
+        layer.y = round(anchor[1] - layer.pivot[1] * layer.scale)
         return True
 
     @staticmethod
@@ -256,10 +327,10 @@ class Project:
         idx = next((i for i, l in enumerate(asset.layers) if l.id == layer_id), None)
         if idx is None or delta == 0:
             return False
-        view = asset.layers[idx].view
+        view, frame = asset.layers[idx].view, asset.layers[idx].frame
         step = 1 if delta > 0 else -1
         j = idx + step
-        while 0 <= j < len(asset.layers) and asset.layers[j].view != view:
+        while 0 <= j < len(asset.layers) and (asset.layers[j].view, asset.layers[j].frame) != (view, frame):
             j += step
         if not 0 <= j < len(asset.layers):
             return False

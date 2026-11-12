@@ -1,4 +1,4 @@
-"""Small dialogs: new asset, atlas cell import, check results."""
+"""Small dialogs: new asset, atlas cell import, sheet import, check results, sheet preview."""
 
 from __future__ import annotations
 
@@ -8,8 +8,8 @@ from PIL import Image
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QPainter, QPixmap
 from PySide6.QtWidgets import (QCheckBox, QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox,
-                               QFormLayout, QLabel, QLineEdit, QSpinBox, QTableWidget,
-                               QTableWidgetItem, QVBoxLayout, QHeaderView)
+                               QFormLayout, QLabel, QLineEdit, QScrollArea, QSpinBox, QTableWidget,
+                               QTableWidgetItem, QVBoxLayout, QHeaderView, QWidget)
 
 from ..checks import LEVEL_LABEL
 from ..game_specs import Specs, sheet_layout
@@ -183,19 +183,21 @@ class CheckDialog(QDialog):
         self.resize(720, 320)
         self.report = report
         self.on_pick = None   # callable(item) — jump to the direction/layer of a row
-        table = QTableWidget(len(report), 4)
-        table.setHorizontalHeaderLabels(["결과", "방향", "레이어", "내용"])
-        table.horizontalHeader().setSectionResizeMode(3, QHeaderView.Stretch)
+        table = QTableWidget(len(report), 5)
+        table.setHorizontalHeaderLabels(["결과", "방향", "프레임", "레이어", "내용"])
+        table.horizontalHeader().setSectionResizeMode(4, QHeaderView.Stretch)
         table.verticalHeader().setVisible(False)
         for row, item in enumerate(report):
             level = QTableWidgetItem(LEVEL_LABEL[item["level"]])
             level.setForeground(self.COLORS[item["level"]])
             table.setItem(row, 0, level)
             table.setItem(row, 1, QTableWidgetItem(item.get("view") or "-"))
-            table.setItem(row, 2, QTableWidgetItem(item["layer"] or "(에셋 전체)"))
+            frame = item.get("frame")
+            table.setItem(row, 2, QTableWidgetItem("-" if frame is None else str(frame + 1)))
+            table.setItem(row, 3, QTableWidgetItem(item["layer"] or "(에셋 전체)"))
             message = QTableWidgetItem(item["message"])
             message.setToolTip(item["message"])
-            table.setItem(row, 3, message)
+            table.setItem(row, 4, message)
         table.setWordWrap(True)
         table.resizeRowsToContents()
         table.setEditTriggers(QTableWidget.NoEditTriggers)
@@ -203,7 +205,7 @@ class CheckDialog(QDialog):
         self.table = table
         layout = QVBoxLayout(self)
         layout.addWidget(table)
-        layout.addWidget(QLabel("행을 두 번 누르면 해당 방향·레이어로 이동합니다."))
+        layout.addWidget(QLabel("행을 두 번 누르면 해당 방향·프레임·레이어로 이동합니다."))
         layout.addWidget(QLabel("자동 검사는 기술 항목만 확인합니다. 그림의 완성도는 직접 판단해야 합니다."))
         errors = any(i["level"] == "error" for i in report)
         if ask_export and not errors:
@@ -223,16 +225,19 @@ class CheckDialog(QDialog):
 
 
 class SheetImportDialog(QDialog):
-    """Import one sheet into all eight direction views of an asset at once."""
+    """Import many cells of one sheet at once: into directions, frames, or both."""
 
-    MODES = {"cells": "셀 순서 = 방향 순서 (정지 4×2 시트 등)",
-             "rows": "행 = 방향, 열 = 프레임 (몬스터 걷기·공격 시트)"}
+    MODES = {"cells": "셀 순서 = 방향 순서 (정지 4×2 시트 등) — 현재 프레임에",
+             "rows": "행 = 방향, 열 하나만 (몬스터 시트의 한 프레임) — 현재 프레임에",
+             "frames": "셀 순서 = 프레임 순서 (걷기 4×2, 공격·무공 3×2) — 현재 방향에",
+             "rows_all": "행 = 방향, 열 = 프레임 (몬스터 걷기·공격 시트 전체)"}
 
     def __init__(self, path: Path, image: Image.Image, specs: Specs, directions: list[str],
-                 groups: list[str], parent=None):
+                 groups: list[str], parent=None, view: str = "", frame: int = 0):
         super().__init__(parent)
-        self.setWindowTitle(f"8방향 시트 가져오기 — {path.name}")
+        self.setWindowTitle(f"시트 한 번에 가져오기 — {path.name}")
         self.image, self.directions = image, directions
+        self.view, self.current_frame = view, frame
         layout_guess = None
         if specs.repo is not None:
             try:
@@ -242,16 +247,21 @@ class SheetImportDialog(QDialog):
         form = QFormLayout()
         self.mode = QComboBox()
         for key, label in self.MODES.items():
-            self.mode.addItem(label, key)
-        self.cols, self.rows, self.frame = QSpinBox(), QSpinBox(), QSpinBox()
+            if directions or key == "frames":
+                self.mode.addItem(label, key)
+        self.cols, self.rows, self.frame, self.count = QSpinBox(), QSpinBox(), QSpinBox(), QSpinBox()
         for box in (self.cols, self.rows):
             box.setRange(1, 64)
         cols, rows = (layout_guess[0], layout_guess[1]) if layout_guess else CellImportDialog._guess(image)
         self.cols.setValue(cols)
         self.rows.setValue(rows)
-        if rows == len(directions) and cols > 1:
-            self.mode.setCurrentIndex(1)
+        if directions and rows == len(directions) and cols > 1:
+            self.mode.setCurrentIndex(self.mode.findData("rows_all"))
+        elif not directions or "walk" in path.stem or "attack" in path.stem or (cols, rows) == (3, 2):
+            self.mode.setCurrentIndex(self.mode.findData("frames"))
         self.frame.setRange(0, 63)
+        self.count.setRange(1, 64 * 64)
+        self.count.setValue(cols * rows)
         self.name = QLineEdit(path.stem)
         self.group = QComboBox()
         self.group.setEditable(True)
@@ -266,12 +276,14 @@ class SheetImportDialog(QDialog):
         form.addRow("배치", self.mode)
         form.addRow("열 수", self.cols)
         form.addRow("행 수", self.rows)
-        form.addRow("프레임(열)", self.frame)
+        form.addRow("가져올 열 (0부터)", self.frame)
+        form.addRow("프레임 수", self.count)
         form.addRow("레이어 이름", self.name)
         form.addRow("장비 묶음 (비우면 몸)", self.group)
         form.addRow("부위", self.slot)
         layout = QVBoxLayout(self)
-        layout.addWidget(QLabel(f"방향 순서: {' '.join(directions)}"))
+        if directions:
+            layout.addWidget(QLabel(f"방향 순서: {' '.join(directions)}  (현재 방향 {view}, 프레임 {frame + 1})"))
         layout.addLayout(form)
         layout.addWidget(self.info)
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
@@ -279,37 +291,99 @@ class SheetImportDialog(QDialog):
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
         self.ok_button = buttons.button(QDialogButtonBox.Ok)
-        for w in (self.cols, self.rows, self.frame):
+        for w in (self.cols, self.rows, self.frame, self.count):
             w.valueChanged.connect(self._update)
+        self.cols.valueChanged.connect(lambda: self.count.setValue(self.cols.value() * self.rows.value()))
+        self.rows.valueChanged.connect(lambda: self.count.setValue(self.cols.value() * self.rows.value()))
         self.mode.currentIndexChanged.connect(self._update)
         self._update()
 
-    def crops(self) -> dict[str, list[int]] | None:
+    def crops(self) -> dict[tuple[str, int], list[int]] | None:
+        """(direction, frame) -> crop rectangle, or None when the layout does not fit."""
         cols, rows = self.cols.value(), self.rows.value()
         w, h = self.image.width // cols, self.image.height // rows
+        mode = self.mode.currentData()
+
+        def rect(index):
+            return [index % cols * w, index // cols * h, w, h]
+
+        if mode == "frames":
+            if self.count.value() > cols * rows:
+                return None
+            return {(self.view, f): rect(f) for f in range(self.count.value())}
+        if rows < len(self.directions) and mode != "cells":
+            return None
         out = {}
         for i, d in enumerate(self.directions):
-            if self.mode.currentData() == "cells":
-                index = i
+            if mode == "cells":
+                if i >= cols * rows:
+                    return None
+                out[(d, self.current_frame)] = rect(i)
+            elif mode == "rows":
+                if self.frame.value() >= cols:
+                    return None
+                out[(d, self.current_frame)] = rect(i * cols + self.frame.value())
             else:
-                index = i * cols + self.frame.value()
-            if self.mode.currentData() == "rows" and (self.frame.value() >= cols or i >= rows):
-                return None
-            if index >= cols * rows:
-                return None
-            out[d] = [index % cols * w, index // cols * h, w, h]
+                for f in range(cols):
+                    out[(d, f)] = rect(i * cols + f)
         return out
 
     def _update(self):
-        self.frame.setEnabled(self.mode.currentData() == "rows")
+        mode = self.mode.currentData()
+        self.frame.setEnabled(mode == "rows")
+        self.count.setEnabled(mode == "frames")
         crops = self.crops()
         self.ok_button.setEnabled(crops is not None)
         if crops is None:
-            self.info.setText("이 배치로는 8방향을 모두 채울 수 없습니다.")
-        else:
-            w, h = next(iter(crops.values()))[2:]
-            self.info.setText(f"방향마다 {w}×{h} 셀 하나씩 레이어를 만듭니다. 셀이 캔버스와 같은 크기면 셀 좌표 그대로 놓입니다.")
+            self.info.setText("이 배치로는 셀을 다 채울 수 없습니다 (시트의 행·열 수를 확인하세요).")
+            return
+        w, h = next(iter(crops.values()))[2:]
+        frames = len({f for _, f in crops})
+        views = len({v for v, _ in crops})
+        self.info.setText(f"{w}×{h} 셀 {len(crops)}개로 레이어를 만듭니다 (방향 {views}개 × 프레임 {frames}개). "
+                          "모자란 프레임은 새로 늘립니다. 셀이 캔버스와 같은 크기면 셀 좌표 그대로 놓입니다.")
 
     def values(self) -> dict:
         return {"crops": self.crops(), "name": self.name.text().strip() or "시트",
                 "group": self.group.currentText().strip(), "slot": self.slot.currentData()}
+
+
+class SheetPreviewDialog(QDialog):
+    """Shows the exact images that 내보내기 would write, on a checker background."""
+
+    def __init__(self, sheets: list[tuple[str, Image.Image]], layout_label: str, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("시트 미리보기")
+        self.resize(900, 640)
+        body = QVBoxLayout()
+        holder = QWidget()
+        holder.setLayout(body)
+        self.labels = []
+        for name, image in sheets:
+            body.addWidget(QLabel(f"{name}  ({image.width}×{image.height})"))
+            label = QLabel()
+            label.setPixmap(_checker_pixmap(image))
+            body.addWidget(label)
+            self.labels.append(label)
+        body.addStretch(1)
+        scroll = QScrollArea()
+        scroll.setWidget(holder)
+        scroll.setWidgetResizable(True)
+        layout = QVBoxLayout(self)
+        layout.addWidget(QLabel(f"형식: {layout_label}"))
+        layout.addWidget(scroll)
+        buttons = QDialogButtonBox(QDialogButtonBox.Close)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+
+
+def _checker_pixmap(image: Image.Image, tile: int = 16) -> QPixmap:
+    pixmap = QPixmap(image.width, image.height)
+    painter = QPainter(pixmap)
+    for y in range(0, image.height, tile):
+        for x in range(0, image.width, tile):
+            painter.fillRect(x, y, tile, tile, QColor(204, 204, 204) if (x // tile + y // tile) % 2 == 0
+                             else QColor(153, 153, 153))
+    painter.drawImage(0, 0, pil_to_qimage(image))
+    painter.end()
+    return pixmap

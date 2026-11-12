@@ -5,4 +5,4 @@ without Qt: the project model, image compositing, checks and the game
 specification reader can be tested and scripted with Pillow and NumPy only.
 """
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"

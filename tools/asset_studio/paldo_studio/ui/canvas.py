@@ -47,6 +47,9 @@ class Canvas(QWidget):
         self.show_grid = True
         self.show_guides = True
         self.view = ""
+        self.frame = 0
+        self.onion_frames = False              # previous / next frame of this direction, translucent
+        self._onion_frames: list[tuple[QImage, QColor]] = []
         self.onion_view: str | None = None   # another direction drawn on top, translucent
         self.onion_opacity = 0.35
         self._onion: QImage | None = None
@@ -61,17 +64,29 @@ class Canvas(QWidget):
         self.setFocusPolicy(Qt.StrongFocus)
 
     # ---- data -----------------------------------------------------------
-    def set_asset(self, project: Project | None, asset: Asset | None, selected: str = "", view: str = ""):
-        self.project, self.asset, self.selected, self.view = project, asset, selected, view
+    def set_asset(self, project: Project | None, asset: Asset | None, selected: str = "", view: str = "",
+                  frame: int = 0):
+        self.project, self.asset, self.selected, self.view, self.frame = project, asset, selected, view, frame
         self._onion = None
+        self._onion_frames = []
         if asset is not None and self.onion_view and self.onion_view != view and \
                 self.onion_view in asset.views():
-            self._onion = pil_to_qimage(compose(project, asset, self.cache, view=self.onion_view))
-        self.measured = measure(compose(project, asset, self.cache, view=view)) if asset is not None else None
+            self._onion = pil_to_qimage(compose(project, asset, self.cache, view=self.onion_view, frame=frame))
+        if asset is not None and self.onion_frames and asset.frames > 1:
+            # previous frame tinted red, next frame tinted green, like common animation tools
+            for other, tint in ((frame - 1, QColor(255, 90, 90)), (frame + 1, QColor(90, 220, 120))):
+                if 0 <= other < asset.frames:
+                    image = compose(project, asset, self.cache, view=view, frame=other)
+                    self._onion_frames.append((_tinted(pil_to_qimage(image), tint), tint))
+        self.measured = measure(compose(project, asset, self.cache, view=view, frame=frame)) \
+            if asset is not None else None
         self.update()
 
     def _layers(self):
-        return [l for l in self.asset.view_layers(self.view) if self.asset.shown(l)]
+        return [l for l in self.asset.cell_layers(self.view, self.frame) if self.asset.shown(l)]
+
+    def _anchor(self):
+        return self.asset.anchor_for(self.frame)
 
     def invalidate_images(self):
         self._qimages.clear()
@@ -127,6 +142,9 @@ class Canvas(QWidget):
         area = QRectF(0, 0, a.width, a.height)
         self._paint_background(painter, area)
         painter.setRenderHint(QPainter.SmoothPixmapTransform, False)
+        for image, _ in self._onion_frames:
+            painter.setOpacity(self.onion_opacity)
+            painter.drawImage(QPointF(0, 0), image)
         for layer in self._layers():
             image = self._layer_qimage(layer)
             if image is None:
@@ -176,14 +194,16 @@ class Canvas(QWidget):
         painter.setPen(QPen(QColor(255, 255, 255, 160), 1))
         painter.drawRect(QRectF(left, top, right - left, bottom - top))
         if self.show_guides:
-            ax, ay = self._sx(a.anchor[0]), self._sy(a.anchor[1])
+            anchor = self._anchor()
+            ax, ay = self._sx(anchor[0]), self._sy(anchor[1])
             painter.setPen(QPen(QColor(80, 220, 255, 200), 1, Qt.DashLine))   # 중심축
             painter.drawLine(QPointF(ax, top), QPointF(ax, bottom))
             painter.setPen(QPen(QColor(110, 240, 120, 220), 1, Qt.DashLine))  # 발 접지선
             painter.drawLine(QPointF(left, ay), QPointF(right, ay))
             painter.setPen(QPen(QColor(110, 240, 120), 2))
             painter.drawEllipse(QPointF(ax, ay), 5, 5)
-            painter.drawText(QPointF(ax + 8, ay - 6), "발 기준점")
+            painter.drawText(QPointF(ax + 8, ay - 6),
+                             "발 기준점 (이 프레임 전용)" if str(self.frame) in a.frame_anchors else "발 기준점")
         m = self.measured
         if self.show_measure and m is not None and m.bbox is not None:
             pen = QPen(QColor(255, 80, 200, 230), 1, Qt.DotLine)
@@ -193,10 +213,18 @@ class Canvas(QWidget):
             fx = self._sx(m.foot_x)
             painter.drawLine(QPointF(fx, cy - 18), QPointF(fx, cy + 6))
             painter.drawText(QPointF(left + 6, cy + 16), f"측정 바닥 y={m.contact_y}  발중심 x={m.foot_x:.1f}")
+        title = []
         if self.view:
+            title.append(f"방향 {self.view}")
+        if a.frames > 1:
+            title.append(f"프레임 {self.frame + 1}/{a.frames}")
+        if self._onion is not None:
+            title.append(f"(겹쳐 보기: {self.onion_view})")
+        if self._onion_frames:
+            title.append("(앞 프레임 빨강 · 뒤 프레임 초록)")
+        if title:
             painter.setPen(QColor(255, 255, 255))
-            painter.drawText(QPointF(left + 6, top - 6), f"방향 {self.view}"
-                             + (f"  (겹쳐 보기: {self.onion_view})" if self._onion is not None else ""))
+            painter.drawText(QPointF(left + 6, top - 6), "  ".join(title))
         layer = a.layer(self.selected) if self.selected else None
         if layer is not None:
             image = self._layer_qimage(layer)
@@ -240,7 +268,11 @@ class Canvas(QWidget):
         cx, cy = self.to_canvas(pos)
         if self.mode == "anchor":
             self.aboutToChange.emit("")
-            self.asset.anchor = [float(round(cx)), float(round(cy))]
+            point = [float(round(cx)), float(round(cy))]
+            if str(self.frame) in self.asset.frame_anchors:
+                self.asset.frame_anchors[str(self.frame)] = point
+            else:
+                self.asset.anchor = point
             self.changed.emit()
             return
         layer = self.asset.layer(self.selected) if self.selected else None
@@ -304,6 +336,18 @@ class Canvas(QWidget):
             self.changed.emit()
             return
         super().keyPressEvent(event)
+
+
+def _tinted(image: QImage, color: QColor) -> QImage:
+    """Silhouette of ``image`` in ``color`` (keeps the alpha)."""
+    out = QImage(image.size(), QImage.Format_ARGB32_Premultiplied)
+    out.fill(Qt.transparent)
+    painter = QPainter(out)
+    painter.drawImage(0, 0, image)
+    painter.setCompositionMode(QPainter.CompositionMode_SourceIn)
+    painter.fillRect(out.rect(), color)
+    painter.end()
+    return out
 
 
 def preview_pixmap(image: Image.Image, logical: float, background: QColor | QImage | None,
