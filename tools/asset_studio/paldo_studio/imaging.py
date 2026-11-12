@@ -115,14 +115,19 @@ def _with_opacity(image: Image.Image, opacity: float) -> Image.Image:
 
 
 def compose(project: Project, asset: Asset, cache: ImageCache,
-            include_reference: bool = False) -> Image.Image:
+            include_reference: bool = False, view: str | None = None) -> Image.Image:
     """Draw visible layers bottom -> top onto a transparent canvas ("over" blend).
 
-    Layers may hang outside the canvas; only the overlap is drawn.
+    Layers may hang outside the canvas; only the overlap is drawn. ``view`` picks
+    one direction of an 8-direction asset (default: the first view). Layers of a
+    switched-off 장비 묶음 are skipped.
     """
+    if view is None:
+        view = asset.views()[0]
     canvas = Image.new("RGBA", (asset.width, asset.height), (0, 0, 0, 0))
     for layer in asset.layers:
-        if not layer.visible or (layer.slot == "reference" and not include_reference):
+        if layer.view != view or not asset.shown(layer) or \
+                (layer.slot == "reference" and not include_reference):
             continue
         image = cache.layer_image(project, layer)
         if image is None:
@@ -145,31 +150,72 @@ def layer_bounds(project: Project, layer: Layer, cache: ImageCache) -> tuple[int
     return layer.x, layer.y, layer.x + image.width, layer.y + image.height
 
 
+@dataclass
+class Measure:
+    """Where the visible art of one composed view sits, for the alignment checks."""
+    bbox: tuple[int, int, int, int] | None
+    contact_y: int | None      # lowest visible row (the sole touching the ground)
+    foot_x: float | None       # alpha-weighted centre of the lowest 12 % (at least 4 px) of the art
+    margin: int | None         # smallest distance from the art to the canvas edge
+
+
+# Alpha 1..4 specks are treated as noise, as in scripts/prepare_direction_assets.py
+# ("alpha_noise_cutoff": 4 in art/hero/directions/preparation.json).
+NOISE_ALPHA = 4
+
+
+def measure(image: Image.Image) -> Measure:
+    alpha = np.asarray(image.getchannel("A")).astype(np.float32)
+    alpha[alpha <= NOISE_ALPHA] = 0
+    bbox = Image.fromarray((alpha > 0).astype(np.uint8) * 255).getbbox()
+    if bbox is None:
+        return Measure(None, None, None, None)
+    x0, y0, x1, y1 = bbox
+    band = max(4, round((y1 - y0) * 0.12))
+    rows = alpha[max(y0, y1 - band):y1]
+    weights = rows.sum(axis=0)
+    foot_x = float((weights * np.arange(alpha.shape[1])).sum() / weights.sum()) + 0.5
+    margin = min(x0, y0, image.width - x1, image.height - y1)
+    return Measure(bbox, y1 - 1, foot_x, margin)
+
+
+def view_suffix(view: str) -> str:
+    return f"-{view.lower()}" if view else ""
+
+
 def export_asset(project: Project, asset: Asset, cache: ImageCache, report: list[dict],
-                 overwrite: bool = False) -> tuple[Path, Path]:
-    """Write ``exports/<name>.png`` and ``exports/<name>.json``. Sources are never targets."""
+                 overwrite: bool = False) -> tuple[list[Path], Path]:
+    """Write ``exports/<name>[-<dir>].png`` per view and one ``exports/<name>.json``.
+
+    Sources are never targets. Returns (PNG paths in view order, metadata path).
+    """
     name = asset.export_name or asset.name
     if not name or any(c in name for c in "/\\:*?\"<>|") or name.startswith("."):
         raise ValueError(f"내보내기 파일명이 올바르지 않습니다: {name!r}")
     folder = project.exports_dir
     folder.mkdir(parents=True, exist_ok=True)
-    png, meta = folder / f"{name}.png", folder / f"{name}.json"
+    pngs = [folder / f"{name}{view_suffix(v)}.png" for v in asset.views()]
+    meta = folder / f"{name}.json"
     protected = {project.source_path(s).resolve() for s in project.sources}
-    for target in (png, meta):
+    for target in (*pngs, meta):
         if target.resolve() in protected:
             raise ValueError("원본 이미지를 덮어쓸 수 없습니다")
         if target.exists() and not overwrite:
             raise FileExistsError(str(target))
-    image = compose(project, asset, cache)
-    image.save(png, "PNG")
+    outputs = []
+    for view, png in zip(asset.views(), pngs):
+        compose(project, asset, cache, view=view).save(png, "PNG")
+        outputs.append({"view": view, "file": png.name, "sha256": sha256_file(png)})
     used = {l.source for l in asset.layers}
     metadata = {
         "tool": f"Paldo Asset Studio {__version__}",
         "exported": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "asset": {"name": asset.name, "kind": asset.kind, "preset": asset.preset,
-                  "size": [asset.width, asset.height], "anchor": asset.anchor},
-        "output": {"file": png.name, "sha256": sha256_file(png)},
-        "layers": [{"name": l.name, "slot": l.slot, "visible": l.visible, "opacity": l.opacity,
+                  "size": [asset.width, asset.height], "anchor": asset.anchor,
+                  "directions": asset.directions, "hidden_groups": asset.hidden_groups},
+        "outputs": outputs,
+        "layers": [{"name": l.name, "view": l.view, "group": l.group, "slot": l.slot,
+                    "visible": l.visible, "opacity": l.opacity,
                     "position": [l.x, l.y], "pivot": l.pivot, "crop": l.crop,
                     "scale": l.scale, "smooth": l.smooth,
                     "source": l.source} for l in asset.layers],
@@ -179,4 +225,4 @@ def export_asset(project: Project, asset: Asset, cache: ImageCache, report: list
         "note": "실행용 사본입니다. 게임 assets/ 폴더에 직접 쓰지 않았습니다.",
     }
     meta.write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
-    return png, meta
+    return pngs, meta

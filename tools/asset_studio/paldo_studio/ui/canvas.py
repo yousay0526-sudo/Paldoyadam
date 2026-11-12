@@ -7,7 +7,7 @@ from PySide6.QtCore import QPointF, QRectF, Qt, Signal
 from PySide6.QtGui import QColor, QImage, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import QWidget
 
-from ..imaging import ImageCache
+from ..imaging import ImageCache, compose, measure
 from ..model import Asset, Project, pivot_on_canvas
 
 BACKGROUNDS = {
@@ -46,6 +46,12 @@ class Canvas(QWidget):
         self.ground_image: QImage | None = None
         self.show_grid = True
         self.show_guides = True
+        self.view = ""
+        self.onion_view: str | None = None   # another direction drawn on top, translucent
+        self.onion_opacity = 0.35
+        self._onion: QImage | None = None
+        self.show_measure = True               # measured ground contact / foot centre of this view
+        self.measured = None
         self._qimages: dict[tuple, QImage] = {}
         self._drag: tuple | None = None
         self._pan_from: tuple | None = None
@@ -55,9 +61,17 @@ class Canvas(QWidget):
         self.setFocusPolicy(Qt.StrongFocus)
 
     # ---- data -----------------------------------------------------------
-    def set_asset(self, project: Project | None, asset: Asset | None, selected: str = ""):
-        self.project, self.asset, self.selected = project, asset, selected
+    def set_asset(self, project: Project | None, asset: Asset | None, selected: str = "", view: str = ""):
+        self.project, self.asset, self.selected, self.view = project, asset, selected, view
+        self._onion = None
+        if asset is not None and self.onion_view and self.onion_view != view and \
+                self.onion_view in asset.views():
+            self._onion = pil_to_qimage(compose(project, asset, self.cache, view=self.onion_view))
+        self.measured = measure(compose(project, asset, self.cache, view=view)) if asset is not None else None
         self.update()
+
+    def _layers(self):
+        return [l for l in self.asset.view_layers(self.view) if self.asset.shown(l)]
 
     def invalidate_images(self):
         self._qimages.clear()
@@ -113,14 +127,15 @@ class Canvas(QWidget):
         area = QRectF(0, 0, a.width, a.height)
         self._paint_background(painter, area)
         painter.setRenderHint(QPainter.SmoothPixmapTransform, False)
-        for layer in a.layers:
-            if not layer.visible:
-                continue
+        for layer in self._layers():
             image = self._layer_qimage(layer)
             if image is None:
                 continue
             painter.setOpacity(layer.opacity * (0.5 if layer.slot == "reference" else 1))
             painter.drawImage(QPointF(layer.x, layer.y), image)
+        if self._onion is not None:
+            painter.setOpacity(self.onion_opacity)
+            painter.drawImage(QPointF(0, 0), self._onion)
         painter.setOpacity(1)
         painter.resetTransform()
         self._paint_overlay(painter)
@@ -169,6 +184,19 @@ class Canvas(QWidget):
             painter.setPen(QPen(QColor(110, 240, 120), 2))
             painter.drawEllipse(QPointF(ax, ay), 5, 5)
             painter.drawText(QPointF(ax + 8, ay - 6), "발 기준점")
+        m = self.measured
+        if self.show_measure and m is not None and m.bbox is not None:
+            pen = QPen(QColor(255, 80, 200, 230), 1, Qt.DotLine)
+            painter.setPen(pen)
+            cy = self._sy(m.contact_y)
+            painter.drawLine(QPointF(left, cy), QPointF(right, cy))
+            fx = self._sx(m.foot_x)
+            painter.drawLine(QPointF(fx, cy - 18), QPointF(fx, cy + 6))
+            painter.drawText(QPointF(left + 6, cy + 16), f"측정 바닥 y={m.contact_y}  발중심 x={m.foot_x:.1f}")
+        if self.view:
+            painter.setPen(QColor(255, 255, 255))
+            painter.drawText(QPointF(left + 6, top - 6), f"방향 {self.view}"
+                             + (f"  (겹쳐 보기: {self.onion_view})" if self._onion is not None else ""))
         layer = a.layer(self.selected) if self.selected else None
         if layer is not None:
             image = self._layer_qimage(layer)
@@ -187,8 +215,8 @@ class Canvas(QWidget):
     # ---- interaction ----------------------------------------------------
     def _hit(self, cx: float, cy: float):
         """Top-most visible, unlocked layer with a visible pixel under (cx, cy)."""
-        for layer in reversed(self.asset.layers):
-            if not layer.visible or layer.locked:
+        for layer in reversed(self._layers()):
+            if layer.locked:
                 continue
             image = self.cache.layer_image(self.project, layer)
             if image is None:

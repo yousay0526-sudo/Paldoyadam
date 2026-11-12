@@ -89,6 +89,8 @@ class Layer:
     visible: bool = True
     opacity: float = 1.0                # 0..1
     locked: bool = False
+    view: str = ""                      # direction code ("N".."NW") or "" for a single-view asset
+    group: str = ""                     # 장비 묶음 (e.g. "무명 바지"); "" = always part of the body
 
 
 @dataclass
@@ -101,10 +103,55 @@ class Asset:
     anchor: list[float] = field(default_factory=lambda: [96.0, 176.0])  # 발 기준점
     preset: str = "free"
     export_name: str = ""
-    layers: list[Layer] = field(default_factory=list)  # bottom -> top
+    layers: list[Layer] = field(default_factory=list)  # bottom -> top, all views together
+    directions: list[str] = field(default_factory=list)  # [] = one view; else e.g. N NE E SE S SW W NW
+    hidden_groups: list[str] = field(default_factory=list)  # 장비 묶음 currently switched off
+    combos: dict[str, list[str]] = field(default_factory=dict)  # 장비 조합 name -> visible groups
+    tolerances: dict[str, float] = field(default_factory=dict)  # overrides of DEFAULT_TOLERANCES
 
     def layer(self, layer_id: str) -> Layer | None:
         return next((l for l in self.layers if l.id == layer_id), None)
+
+    def views(self) -> list[str]:
+        return list(self.directions) or [""]
+
+    def view_layers(self, view: str) -> list[Layer]:
+        return [l for l in self.layers if l.view == view]
+
+    def groups(self) -> list[str]:
+        seen: list[str] = []
+        for l in self.layers:
+            if l.group and l.group not in seen:
+                seen.append(l.group)
+        return seen
+
+    def shown(self, layer: Layer) -> bool:
+        """Visible in the editor and in exports (reference layers are filtered by callers)."""
+        return layer.visible and layer.group not in self.hidden_groups
+
+    def tolerance(self, key: str) -> float:
+        return float(self.tolerances.get(key, DEFAULT_TOLERANCES[key]))
+
+    def apply_combo(self, name: str) -> bool:
+        if name not in self.combos:
+            return False
+        keep = set(self.combos[name])
+        self.hidden_groups = [g for g in self.groups() if g not in keep]
+        return True
+
+    def save_combo(self, name: str) -> None:
+        self.combos[name] = [g for g in self.groups() if g not in self.hidden_groups]
+
+
+# Check thresholds, chosen so that all 72 current runtime idle/walk hero cells pass
+# (measured with imaging.measure on main 0805c14): lowest visible row 175..176 for
+# foot root y=176, foot-band centre 72.3..120.4 for root x=96 (largest offset 24.4),
+# smallest edge margin 13. scripts/prepare_direction_assets.py requires >= 4 px margin.
+DEFAULT_TOLERANCES = {"ground": 2.0, "axis": 26.0, "margin": 4.0}
+TOLERANCE_LABELS = {"ground": "발 접지 허용 (px)", "axis": "발 중심축 허용 (px)", "margin": "셀 가장자리 여백 (px)"}
+
+# Game direction order (art/hero/directions/preparation.json, src/draw.h HeroDirection).
+EIGHT_DIRECTIONS = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
 
 
 def pivot_on_canvas(layer: Layer) -> tuple[float, float] | None:
@@ -141,13 +188,14 @@ class Project:
 
     # ---- editing ------------------------------------------------------
     def add_asset(self, name: str, kind: str, width: int, height: int,
-                  anchor: tuple[float, float], preset: str = "free") -> Asset:
+                  anchor: tuple[float, float], preset: str = "free",
+                  directions: list[str] | None = None) -> Asset:
         if kind not in KINDS:
             raise ValueError(f"unknown kind {kind}")
         if width <= 0 or height <= 0:
             raise ValueError("canvas size must be positive")
         asset = Asset(_new_id("asset"), name, kind, int(width), int(height),
-                      [float(anchor[0]), float(anchor[1])], preset)
+                      [float(anchor[0]), float(anchor[1])], preset, directions=list(directions or []))
         # Runtime files in assets/ use lower-case ASCII names (warrior-walk-n-v1.png).
         slug = "".join(c if c.isascii() and c.isalnum() else "-" for c in name.lower())
         slug = "-".join(p for p in slug.split("-") if p)
@@ -176,8 +224,12 @@ class Project:
 
     def add_layer(self, asset: Asset, source: Source, name: str,
                   crop: list[int] | None = None, slot: str = "other",
-                  align_to_anchor: tuple[float, float] | None = None) -> Layer:
-        layer = Layer(_new_id("layer"), name, source.id, list(crop) if crop else None, slot=slot)
+                  align_to_anchor: tuple[float, float] | None = None,
+                  view: str = "", group: str = "") -> Layer:
+        if view not in asset.views():
+            raise ValueError(f"에셋에 없는 방향입니다: {view!r}")
+        layer = Layer(_new_id("layer"), name, source.id, list(crop) if crop else None, slot=slot,
+                      view=view, group=group)
         w, h = (crop[2], crop[3]) if crop else (source.width, source.height)
         if align_to_anchor is not None:
             # Same cell geometry: put the layer's own foot point on the asset anchor.
@@ -200,13 +252,18 @@ class Project:
 
     @staticmethod
     def move_layer(asset: Asset, layer_id: str, delta: int) -> bool:
+        """Swap with the next layer of the SAME view in the delta direction (+1 = front)."""
         idx = next((i for i, l in enumerate(asset.layers) if l.id == layer_id), None)
-        if idx is None:
+        if idx is None or delta == 0:
             return False
-        new = idx + delta
-        if not 0 <= new < len(asset.layers):
+        view = asset.layers[idx].view
+        step = 1 if delta > 0 else -1
+        j = idx + step
+        while 0 <= j < len(asset.layers) and asset.layers[j].view != view:
+            j += step
+        if not 0 <= j < len(asset.layers):
             return False
-        asset.layers.insert(new, asset.layers.pop(idx))
+        asset.layers[idx], asset.layers[j] = asset.layers[j], asset.layers[idx]
         return True
 
     # ---- (de)serialisation -------------------------------------------

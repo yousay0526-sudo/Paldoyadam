@@ -126,15 +126,77 @@ class GuiSmokeTest(unittest.TestCase):
         self.assertEqual(len(w.project.assets[0].layers), 2)
         report = w.run_check()
         self.assertEqual([i["level"] for i in report], ["ok"])
-        png, meta = w.export_current(report)
-        self.assertTrue(png.is_file() and meta.is_file())
-        self.assertEqual(png.parent, self.dir / "proj" / "exports")
+        pngs, meta = w.export_current(report)
+        self.assertTrue(pngs[0].is_file() and meta.is_file())
+        self.assertEqual(pngs[0].parent, self.dir / "proj" / "exports")
 
         # A small window still shows a usable canvas.
         w.resize(900, 600)
         QApplication.processEvents()
         self.assertGreaterEqual(canvas.width(), 320)
         self.assertGreaterEqual(canvas.height(), 240)
+
+    def test_eight_direction_flow(self):
+        w = self.window
+        w.new_project(self.dir / "p8", "8방향")
+        order = w.specs.direction_order
+        w.new_asset("warrior idle", "character", 192, 192, (96, 176), "hero-move", order)
+        self.assertTrue(w.act_import_sheet.isEnabled())
+        self.assertEqual(w.view, "N")
+        crops = {v: [i % 4 * 192, i // 4 * 192, 192, 192] for i, v in enumerate(order)}
+        made = w.import_sheet(REPO / "assets/warrior-idle-8dir-v1.png", crops, "정지", slot="body")
+        self.assertEqual(len(made), 8)
+        self.assertTrue(all((l.x, l.y) == (0, 0) for l in made.values()))
+        # An equipment set: the walk sheet frame 0 of each direction stands in for gear here.
+        for v in order:
+            w.set_view(v)
+            w.import_png(REPO / f"assets/warrior-walk-{v.lower()}-v1.png", crop=[0, 0, 192, 192],
+                         align_to_anchor=(96, 176), name="장비 시험", group="시험 장비")
+        self.assertEqual(w.asset.groups(), ["시험 장비"])
+
+        # Direction buttons switch the edited view and keep the same 장비 묶음 selected.
+        w.set_view("S")
+        QTest.mouseClick(w.dir_buttons["E"], Qt.LeftButton)
+        self.assertEqual(w.view, "E")
+        self.assertEqual((w.layer.view, w.layer.group), ("E", "시험 장비"))
+        self.assertEqual(w.layer_list.count(), 2)
+        self.assertTrue(w.dir_buttons["E"].isChecked())
+        self.assertIsNotNone(w.overview.cells["E"].pixmap())
+        self.assertIn("방향 간 차이", w.overview.summary.text())
+
+        # Toggling the 장비 묶음 hides it in every direction; combos remember it.
+        w.save_combo("시험 착용")
+        w.set_group_visible("시험 장비", False)
+        self.assertEqual(w.asset.hidden_groups, ["시험 장비"])
+        w.save_combo("기본")
+        w.apply_combo("시험 착용")
+        self.assertEqual(w.asset.hidden_groups, [])
+        w.apply_combo("기본")
+        self.assertEqual(w.asset.hidden_groups, ["시험 장비"])
+        w.undo()
+        self.assertEqual(w.asset.hidden_groups, [])
+
+        # Onion skin of another direction.
+        w.c_onion.setCurrentIndex(w.c_onion.findData("W"))
+        self.assertIsNotNone(w.canvas._onion)
+
+        # Lift one direction: the check names it and jumps there.
+        w.set_view("SW")
+        body = next(l for l in w.asset.view_layers("SW") if not l.group)
+        w.select_layer(body.id)
+        w.set_group_visible("시험 장비", False)
+        w.l_y.setValue(-6)
+        report = w.run_check()
+        lifted = [i for i in report if i["view"] == "SW" and i["message"].startswith("발 접지")]
+        self.assertEqual(len(lifted), 1, report)
+        w.set_view("N")
+        w.goto_check_item(lifted[0])
+        self.assertEqual(w.view, "SW")
+        w.l_y.setValue(0)
+        report = w.run_check()
+        self.assertEqual([i["level"] for i in report], ["ok"], report)
+        pngs, _ = w.export_current()
+        self.assertEqual(len(pngs), 8)
 
     def test_projects_cannot_live_in_runtime_assets(self):
         with self.assertRaises(ValueError):
