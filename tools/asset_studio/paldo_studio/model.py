@@ -117,6 +117,7 @@ class Asset:
     frame_anchors: dict[str, list[float]] = field(default_factory=dict)  # per-frame foot root overrides
     sheet_layout: str = "cells"         # export: see imaging.SHEET_LAYOUTS
     sheet_columns: int = 4
+    memo: str = ""                      # prompt / artwork source notes (editor only, kept with the asset)
 
     def layer(self, layer_id: str) -> Layer | None:
         return next((l for l in self.layers if l.id == layer_id), None)

@@ -96,6 +96,13 @@ def add_derived_source(project: Project, image: Image.Image, layer: Layer, opera
     base = project.source(layer.source)
     if base is None:
         raise ValueError("레이어의 원본이 없습니다")
+    source = derived_source(project, image, base, operation, params)
+    layer.source = source.id
+    return source
+
+
+def derived_source(project: Project, image: Image.Image, base, operation: str, params: dict):
+    """Store ``image`` in ``sources/`` as made from ``base`` (a Source); the base stays as it is."""
     stem = Path(base.original_name).stem
     with tempfile.TemporaryDirectory() as tmp:
         path = Path(tmp) / f"{stem}-{operation}.png"
@@ -103,7 +110,6 @@ def add_derived_source(project: Project, image: Image.Image, layer: Layer, opera
         source = project.import_png(path, image.width, image.height, image.mode, derived={
             "from": base.id, "from_sha256": base.sha256, "operation": operation, "params": params})
     source.original_path = ""  # made by the studio; there is no outside file
-    layer.source = source.id
     return source
 
 
@@ -210,3 +216,84 @@ def match_height(project: Project, layer: Layer, cache: ImageCache, target: floa
     layer.x = round(foot[0] - (bx0 + bx1) / 2)
     layer.y = round(foot[1] - by1)
     return layer.scale
+
+
+# ---------------------------------------------------------------- 원화 아틀라스 자동 분할
+@dataclass
+class Pose:
+    cell: tuple[int, int]               # (column, row) of the atlas grid
+    image: Image.Image | None           # the pose alone, cropped to its bounds (None = nothing found)
+    bounds: tuple[int, int, int, int] | None   # in atlas pixels
+    root: tuple[float, float] | None    # foot root inside ``image``: torso-column median x, lowest row
+    warning: str = ""
+
+
+def find_poses(atlas: Image.Image, cols: int, rows: int, threshold: int = 16) -> list[Pose]:
+    """One pose per grid cell, the way ``scripts/prepare_monster_assets.py`` picks them.
+
+    Each cell's pose is the connected region (alpha > ``threshold``) that holds the
+    opaque pixel nearest the cell centre; it may reach outside its cell (a tail,
+    a weapon). A one-pixel antialias rim is kept, alpha 1..4 is dropped. The foot
+    root is the median x of solid pixels in the 40..60 % height band and the lowest
+    row, as in that script. Nothing is mirrored, recoloured or invented.
+    """
+    rgba = atlas.convert("RGBA")
+    alpha = np.asarray(rgba)[..., 3]
+    binary = alpha > threshold
+    cw, ch = rgba.width / cols, rgba.height / rows
+    poses = []
+    for r in range(rows):
+        for c in range(cols):
+            x0, y0, x1, y1 = round(c * cw), round(r * ch), round((c + 1) * cw), round((r + 1) * ch)
+            region = binary[y0:y1, x0:x1]
+            if not region.any():
+                poses.append(Pose((c, r), None, None, None, "칸에 그림이 없습니다"))
+                continue
+            ys, xs = np.nonzero(region)
+            i = int(np.argmin((xs - (x1 - x0) / 2) ** 2 + (ys - (y1 - y0) / 2) ** 2))
+            seed = (int(xs[i]) + x0, int(ys[i]) + y0)
+            mask = Image.fromarray(binary.astype(np.uint8) * 255, "L").copy()
+            ImageDraw.floodfill(mask, seed, 128)
+            selected = (np.asarray(mask) == 128)
+            # One-pixel antialias rim (3×3, like the script's MaxFilter(3)), not the neighbour's tail.
+            grown = np.pad(selected, 1)
+            grown = np.max([grown[1 + dy:grown.shape[0] - 1 + dy, 1 + dx:grown.shape[1] - 1 + dx]
+                            for dy in (-1, 0, 1) for dx in (-1, 0, 1)], axis=0)
+            keep = grown & (alpha > NOISE_ALPHA)
+            ys, xs = np.nonzero(keep)
+            bounds = (int(xs.min()), int(ys.min()), int(xs.max()) + 1, int(ys.max()) + 1)
+            arr = np.asarray(rgba).copy()
+            arr[~keep] = 0
+            image = Image.fromarray(arr, "RGBA").crop(bounds)
+            solid = np.asarray(image)[..., 3] > 128
+            band = solid[int(image.height * .4):max(int(image.height * .6), int(image.height * .4) + 1)]
+            bx = np.nonzero(band)[1]
+            root_x = float(np.median(bx)) if bx.size else image.width / 2
+            warning = ""
+            if bounds[2] - bounds[0] > cw * 1.3 or bounds[3] - bounds[1] > ch * 1.3:
+                warning = "자세가 이웃 칸과 붙어 있는 것 같습니다 (영역이 칸보다 30% 넘게 큼)"
+            poses.append(Pose((c, r), image, bounds, (root_x, float(image.height - 1)), warning))
+    return poses
+
+
+def common_scale(poses: list[Pose], target_height: float | None, cell: tuple[int, int],
+                 anchor: tuple[float, float], margin: float = 5) -> tuple[float, float]:
+    """One scale for every pose so the motion keeps its proportions.
+
+    ``target_height`` is the wanted height of the median pose (None = keep 1.0).
+    The scale is lowered when a pose would leave the cell (``margin`` px, like the
+    preparation script). Returns (scale, wanted scale) so callers can say when it
+    was lowered.
+    """
+    found = [p for p in poses if p.image is not None]
+    if not found:
+        return 1.0, 1.0
+    wanted = target_height / float(np.median([p.image.height for p in found])) if target_height else 1.0
+    limits = [wanted]
+    w, h = cell
+    ax, ay = anchor
+    for p in found:
+        rx, ry = p.root
+        limits += [(ax - margin) / max(1.0, rx), (w - ax - margin) / max(1.0, p.image.width - rx),
+                   (ay - margin) / max(1.0, ry)]
+    return round(min(limits), 6), round(wanted, 6)

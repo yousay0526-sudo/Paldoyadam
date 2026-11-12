@@ -273,7 +273,7 @@ def export_asset(project: Project, asset: Asset, cache: ImageCache, report: list
                   "directions": asset.directions, "hidden_groups": asset.hidden_groups,
                   "frames": asset.frames, "frame_anchors": asset.frame_anchors,
                   "layout": asset.sheet_layout, "columns": asset.sheet_columns,
-                  "preview_fps": asset.fps},
+                  "preview_fps": asset.fps, "memo": asset.memo},
         "outputs": outputs,
         "layers": [{"name": l.name, "view": l.view, "frame": l.frame, "group": l.group, "slot": l.slot,
                     "visible": l.visible, "opacity": l.opacity,
