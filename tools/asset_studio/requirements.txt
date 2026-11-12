@@ -1,0 +1,4 @@
+# Paldo Asset Studio (tools/asset_studio) — not needed to build or run the game.
+PySide6>=6.5      # GUI, LGPL-3.0 (dynamic linking via the pip wheel)
+Pillow>=10.0      # image I/O and resampling, MIT-CMU (HPND)
+numpy>=1.24       # pixel arrays, BSD-3-Clause
