@@ -29,7 +29,7 @@ static void ready(Game *g) {
 }
 static Game rt(const Game *g) {
     Game out; MapId selected=world_selected();
-    CHECK(save_encode(g,bytes,&size)==SAVE_OK && size==SAVE_V5_SIZE);
+    CHECK(save_encode(g,bytes,&size)==SAVE_OK && size==SAVE_V6_SIZE);
     CHECK(save_check(bytes,size)==SAVE_OK);
     CHECK(save_decode(&out,bytes,size)==SAVE_OK && world_selected()==selected);
     return out;
@@ -283,7 +283,7 @@ static void spirit_drops(void) {
         Game out; CHECK(save_check(bytes,size)==SAVE_OK && save_decode(&out,bytes,size)==SAVE_OK);
         CHECK(out.spirit_orbs==0 && out.spirit_shards==0 && out.coins==g.coins);
     }
-    CHECK(save_encode(&g,bytes,&size)==SAVE_OK && size==SAVE_V5_SIZE && size<=SAVE_CAPACITY);
+    CHECK(save_encode(&g,bytes,&size)==SAVE_OK && size==SAVE_V6_SIZE && size<=SAVE_CAPACITY);
     bytes[size-8]=0xE8; bytes[size-7]=0x03; bytes[size-6]=0; bytes[size-5]=0; sign_record(size,5);
     Game sentinel=g,out=g; CHECK(save_decode(&out,bytes,size)==SAVE_CORRUPT && !memcmp(&out,&sentinel,sizeof out));
     /* Training targets never roll and the main counts come back unchanged. */

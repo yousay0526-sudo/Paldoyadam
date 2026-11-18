@@ -27,8 +27,9 @@ static bool bounded(float f, float hi) { return isfinite(f) && f >= 0 && f <= hi
  * Revisit deliberately when adding quests/items, with a version migration. */
 static bool valid(const Game *g) {
     if (sizeof(float) != 4 || g->map < MAP_VILLAGE || g->map >= MAP_TRAINING ||
-        g->quest < Q_MEET || g->quest >= QUEST_COUNT || g->hero.max_hp != 100 ||
-        g->hero.hp < 0 || g->hero.hp > 100 || g->coins < 0 || g->coins > COIN_LIMIT ||
+        g->quest < Q_MEET || g->quest >= QUEST_COUNT || !cultivation_valid(g->cultivation_nodes) ||
+        g->hero.max_hp != game_cultivation_health(g) ||
+        g->hero.hp < 0 || g->hero.hp > g->hero.max_hp || g->coins < 0 || g->coins > COIN_LIMIT ||
         g->tonics < 0 || g->tonics > 22 || g->bandages < 0 || g->bandages > 21 ||
         g->herbs < 0 || g->herbs > 3 || g->augment < AUG_NONE || g->augment > AUG_FLOW ||
         (g->sword && !g->owned_sword) || (g->armor && !g->owned_armor) ||
@@ -122,6 +123,7 @@ SaveResult save_encode(const Game *g, unsigned char *b, size_t *size) {
         F(p->quantity ? p->drop.age : 0); F(p->quantity ? p->drop.magnet_time : 0);
     }
     I(g->spirit_shards); I(g->spirit_orbs);
+    I(g->cultivation_nodes);
     size_t p = 8; put(b, &p, (uint32_t)(n + 4));
     uint32_t sum = checksum(b, n); I(sum);
 #undef I
@@ -148,7 +150,7 @@ static SaveResult decode(Game *out, const unsigned char *b, size_t size, bool re
     if (get(b, &n) != 0x31594450u) return SAVE_CORRUPT;
     uint32_t version = get(b, &n);
     if (version < 1 || version > SAVE_VERSION) return SAVE_VERSION_NEW;
-    static const uint32_t sizes[] = {0, 216u, 224u, SAVE_V3_SIZE, SAVE_V4_SIZE, SAVE_V5_SIZE};
+    static const uint32_t sizes[] = {0, 216u, 224u, SAVE_V3_SIZE, SAVE_V4_SIZE, SAVE_V5_SIZE, SAVE_V6_SIZE};
     if (get(b, &n) != size || size != sizes[version]) return SAVE_CORRUPT;
     size_t end = size - 4;
     if (get(b, &end) != checksum(b, size - 4)) return SAVE_CORRUPT;
@@ -199,6 +201,7 @@ static SaveResult decode(Game *out, const unsigned char *b, size_t size, bool re
     }
     /* v1..v4: no 정혼주 yet; start at zero, never granted for old kills. */
     if (version >= 5) { I(g.spirit_shards); I(g.spirit_orbs); }
+    if (version >= 6) g.cultivation_nodes = get(b, &n);
 #undef I
 #undef F
 #undef B

@@ -36,7 +36,9 @@ typedef enum {
     ACT_PICKUP, ACT_ATTACK, ACT_TECHNIQUE, ACT_TECHNIQUES, ACT_SWIPE_SELECT,
     ACT_TECH_BIND, ACT_BIND_RESET, ACT_BAG_TAB, ACT_BAG_SELECT, ACT_EQUIP, ACT_GEAR_SELECT,
     ACT_TRAINING_EXIT, ACT_DODGE, ACT_KEY_MENU, ACT_KEY_SELECT, ACT_KEY_RESET,
-    ACT_SMITH_TAB, ACT_MATERIAL_SELECT, ACT_SELL_ONE, ACT_SELL_ALL, ACT_REFINE,
+    ACT_SMITH_TAB, ACT_MATERIAL_SELECT, ACT_SELL_ONE, ACT_SELL_ALL,
+    ACT_CULTIVATION, ACT_CULTIVATION_SELECT, ACT_CULTIVATION_LEARN,
+    ACT_REFINE,
     ACT_RAID_ENTER, ACT_RAID_DECLINE, ACT_RAID_PICK, ACT_RAID_LEAVE, ACT_RAID_QUIT
 } Action;
 /* Bag tabs: 장비, 소비, 기타, 의뢰품, 수련. 수련 keys for 정혼주 파편 / 정혼주. */
@@ -111,7 +113,7 @@ typedef struct {
     float journal_scroll, story_elapsed;
     int bag_tab, bag_selected, selected_swipe;
     bool smith_selling;
-    int sell_material;
+    int sell_material, cultivation_selected;
     bool attack_pointer_down, attack_swiping, attack_repeated, attack_key_down;
     Sint64 attack_pointer_id;
     Vec2 attack_start, attack_anchor;
@@ -645,6 +647,21 @@ static void dispatch(App *a, Action action, int value) {
             game_toast(g, message);
         }
         break;
+    case ACT_CULTIVATION:
+        if (game_open_cultivation(g)) {
+            a->cultivation_selected = CUL_FOUNDATION;
+            a->key_menu = false;
+            stop_input(a);
+        }
+        break;
+    case ACT_CULTIVATION_SELECT:
+        if (g->phase == PH_CULTIVATION && (unsigned)value < CUL_COUNT)
+            a->cultivation_selected = value;
+        break;
+    case ACT_CULTIVATION_LEARN:
+        if (g->phase == PH_CULTIVATION && value == a->cultivation_selected)
+            game_learn_cultivation(g, (CultivationNode)value);
+        break;
     case ACT_TECHNIQUES:
         if (g->phase == PH_PLAY || g->phase == PH_BAG) {
             g->phase = PH_TECHNIQUES; stop_input(a);
@@ -1166,7 +1183,7 @@ static void draw_dodge_button(App *a, SDL_FRect attack) {
         SDL_FRect pip = {r.x + r.w / 2 - 17 + i * 18, r.y + r.h - 12, 16, 4};
         gfx_rect(f, pip, (SDL_Color){62, 70, 66, 255});
         float fill = i < g->dodge_charges ? 1
-            : i == g->dodge_charges ? 1 - g->dodge_recharge / DODGE_RECHARGE_SECONDS : 0;
+            : i == g->dodge_charges ? 1 - g->dodge_recharge / game_dodge_recharge_seconds(g) : 0;
         if (fill > 0)
             gfx_rect(f, (SDL_FRect){pip.x, pip.y, pip.w * clampf(fill, 0, 1), pip.h},
                      i < g->dodge_charges ? GOLD : MUTED);
@@ -1482,8 +1499,9 @@ static void draw_bag(App *a) {
     gfx_rect(f, (SDL_FRect){0,0,a->width,a->height}, (SDL_Color){4,17,20,175});
     surface(f,p,16,INK);
     gfx_heading(f,"가방",(SDL_FRect){p.x+16,p.y+8,90,32},28,PAPER);
-    char text[192]; snprintf(text,sizeof text,"%d문 · 체력 %d/100",g->coins,g->hero.hp);
-    gfx_text_box(f,text,(SDL_FRect){p.x+106,p.y+17,p.w-204,20},13,11,GOLD);
+    char text[192]; snprintf(text,sizeof text,"%d문 · %d/%d",g->coins,g->hero.hp,g->hero.max_hp);
+    gfx_text_box(f,text,(SDL_FRect){p.x+106,p.y+17,p.w-300,20},13,10,GOLD);
+    button(a,(SDL_FRect){p.x+p.w-178,p.y+3,88,44},"수련도",ACT_CULTIVATION,0,true,false);
     button(a,(SDL_FRect){p.x+p.w-86,p.y+3,76,44},"닫기",ACT_CLOSE,0,true,false);
     float top = p.y+51, content = p.h-63, lw = fminf(240,(p.w-32)*.31f);
     SDL_FRect left = {p.x+12,top,lw,content};
@@ -1503,7 +1521,7 @@ static void draw_bag(App *a) {
         gfx_text_box(f,name,(SDL_FRect){slot.x+5,slot.y+16,slot.w-10,slot.h-17},12,10,active?PAPER:MUTED);
         if(a->button_count<BUTTON_MAX) a->buttons[a->button_count++] = (Button){slot,ACT_GEAR_SELECT,i,true};
     }
-    snprintf(text,sizeof text,"공격 +%d · 방어 %d",g->sword?5:0,g->armor?3:0);
+    snprintf(text,sizeof text,"공격 +%d · 방어 %d",(g->sword?5:0)+game_cultivation_damage(g),g->armor?3:0);
     gfx_label(f,text,(SDL_FRect){left.x+4,top+content-24,lw-8,20},11,GOLD);
     const char *tabs[BAG_TABS] = {"장비","소비","기타","의뢰품","수련"};
     for(int i=0;i<BAG_TABS;i++) {
@@ -1576,6 +1594,62 @@ static void draw_bag(App *a) {
         }
     } else gfx_text_box(f,a->bag_selected>=200?"장착된 장비가 없는 부위입니다":"물품을 선택하면 자세히 볼 수 있습니다",
             (SDL_FRect){rx+10,detail.y+9,rw-20,detail.h-18},13,11,MUTED);
+}
+/* Shared graph geometry for drawing and hit testing on short landscapes. */
+static SDL_FRect cultivation_node_rect(SDL_FRect graph, int node) {
+    static const float columns[CUL_COUNT] = {0, 1, 2, 1, 2, 1, 2};
+    static const float rows[CUL_COUNT] = {1, 0, 0, 1, 1, 2, 2};
+    float w = (graph.w - 16) / 3, h = fminf(64, (graph.h - 16) / 3);
+    return (SDL_FRect){graph.x + columns[node] * (w + 8),
+        graph.y + (graph.h - h) * rows[node] / 2, w, h};
+}
+static void draw_cultivation(App *a) {
+    Game *g = &a->game; Gfx *f = &a->gfx;
+    char text[192];
+    snprintf(text, sizeof text, "마을에서 익히는 기초 수련 · 소지 %d문", g->coins);
+    SDL_FRect p = panel(a, text, "수련도", 430);
+    float top = p.y + 70, height = p.h - 84;
+    float dw = fmaxf(134, (p.w - 44) * .32f);
+    SDL_FRect graph = {p.x + 14, top, p.w - dw - 42, height};
+    SDL_FRect detail = {p.x + p.w - dw - 14, top, dw, height};
+    SDL_FRect nodes[CUL_COUNT];
+    for (int i = 0; i < CUL_COUNT; i++) nodes[i] = cultivation_node_rect(graph, i);
+    for (int i = 1; i < CUL_COUNT; i++) {
+        SDL_FRect from = nodes[CULTIVATION[i].prerequisite], to = nodes[i];
+        gfx_line(f, (Vec2){from.x + from.w, from.y + from.h/2},
+                    (Vec2){to.x, to.y + to.h/2},
+                    game_cultivation_has(g, (CultivationNode)i) ? GOLD : MUTED);
+    }
+    for (int i = 0; i < CUL_COUNT; i++) {
+        SDL_FRect r = nodes[i];
+        bool learned = game_cultivation_has(g, (CultivationNode)i);
+        bool available = !game_cultivation_error(g, (CultivationNode)i);
+        gfx_round(f, r, 8, learned ? (SDL_Color){64,74,48,255} : (SDL_Color){24,43,43,255});
+        gfx_round_border(f, r, 8, i == a->cultivation_selected ? GOLD : MUTED);
+        gfx_text_box(f, CULTIVATION[i].name, (SDL_FRect){r.x+4,r.y+3,r.w-8,r.h*.51f},14,10,PAPER);
+        snprintf(text, sizeof text, learned ? "습득" : available ? "%d문" : "잠김 · %d문", CULTIVATION[i].cost);
+        gfx_text_box(f, text, (SDL_FRect){r.x+4,r.y+r.h*.56f,r.w-8,r.h*.40f-2},11,9,learned?GOLD:MUTED);
+        if (a->button_count < BUTTON_MAX)
+            a->buttons[a->button_count++] = (Button){r, ACT_CULTIVATION_SELECT, i, true};
+    }
+    int selected = a->cultivation_selected;
+    if ((unsigned)selected >= CUL_COUNT) selected = a->cultivation_selected = CUL_FOUNDATION;
+    const CultivationInfo *info = &CULTIVATION[selected];
+    const char *error = game_cultivation_error(g, (CultivationNode)selected);
+    gfx_round(f, detail, 9, (SDL_Color){24,43,42,255});
+    gfx_text_box(f, info->name, (SDL_FRect){detail.x+8,top+5,dw-16,24},19,13,PAPER);
+    gfx_text_box(f, info->description, (SDL_FRect){detail.x+8,top+33,dw-16,38},14,10,GOLD);
+    snprintf(text, sizeof text, "선행: %s", info->prerequisite < 0 ? "없음" : CULTIVATION[info->prerequisite].name);
+    gfx_text_box(f, text, (SDL_FRect){detail.x+8,top+73,dw-16,23},12,10,MUTED);
+    if (height > 230) {
+        snprintf(text, sizeof text, "현재 합계\n최대 체력 %d\n공격 피해 +%d\n보법 충전 %.2f초", g->hero.max_hp,
+                 game_cultivation_damage(g), game_dodge_recharge_seconds(g));
+        gfx_text_box(f, text, (SDL_FRect){detail.x+8,top+104,dw-16,height-175},13,11,MUTED);
+    }
+    gfx_text_box(f, error ? error : "엽전을 소모해 영구 습득", (SDL_FRect){detail.x+8,top+height-65,dw-16,21},11,9,MUTED);
+    snprintf(text, sizeof text, game_cultivation_has(g, (CultivationNode)selected) ? "습득 완료" : "%d문 · 익히기", info->cost);
+    button(a, (SDL_FRect){detail.x+4,top+height-44,dw-8,44}, text,
+           ACT_CULTIVATION_LEARN, selected, !error, true);
 }
 /* 짧은 토벌 overlay: the elder's offer, a temporary augment pick, the result. */
 static void draw_raid(App *a) {
@@ -1811,6 +1885,10 @@ static void draw_overlay(App *a) {
         draw_bag(a);
         return;
     }
+    if (g->phase == PH_CULTIVATION) {
+        draw_cultivation(a);
+        return;
+    }
     if (g->phase == PH_TECHNIQUES) {
         draw_techniques(a);
         return;
@@ -1856,6 +1934,8 @@ static void draw_overlay(App *a) {
                                                   : "길은 계속된다";
         gfx_heading(f, title, (SDL_FRect){w / 2 - 220, 24, 440, 50}, 42, PAPER);
         if (g->phase == PH_PAUSED) {
+            if (!g->training.active && !g->raid.active)
+                button(a, (SDL_FRect){12,12,104,44}, "수련도", ACT_CULTIVATION, 0, true, false);
             char line[3][192];
             snprintf(line[0], sizeof line[0], g->training.active ? "공격 버튼 탭 / 연속 밀기 · %s 기본 공격 · %s 보법"
                      : "끌기 / 방향키 이동 · %s 공격(누르면 연속) · %s 보법",
@@ -2447,6 +2527,11 @@ static void smoke_scene(App *a, const char *scene) {
             : !strcmp(scene,"bag-spirit") ? 4 : 0;
         if (a->bag_tab == 4) a->bag_selected = BAG_SPIRIT_SHARD;
         a->game.phase = PH_BAG;
+    } else if (!strcmp(scene,"cultivation")) {
+        a->game.coins = 240;
+        game_open_cultivation(&a->game);
+        game_learn_cultivation(&a->game, CUL_FOUNDATION);
+        a->cultivation_selected = CUL_STRENGTH;
     } else if (!strcmp(scene,"techniques")) {
         a->game.phase = PH_TECHNIQUES;
     } else if (!strncmp(scene,"skill",5)) {

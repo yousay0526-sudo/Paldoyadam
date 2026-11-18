@@ -75,7 +75,7 @@ static void offer_and_isolation(void) {
     CHECK(raid_cancel(&g, &saved));
     CHECK(!g.raid.active && g.phase == PH_PLAY && g.map == MAP_VILLAGE && g.coins == 40 &&
           g.spirit_shards == 2 && g.herbs == herbs && g.quest == before.quest);
-    CHECK(save_encode(&g, bytes, &size) == SAVE_OK && size == SAVE_V5_SIZE);
+    CHECK(save_encode(&g, bytes, &size) == SAVE_OK && size == SAVE_V6_SIZE);
 }
 
 static void packs_and_picks(void) {
