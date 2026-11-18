@@ -14,7 +14,7 @@ static size_t size;
 static Game roundtrip(const Game *g) {
     Game loaded;
     CHECK(save_encode(g, bytes, &size) == SAVE_OK);
-    CHECK(size == SAVE_V4_SIZE);
+    CHECK(size == SAVE_V5_SIZE);
     CHECK(save_decode(&loaded, bytes, size) == SAVE_OK);
     return loaded;
 }
@@ -93,7 +93,7 @@ static void rewards_apart_from_quest(void) {
         CHECK(game_damage(&g, &g.hunt[i], 99, FX_HIT));
         CHECK(g.hunt[i].hp == 0 && g.coins == coins + HUNT_REWARD * (i + 1));
         CHECK(!game_damage(&g, &g.hunt[i], 99, FX_HIT));
-        CHECK(!strcmp(g.toast, "멧돼지 제압 +9문"));
+        CHECK(!strncmp(g.toast, "멧돼지 제압 +9문", strlen("멧돼지 제압 +9문")));
     }
     /* Ordinary materials are separate; no herb drop or quest step. */
     CHECK(g.quest == Q_RECOVER && g.herbs == 0);
@@ -320,7 +320,7 @@ static void v2_migration(void) {
     CHECK(save_decode(&loaded, bytes, size) == SAVE_OK);
     CHECK(loaded.quest == Q_RECOVER && loaded.coins == g.coins && loaded.boars[1].hp == 0 && loaded.drops[1].exists);
     CHECK(loaded.hunt_round == 1 && alive(&loaded) == HUNT_COUNT);
-    CHECK(save_encode(&loaded, bytes, &size) == SAVE_OK && size == SAVE_V4_SIZE && bytes[4] == SAVE_VERSION);
+    CHECK(save_encode(&loaded, bytes, &size) == SAVE_OK && size == SAVE_V5_SIZE && bytes[4] == SAVE_VERSION);
     /* Unknown future versions are still refused. */
     bytes[4] = SAVE_VERSION + 1; CHECK(save_decode(&loaded, bytes, size) == SAVE_VERSION_NEW);
 }

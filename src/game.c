@@ -84,6 +84,49 @@ static void hunt_material(Game *g, Vec2 pos) {
         game_toast(g, "멧돼지 제압 +9문 · 재료는 기존 바닥 더미에 합산");
     pile->quantity += quantity;
 }
+SpiritDrop game_spirit_roll(unsigned roll) {
+    if (roll >= 100) return SPIRIT_NONE;
+    if (roll < SPIRIT_ORB_CHANCE) return SPIRIT_ORB;
+    if (roll < SPIRIT_ORB_CHANCE + SPIRIT_SHARD_CHANCE) return SPIRIT_SHARD;
+    return SPIRIT_NONE;
+}
+static void effect(Game *g, Effect e);
+/* A separate draw after the material one, so leather/bone odds are unchanged.
+ * Like materials: one PRNG step per kill, result final and saved with the kill. */
+static void hunt_spirit(Game *g, Vec2 pos) {
+    uint32_t x = g->loot_rng;
+    x ^= x << 13; x ^= x >> 17; x ^= x << 5;
+    g->loot_rng = x;
+    SpiritDrop drop = game_spirit_roll((unsigned)(((uint64_t)x * 100) >> 32));
+    if (drop == SPIRIT_NONE) return;
+    int *count = drop == SPIRIT_ORB ? &g->spirit_orbs : &g->spirit_shards;
+    /* Appended to this kill's toast so a material notice is not lost. */
+    char text[sizeof g->toast + 64];
+    if (*count < 0 || *count >= SPIRIT_LIMIT) {
+        snprintf(text, sizeof text, "%s · 정혼주 보관 한도(999개)", g->toast);
+        game_toast(g, text);
+        return;
+    }
+    *count += 1;
+    effect(g, (Effect){.kind = FX_SPIRIT, .pos = pos, .target = g->hero.pos, .life = .9f,
+                      .amount = drop == SPIRIT_ORB ? 2 : 1});
+    snprintf(text, sizeof text, "%s · %s", g->toast, drop == SPIRIT_ORB ? "정혼주 +1" : "정혼주 파편 +1");
+    game_toast(g, text);
+}
+const char *game_refine_error(const Game *g) {
+    if (g->training.active || g->phase != PH_BAG) return "가방에서 정제하세요";
+    if (g->spirit_shards < SPIRIT_SHARDS_PER_ORB || g->spirit_shards > SPIRIT_LIMIT)
+        return "파편이 5개 필요합니다";
+    if (g->spirit_orbs < 0 || g->spirit_orbs >= SPIRIT_LIMIT) return "정혼주 보관 한도(999개)";
+    return NULL;
+}
+bool game_refine_spirit(Game *g) {
+    if (game_refine_error(g)) return false;
+    g->spirit_shards -= SPIRIT_SHARDS_PER_ORB;
+    g->spirit_orbs += 1;
+    game_toast(g, "정혼주 파편 5개를 정제 · 정혼주 +1");
+    return true;
+}
 const AugmentInfo AUGMENTS[3] = {
     {"강철 대검", "무기", "베는 범위가 넓어지고 한 번의 베기가 무거워집니다.\n공격 범위 +18 · 기본 피해 +4"},
     {"바람의 깃", "패시브", "검 끝에서 바람 칼날이 뻗어 나갑니다.\n거리 120 안의 적에게 바람 피해 6"},
@@ -621,6 +664,7 @@ bool game_damage(Game *g, Enemy *e, int amount, EffectKind kind) {
             g->hunt_respawn[e - g->hunt] = HUNT_RESPAWN_SECONDS;
             game_toast(g, "멧돼지 제압 +9문");
             hunt_material(g, e->pos);
+            hunt_spirit(g, e->pos);
         } else {
             for (int i = 0; i < BOAR_COUNT; i++)
                 if (e == &g->boars[i])

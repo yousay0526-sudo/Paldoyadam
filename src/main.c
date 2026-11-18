@@ -35,8 +35,11 @@ typedef enum {
     ACT_PICKUP, ACT_ATTACK, ACT_TECHNIQUE, ACT_TECHNIQUES, ACT_SWIPE_SELECT,
     ACT_TECH_BIND, ACT_BIND_RESET, ACT_BAG_TAB, ACT_BAG_SELECT, ACT_EQUIP, ACT_GEAR_SELECT,
     ACT_TRAINING_EXIT, ACT_DODGE, ACT_KEY_MENU, ACT_KEY_SELECT, ACT_KEY_RESET,
-    ACT_SMITH_TAB, ACT_MATERIAL_SELECT, ACT_SELL_ONE, ACT_SELL_ALL
+    ACT_SMITH_TAB, ACT_MATERIAL_SELECT, ACT_SELL_ONE, ACT_SELL_ALL, ACT_REFINE
 } Action;
+/* Bag tabs: 장비, 소비, 기타, 의뢰품, 수련. 수련 keys for 정혼주 파편 / 정혼주. */
+#define BAG_TABS 5
+enum { BAG_SPIRIT_SHARD = 160, BAG_SPIRIT_ORB = 161 };
 /* Rebindable keyboard commands. Movement stays on the arrow keys; Esc,
  * Space/Enter and the F-keys are fixed and cannot be taken. */
 typedef enum {
@@ -194,6 +197,7 @@ EMSCRIPTEN_KEEPALIVE const char *paldo_test_buttons(void) {
         case ACT_MATERIAL_SELECT: name = "material"; break;
         case ACT_SELL_ONE: name = "sell-one"; break;
         case ACT_SELL_ALL: name = "sell-all"; break;
+        case ACT_REFINE: name = "refine"; break;
         case ACT_KEY_MENU: name = "keys"; break;
         case ACT_KEY_SELECT: name = "key"; break;
         default: break;
@@ -635,7 +639,7 @@ static void dispatch(App *a, Action action, int value) {
         }
         break;
     case ACT_BAG_TAB:
-        if (g->phase == PH_BAG && value >= 0 && value < 4) {
+        if (g->phase == PH_BAG && value >= 0 && value < BAG_TABS) {
             a->bag_tab = value; a->bag_selected = -999;
         }
         break;
@@ -761,6 +765,9 @@ static void dispatch(App *a, Action action, int value) {
         break;
     case ACT_USE:
         game_use(g, (Item)value);
+        break;
+    case ACT_REFINE:
+        game_refine_spirit(g);
         break;
     case ACT_CHOOSE:
         game_choose(g, (Augment)value);
@@ -1358,6 +1365,12 @@ static int bag_entries(const Game *g, int tab, BagEntry entries[8]) {
                 entries[n++] = (BagEntry){150 + i, g->materials[i], MATERIALS[i].name, MATERIALS[i].use};
     } else if (tab == 3 && g->herbs > 0)
         entries[n++] = (BagEntry){102, g->herbs, "약재 꾸러미", "의뢰품 · 약방 주인에게 전달할 약재"};
+    else if (tab == 4) {
+        if (g->spirit_orbs > 0)
+            entries[n++] = (BagEntry){BAG_SPIRIT_ORB, g->spirit_orbs, "정혼주", "수련 재화 · 수련 트리에 쓰임(준비 중)"};
+        if (g->spirit_shards > 0)
+            entries[n++] = (BagEntry){BAG_SPIRIT_SHARD, g->spirit_shards, "정혼주 파편", "5개를 정제하면 정혼주 1개"};
+    }
     return n;
 }
 static void bag_icon(Gfx *f, int key, SDL_FRect r, SDL_Color c) {
@@ -1365,6 +1378,11 @@ static void bag_icon(Gfx *f, int key, SDL_FRect r, SDL_Color c) {
     if (key >= 150 && key < 150 + MATERIAL_COUNT) return;
     Vec2 p = {r.x + r.w / 2, r.y + r.h / 2};
     float z = fminf(r.w, r.h) * .34f;
+    if (key == BAG_SPIRIT_ORB || key == BAG_SPIRIT_SHARD) {
+        /* Code-drawn placeholder until 정혼주 art is approved. */
+        gfx_spirit(f, p, key == BAG_SPIRIT_ORB ? z * .8f : z * .45f, 1);
+        return;
+    }
     if (key == ITEM_SWORD || key == 100) {
         gfx_line(f, (Vec2){p.x-z,p.y+z}, (Vec2){p.x+z,p.y-z}, c);
         gfx_line(f, (Vec2){p.x-z*.7f,p.y+z*1.1f}, (Vec2){p.x-z*1.1f,p.y+z*.7f}, c);
@@ -1417,9 +1435,9 @@ static void draw_bag(App *a) {
     }
     snprintf(text,sizeof text,"공격 +%d · 방어 %d",g->sword?5:0,g->armor?3:0);
     gfx_label(f,text,(SDL_FRect){left.x+4,top+content-24,lw-8,20},11,GOLD);
-    const char *tabs[] = {"장비","소비","기타","의뢰품"};
-    for(int i=0;i<4;i++) {
-        SDL_FRect tab = {rx+(rw/4)*i,top,rw/4-3,29};
+    const char *tabs[BAG_TABS] = {"장비","소비","기타","의뢰품","수련"};
+    for(int i=0;i<BAG_TABS;i++) {
+        SDL_FRect tab = {rx+(rw/BAG_TABS)*i,top,rw/BAG_TABS-3,29};
         gfx_round(f,tab,6,a->bag_tab==i ? GOLD : (SDL_Color){27,47,46,255});
         gfx_label(f,tabs[i],tab,12,a->bag_tab==i?INK:MUTED);
         if(a->button_count<BUTTON_MAX) a->buttons[a->button_count++] = (Button){tab,ACT_BAG_TAB,i,true};
@@ -1458,11 +1476,12 @@ static void draw_bag(App *a) {
         }
         if(a->button_count<BUTTON_MAX) a->buttons[a->button_count++] = (Button){cell,ACT_BAG_SELECT,e.key,true};
     }
-    if(n==0) gfx_label(f,a->bag_tab==2?"보관 중인 기타 물품이 없습니다":"보관 중인 물품이 없습니다",grid,13,MUTED);
+    if(n==0) gfx_label(f,a->bag_tab==2?"보관 중인 기타 물품이 없습니다":a->bag_tab==4?"정혼주는 솔바람재 멧돼지에게서 드물게 얻습니다":"보관 중인 물품이 없습니다",grid,13,MUTED);
     SDL_FRect detail={rx,top+content-detail_h,rw,detail_h};
     gfx_round(f,detail,8,(SDL_Color){24,43,42,255});
     if(selected>=0) {
-        BagEntry e=entries[selected]; bool actionable=e.key>=0 && e.key<=ITEM_BANDAGE;
+        BagEntry e=entries[selected];
+        bool refine=e.key==BAG_SPIRIT_SHARD, actionable=(e.key>=0 && e.key<=ITEM_BANDAGE) || refine;
         float reserved=actionable?80:8;
         gfx_text_box(f,e.name,(SDL_FRect){rx+9,detail.y+6,rw-reserved-16,22},14,11,PAPER);
         const char *description = e.description;
@@ -1470,8 +1489,17 @@ static void draw_bag(App *a) {
             snprintf(text, sizeof text, "%d개 · 일반 재료 · 대장간 매각 %d문/개", e.count, MATERIALS[e.key - 150].price);
             description = text;
         }
+        if (e.key == BAG_SPIRIT_SHARD) {
+            snprintf(text, sizeof text, "%d개 · %d개를 정제하면 정혼주 1개", e.count, SPIRIT_SHARDS_PER_ORB);
+            description = text;
+        } else if (e.key == BAG_SPIRIT_ORB) {
+            snprintf(text, sizeof text, "%d개 · 수련 재화 · 수련 트리에 쓰임(준비 중)", e.count);
+            description = text;
+        }
         gfx_text_box(f,description,(SDL_FRect){rx+9,detail.y+29,rw-reserved-16,detail.h-34},12,10,MUTED);
-        if(actionable) {
+        if(refine)
+            button(a,(SDL_FRect){rx+rw-80,detail.y+(detail_h-44)/2,76,44},"정제",ACT_REFINE,0,!game_refine_error(g),true);
+        else if(actionable) {
             bool gear=e.key==ITEM_SWORD || e.key==ITEM_ARMOR;
             button(a,(SDL_FRect){rx+rw-80,detail.y+(detail_h-44)/2,76,44},gear?(bag_equipped(g,e.key)?"해제":"장착"):"사용",
                    gear?ACT_EQUIP:ACT_USE,e.key,gear||game_can_use(g,(Item)e.key),true);
@@ -2284,7 +2312,10 @@ static void smoke_scene(App *a, const char *scene) {
         a->game.owned_armor = a->game.armor = true;
         a->game.herbs = 2; a->bag_selected = ITEM_SWORD;
         a->game.materials[0] = 12; a->game.materials[1] = 7;
-        a->bag_tab = !strcmp(scene,"bag-materials") ? 2 : !strcmp(scene,"bag-consumables") ? 1 : !strcmp(scene,"bag-quest") ? 3 : 0;
+        a->game.spirit_shards = 7; a->game.spirit_orbs = 2;
+        a->bag_tab = !strcmp(scene,"bag-materials") ? 2 : !strcmp(scene,"bag-consumables") ? 1 : !strcmp(scene,"bag-quest") ? 3
+            : !strcmp(scene,"bag-spirit") ? 4 : 0;
+        if (a->bag_tab == 4) a->bag_selected = BAG_SPIRIT_SHARD;
         a->game.phase = PH_BAG;
     } else if (!strcmp(scene,"techniques")) {
         a->game.phase = PH_TECHNIQUES;
@@ -2315,6 +2346,12 @@ static void smoke_scene(App *a, const char *scene) {
         /* A quest boar beside an ordinary one, for comparing the labels. */
         a->game.map=MAP_PASS;a->game.quest=Q_RECOVER;a->game.traces[0]=a->game.traces[1]=true;
         a->game.hero.pos=(Vec2){1120,290};
+    } else if (!strcmp(scene, "spirit")) {
+        /* 정혼주 and a shard mid-flight from a fallen ordinary boar. */
+        a->game.map=MAP_PASS;a->game.quest=Q_RECOVER;a->game.traces[0]=a->game.traces[1]=true;
+        a->game.hero.pos=(Vec2){HUNT_SPAWNS[0].x-120,HUNT_SPAWNS[0].y};
+        a->game.effects[a->game.effect_count++]=(Effect){.kind=FX_SPIRIT,.pos=HUNT_SPAWNS[0],.life=.75f,.amount=2};
+        a->game.effects[a->game.effect_count++]=(Effect){.kind=FX_SPIRIT,.pos={HUNT_SPAWNS[0].x,HUNT_SPAWNS[0].y+30},.life=.45f,.amount=1};
     } else if (!strcmp(scene, "tamsikgul")) {
         a->game.map=MAP_CAVE;a->game.hero.pos=(Vec2){768*1.5f,730*1.5f};a->game.quest=Q_HUNT;
     } else if (!strcmp(scene, "boss")) {

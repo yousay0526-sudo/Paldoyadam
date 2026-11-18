@@ -82,7 +82,7 @@ static void panel_controls_fit(App *a) {
                 CHECK(b.rect.x+b.rect.w<=a->width && b.rect.y+b.rect.h<=a->height);
                 tabs+=b.action==ACT_BAG_TAB; gear+=b.action==ACT_GEAR_SELECT;
             }
-            CHECK(tabs==4 && gear==6);
+            CHECK(tabs==5 && gear==6);
         }
         a->game.phase=PH_TECHNIQUES; a->button_count=0; draw_techniques(a);
         int binds=0, directions=0;
@@ -422,6 +422,41 @@ static void material_sale_controls(App *a) {
         for(int i=0;i<a->button_count;i++) CHECK(a->buttons[i].action!=ACT_USE && a->buttons[i].action!=ACT_EQUIP);
     }
 }
+/* 수련 tab: 정혼주 / 파편 entries and the 정제 button on every screen size. */
+static void spirit_bag_controls(App *a) {
+    const Vec2 views[]={{432,270},{480,306},{568,320},{844,390},{1280,720}};
+    for(int view=0;view<5;view++) for(int touch=0;touch<2;touch++) for(int shards=0;shards<=7;shards+=7) {
+        game_reset(&a->game); game_start(&a->game);
+        a->game.spirit_shards=shards; a->game.spirit_orbs=2;
+        a->width=views[view].x; a->height=views[view].y; a->touch_input=touch!=0;
+        a->game.phase=PH_BAG; a->bag_selected=-999;
+        dispatch(a,ACT_BAG_TAB,4); CHECK(a->bag_tab==4);
+        BagEntry entries[8]; int count=bag_entries(&a->game,4,entries);
+        CHECK(count==(shards?2:1) && entries[0].key==BAG_SPIRIT_ORB);
+        if(shards) CHECK(entries[1].key==BAG_SPIRIT_SHARD && entries[1].count==shards);
+        a->bag_selected=shards?BAG_SPIRIT_SHARD:BAG_SPIRIT_ORB;
+        a->button_count=0; draw_bag(a);
+        int refine=0,tabs=0;
+        for(int i=0;i<a->button_count;i++) {
+            Button b=a->buttons[i];
+            CHECK(b.rect.x>=0 && b.rect.y>=0 && b.rect.x+b.rect.w<=a->width && b.rect.y+b.rect.h<=a->height);
+            tabs+=b.action==ACT_BAG_TAB;
+            if(b.action==ACT_REFINE) { refine++; CHECK(b.rect.w>=44 && b.rect.h>=44 && b.enabled); }
+            CHECK(b.action!=ACT_USE && b.action!=ACT_EQUIP);
+        }
+        CHECK(tabs==5 && refine==(shards?1:0));
+        if(shards) {
+            dispatch(a,ACT_REFINE,0); dispatch(a,ACT_REFINE,0);
+            CHECK(a->game.spirit_shards==2 && a->game.spirit_orbs==3);
+            a->button_count=0; draw_bag(a);
+            for(int i=0;i<a->button_count;i++) if(a->buttons[i].action==ACT_REFINE) CHECK(!a->buttons[i].enabled);
+        }
+    }
+    game_reset(&a->game); game_start(&a->game); a->game.phase=PH_BAG;
+    a->width=844; a->height=390; dispatch(a,ACT_BAG_TAB,5); CHECK(a->bag_tab!=5);
+    BagEntry none[8]; CHECK(bag_entries(&a->game,4,none)==0);
+    a->bag_tab=4; a->button_count=0; draw_bag(a);
+}
 int main(int argc,char **argv) {
     SDL_SetMainReady();
     SDL_setenv("SDL_VIDEODRIVER","dummy",1);
@@ -433,6 +468,7 @@ int main(int argc,char **argv) {
     if (!a->renderer || !gfx_load(&a->gfx,a->renderer,argc > 1 ? argv[1] : "assets")) return 1;
     health_trails();
     material_sale_controls(a);
+    spirit_bag_controls(a);
     all_narratives(a);
     panel_controls_fit(a);
     training_controls_fit(a);
