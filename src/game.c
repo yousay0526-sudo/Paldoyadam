@@ -271,6 +271,8 @@ bool game_enter_training(Game *game, Game *saved) {
     game->sword = saved->sword;
     game->armor = saved->armor;
     game->augment = saved->augment;
+    game->cultivation_nodes = saved->cultivation_nodes;
+    game->hero.hp = game->hero.max_hp = game_cultivation_health(game);
     memcpy(game->swipe_bindings, saved->swipe_bindings, sizeof game->swipe_bindings);
     return true;
 }
@@ -529,7 +531,7 @@ bool game_equip(Game *g, Item item, bool equipped) {
 }
 void game_close_panel(Game *g) {
     world_select(g->map);
-    if (g->phase == PH_SHOP || g->phase == PH_BAG || g->phase == PH_JOURNAL || g->phase == PH_PAUSED || g->phase == PH_TECHNIQUES) {
+    if (g->phase == PH_SHOP || g->phase == PH_BAG || g->phase == PH_JOURNAL || g->phase == PH_PAUSED || g->phase == PH_TECHNIQUES || g->phase == PH_CULTIVATION) {
         g->shop = -1;
         g->phase = PH_PLAY;
     }
@@ -784,7 +786,7 @@ bool game_dodge(Game *g, Vec2 direction) {
     h->dodging = true; h->dodge_elapsed = 0; h->dodge_dir = dir;
     h->dodge_origin = h->pos; h->dodge_perfect = false;
     h->invul = fmaxf(h->invul, DODGE_INVUL_SECONDS);
-    if (g->dodge_charges == DODGE_CHARGES) g->dodge_recharge = raid_dodge_recharge(g, DODGE_RECHARGE_SECONDS);
+    if (g->dodge_charges == DODGE_CHARGES) g->dodge_recharge = game_dodge_recharge_seconds(g);
     g->dodge_charges--;
     effect(g, (Effect){.kind = FX_DUST, .pos = h->pos, .life = .45f, .amount = 2,
                        .angle = atan2f(dir.y, dir.x)});
@@ -936,7 +938,7 @@ static bool gwanpa(Game *g, const Enemy *e, bool (*reaches)(const Enemy *, Vec2)
     if (g->combo_time > 0) g->combo_time = COMBO_SECONDS;
     if (g->dodge_charges < DODGE_CHARGES) {
         g->dodge_charges++;
-        g->dodge_recharge = g->dodge_charges < DODGE_CHARGES ? raid_dodge_recharge(g, DODGE_RECHARGE_SECONDS) : 0;
+        g->dodge_recharge = g->dodge_charges < DODGE_CHARGES ? game_dodge_recharge_seconds(g) : 0;
     }
     return true;
 }
@@ -1163,7 +1165,7 @@ static int next_combo(const Game *g, int move) {
 }
 static int combo_damage(const Game *g, int move, int damage) {
     world_select(g->map);
-    int scaled = (damage * (100 + 10 * (next_combo(g, move) - 1)) + 50) / 100;
+    int scaled = ((damage + game_cultivation_damage(g)) * (100 + 10 * (next_combo(g, move) - 1)) + 50) / 100;
     return g->perfect_bonus > 0 ? (scaled * (100 + PERFECT_BONUS_PERCENT) + 50) / 100 : scaled;
 }
 /* Basic attack reach: the blade, and the wind blade that extends it. */
@@ -1615,7 +1617,7 @@ void game_tick(Game *g, float dt, Vec2 input) {
         g->dodge_recharge -= dt;
         if (g->dodge_recharge <= 0) {
             g->dodge_charges++;
-            g->dodge_recharge = g->dodge_charges < DODGE_CHARGES ? raid_dodge_recharge(g, DODGE_RECHARGE_SECONDS) : 0;
+            g->dodge_recharge = g->dodge_charges < DODGE_CHARGES ? game_dodge_recharge_seconds(g) : 0;
         }
     }
     g->chain_fade = fmaxf(0, g->chain_fade - dt);

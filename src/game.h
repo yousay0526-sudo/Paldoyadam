@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include "cultivation.h"
 
 #define WORLD_W 2304.0f
 #define WORLD_H 1536.0f
@@ -141,7 +142,8 @@ typedef enum {
     PH_PAUSED,
     PH_TECHNIQUES,
     /* 짧은 토벌 overlay; raid.stage says offer, augment pick or result. */
-    PH_RAID
+    PH_RAID,
+    PH_CULTIVATION
 } Phase;
 typedef enum {
     Q_MEET,
@@ -278,7 +280,7 @@ typedef struct {
     int stacks[RAID_AUG_COUNT], offer[3], offer_count;
     uint32_t rng;
 } Raid;
-typedef struct {
+typedef struct Game {
     Phase phase;
     Quest quest;
     MapId map;
@@ -300,6 +302,7 @@ typedef struct {
     bool traces[TRACE_COUNT], sword, armor, supplies_delivered, boss_rewarded, replay;
     bool owned_sword, owned_armor;
     int coins, tonics, bandages, herbs, shop;
+    uint32_t cultivation_nodes;
     Augment augment;
     float cooldown, technique_cooldowns[TECH_COUNT], item_cooldown, attack_cooldown, time, toast_time;
     Technique swipe_bindings[SWIPE_COUNT];

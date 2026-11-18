@@ -1,5 +1,24 @@
 ## 2026-11-04 · 반복 사냥 기반 1차
 
+## 2026-11-18 · 정혼주·토벌 main과 수련도 통합
+
+- 기준 main `bb9eadf`(#69·#70). 전체 CTest **26/26**, 별도 ASan+UBSan(`detect_leaks=0`) **26/26** 통과.
+- 수련도 **474조건**: 기존 검사에 v5의 파편/정혼주 보존 이전, v6의 재화+노드 동시 왕복, 토벌 진입 시 노드/상한 유지, 토벌 중 구매 차단, 실제 피해(기본 9 + 영구 2 + 임시 4 = 15), 보법 단축(1.20 - 영구 0.10 - 임시 0.60 = 0.50초), 토벌 복귀 뒤 원래 체력·노드와 보상만 유지함을 추가 검증.
+- 기존 토벌 **204조건** 유지. 첫 통합 실행에서 토벌 테스트의 기록 길이 기대가 v5여서 실패했고 그 기대만 v6으로 갱신해 재통과했다. `src/raid.c/h`, `draw.c/h`, 기존 토벌 UI 테스트·정혼주 드롭/정제는 최신 main과 동일하다.
+- 실제 SDL 수련도·토벌 증강 선택(844×390) 출력 직접 확인. 새 UI **447조건**도 통과. Python/JS 구문·충돌 마커 없음·`git diff --check` 확인. 로컬 Emscripten과 실기기 확인은 미실행이며 CI 웹 빌드·배포 결과와 구분한다.
+
+
+## 2026-11-18 · 패시브 수련도 1차
+
+- 기준 main `68f648f`, `feat/passive-cultivation-tree-20261118`. Linux/GCC 14.2, SDL 2.32.4 런타임과 동일 태그의 공식 헤더, CMake 4.4.5. 전체 configure/build와 `SDL_VIDEODRIVER=dummy ctest --test-dir build --output-on-failure -j 6`: **25/25 통과**.
+- 별도 `PALDO_SANITIZE=ON` 전체 빌드 후 `SDL_VIDEODRIVER=dummy ASAN_OPTIONS=detect_leaks=0 ctest --test-dir build-sanitize --output-on-failure -j 4`: **25/25 통과**.
+- 새 `passive_cultivation` 443조건: 128개 노드 비트 조합, 구매의 선행/중복/잔액/마을/연습장 제약과 실패 시 상태 보존, 체력 증가로 회복하지 않음, 실제 기본 공격·무공 피해 +2, 실제 보법 충전, 사망·연습장 복원, 저장 v1~v4 이전·v5 왕복·손상 거부. 초기 정확히 66틱의 충전 완료 기대는 float 누적 잔여로 실패하여 67틱으로 경계 여유를 주었고 제품 회복 로직을 변경하지 않았다.
+- 새 `cultivation_menu` 447조건: 실제 포인터로 가방→수련도→노드 선택/구매/잠김/중복→닫기, 마을 밖 조회. 432×270·480×306·568×320·667×375·844×390·1100×650·1920×1080에서 버튼 경계·겹침 없음·높이 44px 이상 확인. 기존 사냥·전투·저장·입력·렌더 검사는 전체 CTest에 포함한다.
+- 실제 네이티브 `--scene cultivation --smoke ... --size 432x270/844x390` 성공, 두 SDL 출력 이미지 직접 확인. [큰 화면](cultivation/preview-844.png), [작은 화면](cultivation/preview-432.png).
+- `git diff --check`, 웹 빌드 스크립트 Python 구문, 변경한 브라우저 저장 테스트 JS 구문 통과. Emscripten이 없어 로컬 웹 빌드/브라우저 플레이는 미실행이며 PR CI와 구분한다. 기존 `draw.c` signedness 경고 1개는 범위 밖으로 유지했다.
+- 희귀 재화 작업과 저장 버전 통합, 실기기 모바일/Windows, 장기 밸런스는 미검증. [구현·연결 계약](PASSIVE_CULTIVATION.md).
+
+
 ## 사냥 경제 1차 · 2026-11-04
 
 기준 main `fa2647d`, 미병합 선행 #52 head `bec2b5f`에서 독립 `feature/hunt-economy-phase1-20261104`. [정책/드롭표/기대 수익](HUNT_ECONOMY.md), [실행 로그](economy-validation.txt), [이미지 요청 지시문](HUNT_MATERIAL_ART_BRIEF.md).

@@ -3,7 +3,7 @@
 #include "game.h"
 #include <stdint.h>
 
-#define SAVE_VERSION 5u
+#define SAVE_VERSION 6u
 /* v3 = v2 (224 bytes) + hunting round + health and respawn time left for
  * each ordinary boar. */
 #define SAVE_V3_SIZE (224u + 4u + 8u * HUNT_COUNT)
@@ -12,6 +12,7 @@
 #define SAVE_V4_SIZE (SAVE_V3_SIZE + 4u * (MATERIAL_COUNT + 1u) + 20u * MATERIAL_DROP_MAX)
 /* v5 appends 정혼주 파편 and 정혼주 counts (no ground piles, no pity state). */
 #define SAVE_V5_SIZE (SAVE_V4_SIZE + 8u)
+#define SAVE_V6_SIZE (SAVE_V5_SIZE + 4u) /* Learned cultivation bits. */
 #define SAVE_CAPACITY 1024
 typedef enum {
     SAVE_OK, SAVE_MISSING, SAVE_CORRUPT, SAVE_VERSION_NEW,
