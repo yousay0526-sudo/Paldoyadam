@@ -1,5 +1,6 @@
 #include "draw.h"
 #include "world.h"
+#include "raid.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -1276,11 +1277,17 @@ void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool has_ta
             bounds.x += camera.x; bounds.y += camera.y;
             cover_region(f, e->pos, camera, bounds);
             if (e->hp <= 0) continue;
+            if (raid_is_elite(g, e)) {
+                /* 정예: no separate art yet, so a gold ring and a fixed name. */
+                gfx_circle(f, (Vec2){p.x, p.y + 2}, 22 * ACTOR_SCALE, GOLD);
+                gfx_circle(f, (Vec2){p.x, p.y + 2}, 25 * ACTOR_SCALE, (SDL_Color){227, 193, 131, 120});
+                label(f, "정예 멧돼지", (Vec2){p.x, p.y - 50 * ACTOR_SCALE - 22}, GOLD);
+            }
             if (e->hp < e->max_hp) {
                 float bar = p.y - 50 * ACTOR_SCALE - 5;
                 gfx_rect(f, (SDL_FRect){p.x - 20, bar, 40, 4}, INK);
                 gfx_rect(f, (SDL_FRect){p.x - 20, bar, 40 * (float)e->hp / (float)e->max_hp, 4}, RED);
-            } else
+            } else if (!raid_is_elite(g, e))
                 label(f, ordinary ? "멧돼지" : "변이한 멧돼지", (Vec2){p.x, p.y - 50 * ACTOR_SCALE - 15}, (SDL_Color){219, 186, 162, 255});
         } else if (actors[a].kind == 2) {
             p = screen_pos(g->boss.pos, camera);

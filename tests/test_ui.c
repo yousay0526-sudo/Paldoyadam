@@ -457,6 +457,42 @@ static void spirit_bag_controls(App *a) {
     BagEntry none[8]; CHECK(bag_entries(&a->game,4,none)==0);
     a->bag_tab=4; a->button_count=0; draw_bag(a);
 }
+/* 짧은 토벌: offer, pick, result and the pause/HUD inside a run fit every screen. */
+static void raid_controls(App *a) {
+    const Vec2 views[]={{432,270},{480,306},{568,320},{844,390},{1280,720}};
+    for(int view=0;view<5;view++) for(int touch=0;touch<2;touch++) for(int stage=0;stage<4;stage++) {
+        game_reset(&a->game); game_start(&a->game);
+        a->game.traces[0]=a->game.traces[1]=true; a->game.quest=Q_RECOVER;
+        a->width=views[view].x; a->height=views[view].y; a->touch_input=touch!=0;
+        CHECK(raid_offer(&a->game));
+        if(stage>0) {
+            dispatch(a,ACT_RAID_ENTER,0); CHECK(a->game.raid.active && a->game.phase==PH_PLAY);
+            if(stage==1) { a->game.raid.offer_count=3; a->game.raid.offer[0]=0; a->game.raid.offer[1]=3; a->game.raid.offer[2]=5;
+                           a->game.raid.stacks[3]=2; a->game.raid.stage=RAID_PICK; a->game.phase=PH_RAID; }
+            if(stage==2) { CHECK(raid_abandon(&a->game)); }
+            if(stage==3) { a->button_count=0; draw_hud(a);
+                           for(int i=0;i<a->button_count;i++) CHECK(a->buttons[i].action!=ACT_JOURNAL);
+                           a->game.phase=PH_PAUSED; }
+        }
+        a->button_count=0; draw_overlay(a);
+        int want=stage==0?2:stage==1?3:1, found=0;
+        for(int i=0;i<a->button_count;i++) {
+            Button b=a->buttons[i];
+            CHECK(b.rect.w>=44 && b.rect.h>=42);
+            CHECK(b.rect.x>=0 && b.rect.y>=0 && b.rect.x+b.rect.w<=a->width && b.rect.y+b.rect.h<=a->height);
+            for(int j=0;j<i;j++) CHECK(!rects_overlap(b.rect,a->buttons[j].rect));
+            found+=stage==0?(b.action==ACT_RAID_ENTER||b.action==ACT_RAID_DECLINE)
+                  :stage==1?b.action==ACT_RAID_PICK:stage==2?b.action==ACT_RAID_LEAVE:b.action==ACT_RAID_QUIT;
+            CHECK(b.action!=ACT_TITLE || stage!=3);
+        }
+        CHECK(found==want);
+        if(stage==1) { dispatch(a,ACT_RAID_PICK,1); CHECK(a->game.raid.stacks[3]==3 && a->game.phase==PH_PLAY); }
+        if(stage==2) { int coins=a->game.raid.coins; (void)coins; dispatch(a,ACT_RAID_LEAVE,0);
+                       CHECK(!a->game.raid.active && a->game.map==MAP_VILLAGE && a->game.phase==PH_PLAY); }
+        if(stage==3) { dispatch(a,ACT_RAID_QUIT,0); CHECK(a->game.raid.stage==RAID_RESULT && a->game.phase==PH_RAID); }
+        if(stage==0) { dispatch(a,ACT_RAID_DECLINE,0); CHECK(a->game.phase==PH_PLAY && !a->game.raid.active); }
+    }
+}
 int main(int argc,char **argv) {
     SDL_SetMainReady();
     SDL_setenv("SDL_VIDEODRIVER","dummy",1);
@@ -469,6 +505,7 @@ int main(int argc,char **argv) {
     health_trails();
     material_sale_controls(a);
     spirit_bag_controls(a);
+    raid_controls(a);
     all_narratives(a);
     panel_controls_fit(a);
     training_controls_fit(a);

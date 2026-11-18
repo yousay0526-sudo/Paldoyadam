@@ -1,6 +1,7 @@
 #include "draw.h"
 #include "world.h"
 #include "save_store.h"
+#include "raid.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -35,7 +36,8 @@ typedef enum {
     ACT_PICKUP, ACT_ATTACK, ACT_TECHNIQUE, ACT_TECHNIQUES, ACT_SWIPE_SELECT,
     ACT_TECH_BIND, ACT_BIND_RESET, ACT_BAG_TAB, ACT_BAG_SELECT, ACT_EQUIP, ACT_GEAR_SELECT,
     ACT_TRAINING_EXIT, ACT_DODGE, ACT_KEY_MENU, ACT_KEY_SELECT, ACT_KEY_RESET,
-    ACT_SMITH_TAB, ACT_MATERIAL_SELECT, ACT_SELL_ONE, ACT_SELL_ALL, ACT_REFINE
+    ACT_SMITH_TAB, ACT_MATERIAL_SELECT, ACT_SELL_ONE, ACT_SELL_ALL, ACT_REFINE,
+    ACT_RAID_ENTER, ACT_RAID_DECLINE, ACT_RAID_PICK, ACT_RAID_LEAVE, ACT_RAID_QUIT
 } Action;
 /* Bag tabs: 장비, 소비, 기타, 의뢰품, 수련. 수련 keys for 정혼주 파편 / 정혼주. */
 #define BAG_TABS 5
@@ -60,7 +62,8 @@ typedef enum {
     DONE_REPORT,
     DONE_AUGMENT,
     DONE_BOSS,
-    DONE_FINISH
+    DONE_FINISH,
+    DONE_RAID
 } DialogueDone;
 typedef struct {
     const char *speaker, *text;
@@ -79,6 +82,8 @@ typedef struct { Vec2 hero, boss, boars[BOAR_COUNT], hunt[HUNT_COUNT]; } Poses;
 typedef struct {
     Game game;
     Game training_return;
+    /* The real game kept aside during a 짧은 토벌 run (never saved). */
+    Game raid_return;
     SaveStore save_store;
     bool save_enabled, save_active, save_available, save_present, save_recovered;
     int new_confirm;
@@ -198,6 +203,11 @@ EMSCRIPTEN_KEEPALIVE const char *paldo_test_buttons(void) {
         case ACT_SELL_ONE: name = "sell-one"; break;
         case ACT_SELL_ALL: name = "sell-all"; break;
         case ACT_REFINE: name = "refine"; break;
+        case ACT_RAID_ENTER: name = "raid-enter"; break;
+        case ACT_RAID_DECLINE: name = "raid-decline"; break;
+        case ACT_RAID_PICK: name = "raid-pick"; break;
+        case ACT_RAID_LEAVE: name = "raid-leave"; break;
+        case ACT_RAID_QUIT: name = "raid-quit"; break;
         case ACT_KEY_MENU: name = "keys"; break;
         case ACT_KEY_SELECT: name = "key"; break;
         default: break;
@@ -388,7 +398,7 @@ static void refresh_save(App *a) {
     a->save_recovered = recovered;
 }
 static void autosave(App *a, bool force) {
-    if (!a->save_enabled || !a->save_active || a->game.training.active ||
+    if (!a->save_enabled || !a->save_active || a->game.training.active || a->game.raid.active ||
         a->game.phase == PH_TITLE) return;
     if (!force && a->save_elapsed < 1) return;
     a->save_elapsed = 0;
@@ -425,6 +435,7 @@ static void new_journey(App *a, bool skip) {
     resume_view(a); autosave(a, true);
 }
 static void toggle_training(App *app) {
+    if (app->game.raid.active) return; /* no training from inside a 토벌 run */
     if (!app->game.training.active) autosave(app, true);
     if (app->width <= app->height) return;
     bool changed = app->game.training.active
@@ -476,9 +487,21 @@ static void next_dialogue(App *a) {
     case DONE_FINISH:
         a->game.phase = PH_COMPLETE;
         break;
+    case DONE_RAID:
+        raid_offer(&a->game);
+        break;
     default:
         break;
     }
+}
+/* After a jump to another place (travel, entering or leaving a 토벌 run). */
+static void reset_view(App *a) {
+    Game *g = &a->game;
+    stop_input(a); a->movement_blocked = true; a->button_count = 0;
+    a->view_ready = false; a->trauma = 0; a->sim_accumulator = 0;
+    a->sim_previous.hero = g->hero.pos; a->sim_previous.boss = g->boss.pos;
+    for (int i = 0; i < BOAR_COUNT; i++) a->sim_previous.boars[i] = g->boars[i].pos;
+    for (int i = 0; i < HUNT_COUNT; i++) a->sim_previous.hunt[i] = g->hunt[i].pos;
 }
 static void interact(App *a) {
     Game *g = &a->game;
@@ -533,7 +556,11 @@ static void interact(App *a) {
             : g->quest == Q_MESSENGER ? "한양에서 전령이 왔습니다.\n마을 어귀에서 장군을 기다리고 있지요."
                                       : "탐식굴에서 울음소리가 들립니다.\n몸을 잘 챙기십시오.";
         Line line = {"마을 이장", s};
-        say(a, &line, 1, DONE_NONE);
+        if (raid_available(g)) {
+            Line lines[2] = {line, {"마을 이장", "솔바람재에 멧돼지 떼가 다시 몰려듭니다.\n잠시 토벌에 나서 주시겠습니까?"}};
+            say(a, lines, 2, DONE_RAID);
+        } else
+            say(a, &line, 1, DONE_NONE);
     }
 }
 /* The dodge follows the held movement (keys or the move drag), else the
@@ -694,6 +721,7 @@ static void dispatch(App *a, Action action, int value) {
             game_close_panel(g);
         break;
     case ACT_CLOSE:
+        raid_decline(g);
         if (a->key_menu) {
             a->key_menu = false;
             a->key_waiting = -1;
@@ -724,6 +752,8 @@ static void dispatch(App *a, Action action, int value) {
             toggle_training(a);
             break;
         }
+        /* Quitting mid-run drops the run: the game before it comes back. */
+        if (g->raid.active && raid_cancel(g, &a->raid_return)) reset_view(a);
         autosave(a, true);
         a->save_active = false; a->new_confirm = 0;
         game_reset(g);
@@ -768,6 +798,27 @@ static void dispatch(App *a, Action action, int value) {
         break;
     case ACT_REFINE:
         game_refine_spirit(g);
+        break;
+    case ACT_RAID_ENTER:
+        if (g->phase == PH_RAID && !g->raid.active) {
+            autosave(a, true);
+            if (raid_enter(g, &a->raid_return)) reset_view(a);
+        }
+        break;
+    case ACT_RAID_DECLINE:
+        raid_decline(g);
+        break;
+    case ACT_RAID_PICK:
+        raid_choose(g, value);
+        break;
+    case ACT_RAID_LEAVE:
+        if (raid_leave(g, &a->raid_return)) {
+            reset_view(a);
+            autosave(a, true);
+        }
+        break;
+    case ACT_RAID_QUIT:
+        if (raid_abandon(g)) stop_input(a);
         break;
     case ACT_CHOOSE:
         game_choose(g, (Augment)value);
@@ -945,6 +996,24 @@ static void draw_quest_tracker(App *a) {
     while (size > 11 && gfx_measure(f, text, size) > r.w - 24)
         size -= .5f;
     gfx_text_box(f, text, (SDL_FRect){r.x + 10, r.y + 23, r.w - 20, 19}, size, 11, PAPER);
+}
+/* Replaces the quest card during a run: time left, kills, 기운 to the next pick. */
+static void draw_raid_tracker(App *a) {
+    Game *g = &a->game; Gfx *f = &a->gfx; const Raid *r = &g->raid;
+    SDL_FRect box = {12, 62, fminf(250, a->width * .52f), 44};
+    hud_card(f, box, 196);
+    gfx_rect(f, (SDL_FRect){box.x, box.y + 10, 2, box.h - 20}, (SDL_Color){227, 193, 131, 205});
+    int left = (int)ceilf(RAID_SECONDS - r->time);
+    char text[160];
+    snprintf(text, sizeof text, "토벌 %d:%02d · 처치 %d", left / 60, left % 60, r->kills);
+    gfx_text(f, text, box.x + 12, box.y + 5, 11, 0, GOLD);
+    if (r->elite_spawned && r->elite >= 0) snprintf(text, sizeof text, "정예 멧돼지를 쓰러뜨리십시오");
+    else snprintf(text, sizeof text, "기운 %d/%d · 증강 %d", r->energy, r->energy_need, r->level);
+    gfx_text_box(f, text, (SDL_FRect){box.x + 10, box.y + 21, box.w - 20, 14}, 12, 10, PAPER);
+    SDL_FRect bar = {box.x + 10, box.y + 37, box.w - 20, 3};
+    gfx_rect(f, bar, (SDL_Color){25, 18, 19, 255});
+    bar.w *= clampf((float)r->energy / (float)(r->energy_need > 0 ? r->energy_need : 1), 0, 1);
+    gfx_rect(f, bar, (SDL_Color){150, 214, 232, 255});
 }
 static void draw_notification(App *a) {
     Game *g = &a->game;
@@ -1144,7 +1213,7 @@ static void draw_hud(App *a) {
     char text[512];
     a->minimap = a->attack_hint = (SDL_FRect){0};
     hud_card(f, (SDL_FRect){12, 8, 190, 44}, 214);
-    gfx_text(f, g->training.active ? "비밀 수련장 · 격리된 빈터" : game_map_name(g->map), 24, 13, 11, 0, GOLD);
+    gfx_text(f, g->training.active ? "비밀 수련장 · 격리된 빈터" : g->raid.active ? "짧은 토벌 · 솔바람재" : game_map_name(g->map), 24, 13, 11, 0, GOLD);
     health_bar(f, (SDL_FRect){53, 38, 85, 4}, g->hero.hp, a->hero_ghost, g->hero.max_hp, 2.5f,
                (SDL_Color){25, 18, 19, 255});
     hud_icon(f, ICON_HEART, (Vec2){32, 40}, 14, RED);
@@ -1161,7 +1230,8 @@ static void draw_hud(App *a) {
         } else {
             icon_button(a, (SDL_FRect){w - 148, 4, 44, 44}, ICON_BAG, ACT_BAG);
             coin_chip(a, w - 150, g->coins);
-            draw_quest_tracker(a);
+            if (g->raid.active) draw_raid_tracker(a);
+            else draw_quest_tracker(a);
             a->minimap = minimap_rect(w, h);
             if (a->minimap.w > 0) {
                 float zoom = world_zoom(h);
@@ -1507,6 +1577,58 @@ static void draw_bag(App *a) {
     } else gfx_text_box(f,a->bag_selected>=200?"장착된 장비가 없는 부위입니다":"물품을 선택하면 자세히 볼 수 있습니다",
             (SDL_FRect){rx+10,detail.y+9,rw-20,detail.h-18},13,11,MUTED);
 }
+/* 짧은 토벌 overlay: the elder's offer, a temporary augment pick, the result. */
+static void draw_raid(App *a) {
+    Gfx *f = &a->gfx; Game *g = &a->game; const Raid *r = &g->raid;
+    float w = a->width, h = a->height;
+    char text[192];
+    gfx_rect(f, (SDL_FRect){0, 0, w, h}, (SDL_Color){7, 22, 26, 228});
+    if (r->stage == RAID_PICK) {
+        snprintf(text, sizeof text, "기운이 찼습니다 · 증강 %d번째", r->level);
+        gfx_center(f, text, w / 2, 12, 13, GOLD);
+        gfx_heading(f, "무엇을 더할 것인가", (SDL_FRect){w / 2 - 180, 28, 360, 40}, 31, PAPER);
+        int n = r->offer_count;
+        float cw = (fminf(w - 32, 840) - 12 * (n - 1)) / (n > 0 ? n : 1), x = (w - (cw * n + 12 * (n - 1))) / 2;
+        float top = 76, ch = fminf(230, h - top - 12);
+        for (int i = 0; i < n; i++) {
+            int aug = r->offer[i];
+            SDL_FRect c = {x + (cw + 12) * (float)i, top, cw, ch};
+            surface(f, c, 14, (SDL_Color){25, 46, 44, 250});
+            snprintf(text, sizeof text, r->stacks[aug] ? "%d단계 → %d단계" : "새 증강", r->stacks[aug], r->stacks[aug] + 1);
+            gfx_text(f, text, c.x + 15, c.y + 10, 12, cw - 30, GOLD);
+            gfx_heading(f, RAID_AUGMENTS[aug].name, (SDL_FRect){c.x + 8, c.y + 30, cw - 16, 30}, 24, PAPER);
+            gfx_text_box(f, RAID_AUGMENTS[aug].description, (SDL_FRect){c.x + 12, c.y + 66, cw - 24, ch - 120},
+                         w < 740 ? 12 : 14, 11, MUTED);
+            button(a, (SDL_FRect){c.x + 12, c.y + ch - 48, cw - 24, 44}, "고르기", ACT_RAID_PICK, i, true, true);
+        }
+        return;
+    }
+    float bw = fminf(380, w - 56), top;
+    if (r->stage == RAID_OFFER) {
+        gfx_heading(f, "짧은 토벌 수련", (SDL_FRect){w / 2 - 220, 20, 440, 46}, 36, PAPER);
+        gfx_center(f, "솔바람재에서 3분 동안 몰려오는 멧돼지 떼와 싸웁니다.", w / 2, 78, 16, MUTED);
+        gfx_center(f, "기운이 차면 토벌 동안만 쓰는 증강을 하나씩 고릅니다.", w / 2, 104, 15, MUTED);
+        snprintf(text, sizeof text, "성공: 번 문 + %d문 · 정혼주 파편 %d개 · 실패: 번 문의 절반",
+                 RAID_WIN_COINS, RAID_WIN_SHARDS);
+        gfx_center(f, text, w / 2, 130, 14, GOLD);
+        top = fminf(h - 110, fmaxf(160, h * .55f));
+        button(a, (SDL_FRect){(w - bw) / 2, top, bw, 46}, "토벌 나가기", ACT_RAID_ENTER, 0, true, true);
+        button(a, (SDL_FRect){(w - bw) / 2, top + 57, bw, 44}, "다음에", ACT_RAID_DECLINE, 0, true, false);
+        return;
+    }
+    gfx_heading(f, r->success ? "토벌 성공" : "토벌 실패", (SDL_FRect){w / 2 - 220, 20, 440, 46}, 38, PAPER);
+    int secs = (int)r->time;
+    snprintf(text, sizeof text, "처치 %d · %d:%02d 버팀 · 증강 %d개", r->kills, secs / 60, secs % 60, r->level);
+    gfx_center(f, text, w / 2, 80, 17, MUTED);
+    if (raid_reward_shards(r))
+        snprintf(text, sizeof text, "보상 %d문 · 정혼주 파편 %d개", raid_reward_coins(r), raid_reward_shards(r));
+    else
+        snprintf(text, sizeof text, "보상 %d문 (번 문의 절반)", raid_reward_coins(r));
+    gfx_center(f, text, w / 2, 112, 17, GOLD);
+    gfx_center(f, "토벌 중 고른 증강은 사라집니다.", w / 2, 140, 14, MUTED);
+    top = fminf(h - 60, fmaxf(170, h * .58f));
+    button(a, (SDL_FRect){(w - bw) / 2, top, bw, 46}, "마을로 돌아가기", ACT_RAID_LEAVE, 0, true, true);
+}
 static void draw_techniques(App *a) {
     Game *g=&a->game; Gfx *f=&a->gfx;
     SDL_FRect p=panel(a,"공격 버튼을 밀어 무공 연결","무공 설정",430);
@@ -1697,6 +1819,10 @@ static void draw_overlay(App *a) {
         draw_journal(a);
         return;
     }
+    if (g->phase == PH_RAID) {
+        draw_raid(a);
+        return;
+    }
     if (g->phase == PH_AUGMENT) {
         gfx_rect(f, (SDL_FRect){0, 0, w, h}, (SDL_Color){7, 22, 26, 232});
         gfx_center(f, "마을을 구하고 얻은 깨달음", w / 2, 12, 13, GOLD);
@@ -1738,6 +1864,7 @@ static void draw_overlay(App *a) {
                      key_label(a, KEY_TECH_UP), key_label(a, KEY_TECH_RIGHT), key_label(a, KEY_TECH_DOWN),
                      key_label(a, KEY_TECH_LEFT), key_label(a, KEY_TECHNIQUES));
             if (g->training.active) snprintf(line[2], sizeof line[2], "훈련 보상 없음 · F8 또는 아래 버튼으로 복귀");
+            else if (g->raid.active) snprintf(line[2], sizeof line[2], "토벌 중 · 그만두면 번 문의 절반만 받습니다");
             else snprintf(line[2], sizeof line[2], "%s 대화 · %s 가방 · %s 여정 · %s 탕약 · %s 지혈산 · F11 전체화면",
                           key_label(a, KEY_INTERACT), key_label(a, KEY_BAG), key_label(a, KEY_JOURNAL),
                           key_label(a, KEY_TONIC), key_label(a, KEY_BANDAGE));
@@ -1763,8 +1890,11 @@ static void draw_overlay(App *a) {
                : g->phase == PH_DEAD ? ACT_RECOVER
                                      : ACT_REPLAY,
                0, true, true);
-        button(a, (SDL_FRect){(w - bw) / 2, top + 57, bw, 42},
-               g->training.active ? "훈련 종료 · 원래 여정으로" : "처음으로", ACT_TITLE, 0, true, false);
+        if (g->phase == PH_PAUSED && g->raid.active)
+            button(a, (SDL_FRect){(w - bw) / 2, top + 57, bw, 42}, "토벌 그만두기", ACT_RAID_QUIT, 0, true, false);
+        else
+            button(a, (SDL_FRect){(w - bw) / 2, top + 57, bw, 42},
+                   g->training.active ? "훈련 종료 · 원래 여정으로" : "처음으로", ACT_TITLE, 0, true, false);
         return;
     }
 }
@@ -2352,6 +2482,26 @@ static void smoke_scene(App *a, const char *scene) {
         a->game.hero.pos=(Vec2){HUNT_SPAWNS[0].x-120,HUNT_SPAWNS[0].y};
         a->game.effects[a->game.effect_count++]=(Effect){.kind=FX_SPIRIT,.pos=HUNT_SPAWNS[0],.life=.75f,.amount=2};
         a->game.effects[a->game.effect_count++]=(Effect){.kind=FX_SPIRIT,.pos={HUNT_SPAWNS[0].x,HUNT_SPAWNS[0].y+30},.life=.45f,.amount=1};
+    } else if (!strncmp(scene, "raid", 4)) {
+        /* 짧은 토벌: raid-offer, raid (mid run), raid-pick, raid-elite, raid-result. */
+        static Game raid_saved;
+        a->game.quest=Q_RECOVER;a->game.traces[0]=a->game.traces[1]=true;
+        raid_offer(&a->game);
+        if (strcmp(scene,"raid-offer")) {
+            raid_enter(&a->game,&raid_saved); a->raid_return=raid_saved; reset_view(a);
+            a->game.raid.time=!strcmp(scene,"raid-elite")?140:84;
+            for (int i=0;i<960;i++) { game_tick(&a->game,1.f/60,(Vec2){0,0}); a->game.hero.hp=a->game.hero.max_hp; }
+            a->game.raid.kills=14; a->game.raid.coins=42; a->game.raid.energy=3; a->game.raid.energy_need=8;
+            a->game.raid.level=2; a->game.raid.stacks[RAUG_STEEL]=1; a->game.raid.stacks[RAUG_WIND]=1;
+            a->game.toast_time=0;
+        }
+        if (!strcmp(scene,"raid-pick")) {
+            a->game.raid.stage=RAID_PICK; a->game.phase=PH_RAID; a->game.raid.offer_count=3;
+            a->game.raid.offer[0]=RAUG_STEEL; a->game.raid.offer[1]=RAUG_DRAIN; a->game.raid.offer[2]=RAUG_STEP; a->game.raid.level=3;
+        } else if (!strcmp(scene,"raid-result")) {
+            a->game.raid.time=RAID_SECONDS; a->game.raid.kills=31; a->game.raid.coins=93; a->game.raid.level=4;
+            a->game.raid.success=true; a->game.raid.stage=RAID_RESULT; a->game.phase=PH_RAID;
+        }
     } else if (!strcmp(scene, "tamsikgul")) {
         a->game.map=MAP_CAVE;a->game.hero.pos=(Vec2){768*1.5f,730*1.5f};a->game.quest=Q_HUNT;
     } else if (!strcmp(scene, "boss")) {
