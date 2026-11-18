@@ -8,6 +8,14 @@
 - 정본: `src/*.c`, `src/*.h`; 주요 문서: `README.md`, `docs/CONTROLS.md`, `docs/VALIDATION.md`, `docs/WEB.md`
 
 
+## 2026-11-18 · 컨셉 v0.2 문서 반영(PR #45 내용) · 안드로이드 버전 표기 맞춤 · PR 검토 대기
+
+- 2026-11-18 사용자가 정리 순서(#59 → #65 → 상태 문서·버전 → #45)를 승인했다. 아트 에셋은 보류(임시 그림 사용)하고 게임플레이 다음 단계로 넘어가기 전 정리다.
+- `docs/PALDOYADAM_CONCEPT_REVISION_v0.2.md`, `docs/NEXT_IMPLEMENTATION.md`: PR #45(브랜치 `docs/concept-v02-hunting-growth-20261025`, 커밋 `f2099b7`)의 두 문서를 바이트 그대로 가져왔다. #45는 이 문서만 충돌해 최신 main 위에 다시 올렸다. 병합 뒤 #45는 닫는다.
+- 진행 상황: `NEXT_IMPLEMENTATION.md`의 첫 목표(마을·사냥터 분리)는 #46, 후속 1(일반 반복 사냥·재등장)은 #52, 후속 2의 판매 재료 부분은 #53으로 이미 구현됐다. 남은 순서는 v0.2 §11의 희귀 성장 재화(정혼주) → 작은 패시브 수련 트리 → 짧은 토벌·증강 선택이다. 정혼주 명칭·드롭률·트리 비용·증강 영구화는 여전히 미정이다.
+- `android/app/build.gradle`: `versionName` 0.7.1 → 0.8.0(CMake·README와 같게), `versionCode` 8 → 9(이전 APK 위에 설치되도록). 사용자 승인 범위의 버전 표기 정리이며 게임 내용 변경은 없다. APK 빌드·실기기 설치는 이 환경에서 확인하지 않았다.
+- 게임 코드·에셋·수치 변경 없음. `GAME_BIBLE.md`는 여전히 없다(만들지는 사용자 결정 대기).
+
 ## 2026-11-18 · 가림 그리기 회귀 테스트 · PR 검토 대기 (PR #59 내용을 최신 main으로 다시 올림)
 
 - 점검 보고서 제안 5번(가림 그리기 비용 줄이기)을 사용자 승인으로 시도했으나 게임 코드는 바꾸지 않았다(2026-11-04, 기준 main `1ced1a0`).
@@ -397,7 +405,7 @@
 - `scripts/package_source.py`: 루트 허용 목록에 `AGENTS.md`, `CURRENT_STATE.md`, `GAME_BIBLE.md` 추가. 실제로 있는 파일만 담기므로 없는 `GAME_BIBLE.md`는 만들지 않는다. 압축본 131개 파일에 두 문서 포함, 빌드 산출물·SDL 다운로드·local.properties 제외를 확인했고, 압축을 푼 사본에서 코어 빌드·CTest 5/5 통과.
 - `README.md`: 예약 입력 설명을 실제 동작(동작 중 마지막 유효 입력 한 개)으로 수정. 저장소에 없는 `docs/hero-walk-preview.gif` 링크 제거.
 - `docs/CONTROLS.md`: E 키는 대화·조사·상점 시작만 하고 다음 대사는 Space/Enter라고 분리 표기(E 기능은 확장하지 않음).
-- 보류: Android `versionName` 0.7.1과 CMake 0.8.0 불일치는 정식 버전 변경이라 별도 승인 필요. 과거 기록의 0.22초 표현(`docs/VALIDATION.md`)은 당시 기록이라 유지.
+- 보류: Android `versionName` 0.7.1과 CMake 0.8.0 불일치는 정식 버전 변경이라 별도 승인 필요(2026-11-18 승인 후 0.8.0으로 맞춤). 과거 기록의 0.22초 표현(`docs/VALIDATION.md`)은 당시 기록이라 유지.
 - 남은 감사 항목: R1~R9(실기기·브라우저 측정 위주). GAME_BIBLE.md 없음.
 
 ## 이전 작업: 감사 F1 — 멧돼지 경고 원을 실제 피격 범위와 일치 (PR #19, main `27a2bac`에 병합)
