@@ -1,6 +1,6 @@
 # CURRENT_STATE.md — 팔도야담 개발 상태
 
-최종 갱신: 2026-11-12
+최종 갱신: 2026-11-18
 
 ## 기준
 - GitHub 저장소: `yousay0526-sudo/Paldoyadam`
@@ -15,7 +15,15 @@
 - 프롬프트 메모: 에셋 메모 칸(프로젝트·내보내기 메타데이터에 저장), 저장소 `art/**/*prompt*.txt` 읽기 전용 보기.
 - 테스트: `python -m unittest discover -s tools/asset_studio/tests` **62/62**.
 
-## 2026-11-12 · 팔도 에셋 스튜디오: 큰 그림을 원하는 픽셀 크기로 줄이기 · PR #65 (main 병합)
+## 2026-11-18 · 가림 그리기 회귀 테스트 · PR 검토 대기 (PR #59 내용을 최신 main으로 다시 올림)
+
+- 점검 보고서 제안 5번(가림 그리기 비용 줄이기)을 사용자 승인으로 시도했으나 게임 코드는 바꾸지 않았다(2026-11-04, 기준 main `1ced1a0`).
+- 시험 1: 줄 단위 잘라 그리기를 `SDL_RenderGeometry` 한 묶음으로 바꾸면 소프트웨어 렌더러에서 가린 부분이 한 줄씩 어긋났고, OpenGL(Mesa llvmpipe, Xvfb)에서도 정수 카메라일 때 화면 한 장에서 215~1,225픽셀이 달랐다(최근접 샘플링 경계). 시험 2: 같은 열의 줄을 사각형으로 묶으면 화면은 같지만 그리기 호출이 559→556으로만 줄었다. 위험 대비 이득이 없어 되돌렸다.
+- 사용자 선택으로 테스트만 남긴다: `tests/test_map_render.c`(map_backgrounds)에 솔바람재에서 멧돼지가 가림 뒤에 일부 숨은 자리를 찾아, 가림 안쪽 화소가 지도와 정확히 같고 바깥은 멧돼지가 보이는지 정수·소수 카메라로 확인한다.
+- 2026-11-18 사용자가 정리 순서(#59 → #65 → 상태 문서·버전 → #45)를 승인했다. 원래 PR #59는 이 문서만 충돌해, 같은 테스트를 최신 main(`aab855e`) 위에 다시 올렸다. 이 문서의 #58·#65 상태 표기도 병합으로 고쳤다.
+- 테스트: Linux/GCC·SDL 2.30.0 dummy CTest **23/23 통과**(최신 main 위). 게임 코드·에셋 변경 없음, 버전 0.8.0 유지. `GAME_BIBLE.md` 없음.
+
+## 2026-11-12 · 팔도 에셋 스튜디오: 큰 그림을 원하는 픽셀 크기로 줄이기 · PR #65 (2026-11-18 사용자 승인, main `aab855e` 병합)
 
 - 사용자 확인: 큰 사진을 넣었을 때 원하는 픽셀 크기로 줄이기 어려움(배율 칸만 있었음, 최소 0.01·소수 3자리).
 - 레이어 속성에 "크기 가로/세로 (px)"(비율 유지)·원본 크기 표시·"보이는 그림 키를 px로 맞추기"(투명 여백 제외, 보정 메뉴 Ctrl+Shift+H) 추가, 배율 칸은 최소 0.0001·소수 4자리. `tools/asset_studio/`만 변경.
@@ -53,14 +61,14 @@
 - 테스트: Linux/Python 3.13·PySide6 6.12·Pillow 12.3 `python -m unittest discover -s tools/asset_studio/tests` **22/22**(코어 19, offscreen 실제 창 3). 기존 정지 S 셀을 가져와 내보내면 원본 셀과 픽셀 동일함을 확인. 게임 코어 CTest 11/11(게임 미변경 확인용). 실행 화면은 `tools/asset_studio/docs/screenshots/`.
 - 미검증·남음: Windows 실행, 실제 화면(모니터)에서의 조작감. 레이어 회전·반전·가림 마스크, 8방향·애니메이션·시트 출력은 2차 이후(승인 대기). 레이어 순서·장비 기준점 규격은 PR #42·#44와 GPT 에셋 제작 표준 검토 결과를 따른다. `GAME_BIBLE.md` 없음. 병합·배포·버전 변경 없음.
 
-## 2026-11-04 · 웹 다운로드 용량 줄이기(큰 그림 JPEG 사본) · PR 검토 대기
+## 2026-11-04 · 웹 다운로드 용량 줄이기(큰 그림 JPEG 사본) · PR #58 (사용자 승인, main 병합·Pages 배포)
 
 - 점검 보고서 제안 4번. 2배 확대 비교 이미지를 본 뒤 사용자 승인. 기준 main `ab1ed39`, 브랜치 `claude/project-thread-4he5gj`.
 - 변경: 불투명한 큰 그림 7장(수련장 `village`, 마을·솔바람재·탐식굴 배경, 프롤로그 3장)을 같은 크기의 JPEG(품질 95, 4:4:4)로 바꿨다. 무손실 원본 PNG는 `art/maps/`, `art/prologue/`로 옮겨 바이트 그대로 보존했다(수련장 원본은 이미 같은 바이트의 `art/village/village-remake-pass1-master.png`). `scripts/prepare_web_paintings.py`가 원본에서 사본을 만든다. `src/draw.c` stb_image에 JPEG 해독을 켜고, `src/draw.c`·`src/game.c`의 파일 경로만 `.jpg`로 바꿨다. 투명 배경 캐릭터·몬스터·아이콘·이정표는 PNG 그대로.
 - 결과: `assets` 45MB → 24MB(그림 7장 30.1MB → 8.4MB). 원본 대비 PSNR 38.3~43.9dB. 해독 시간(PC, SIMD 끔) 맵 약 52→48ms, 프롤로그 약 90→41ms.
 - 테스트: Linux/GCC·SDL 2.30.0 CTest **23/23**, ASan+UBSan **23/23**. 새 `web_paintings` 테스트가 각 JPEG가 게임과 같은 stb_image로 해독되고 원본과 크기가 같으며 PSNR 36dB 이상인지 확인한다(다른 그림으로 바꿔 넣으면 10.7dB로 실패함을 확인). `hero_animation`의 지도 픽셀 일치 검사는 `village.jpg` 기준으로 그대로 통과. 네이티브 화면(솔바람재 사냥, 프롤로그) 확인.
 - 문서: `art/maps/provenance.json`(원본 경로·실행 사본), `docs/MAP_INTEGRATION.md`, `docs/WEB.md`, `THIRD_PARTY_NOTICES.md`. 원본 경로를 쓰는 제작 스크립트 2개(`review_village_asset.py`, `prepare_map_waypoints.ps1`)는 원본 경로로만 고쳤다.
-- 미검증: 실제 웹 빌드 용량과 휴대폰 로딩 체감(이 환경에 Emscripten 없음, PR CI 빌드로 확인). 폰트 6.5MB 줄이기는 이번 범위 밖. 병합·배포는 별도 승인 대기.
+- 사용자 "승인"으로 squash 병합 main `1ced1a0`, Pages 배포 성공. CI 브라우저 빌드 묶음 86MB → 42MB. 미검증: 휴대폰 로딩 체감. 폰트 6.5MB 줄이기는 이번 범위 밖.
 
 ## 2026-11-04 · 재료 알림 멈춤 · 자동저장 안내 상시 표시 · PR #57 (사용자 승인, main 병합·Pages 배포)
 
