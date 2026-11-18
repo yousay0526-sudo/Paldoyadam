@@ -16,6 +16,12 @@ static uint32_t seed_for(unsigned roll) {
         if (((uint64_t)next_rng(x)*100>>32)==roll) return x;
     CHECK(false); return 0;
 }
+/* A seed whose second step (the 정혼주 draw after the material draw) lands on roll. */
+static uint32_t spirit_seed(unsigned roll) {
+    for (uint32_t x=1; x<1000000; x++)
+        if (((uint64_t)next_rng(next_rng(x))*100>>32)==roll) return x;
+    CHECK(false); return 0;
+}
 static void ready(Game *g) {
     game_reset(g); game_start(g); g->map=MAP_PASS;
     g->quest=Q_RECOVER; g->traces[0]=g->traces[1]=true;
@@ -23,7 +29,7 @@ static void ready(Game *g) {
 }
 static Game rt(const Game *g) {
     Game out; MapId selected=world_selected();
-    CHECK(save_encode(g,bytes,&size)==SAVE_OK && size==SAVE_V4_SIZE);
+    CHECK(save_encode(g,bytes,&size)==SAVE_OK && size==SAVE_V5_SIZE);
     CHECK(save_check(bytes,size)==SAVE_OK);
     CHECK(save_decode(&out,bytes,size)==SAVE_OK && world_selected()==selected);
     return out;
@@ -48,8 +54,9 @@ static void tables_and_once(void) {
         Game g; ready(&g); int coins=g.coins; Drop quest[BOAR_COUNT]; memcpy(quest,g.drops,sizeof quest);
         g.loot_rng=seed_for(boundaries[b]); uint32_t seed=g.loot_rng;
         CHECK(game_damage(&g,&g.hunt[0],1,FX_HIT)); CHECK(g.loot_rng==seed && !piles(&g));
+        /* One draw for materials, then one separate draw for 정혼주 (two PRNG steps). */
         g=rt(&g); kill(&g,boundaries[b]);
-        CHECK(g.loot_rng==next_rng(seed));
+        CHECK(g.loot_rng==next_rng(next_rng(seed)));
         int k=game_material_roll(boundaries[b]);
         CHECK(piles(&g)==(k>=0));
         CHECK(g.quest==Q_RECOVER && g.herbs==0);
@@ -57,7 +64,7 @@ static void tables_and_once(void) {
         CHECK(g.coins==coins+HUNT_REWARD);
         for(int n=0;n<4;n++) {
             g=rt(&g); CHECK(!game_damage(&g,&g.hunt[0],1,FX_HIT));
-            CHECK(g.loot_rng==next_rng(seed) && piles(&g)==(k>=0) && g.coins==coins+HUNT_REWARD);
+            CHECK(g.loot_rng==next_rng(next_rng(seed)) && piles(&g)==(k>=0) && g.coins==coins+HUNT_REWARD);
         }
         CHECK(g.materials[0]==0 && g.materials[1]==0);
         if(k>=0) {
@@ -223,6 +230,69 @@ static void migration_and_training(void) {
     CHECK(save_encode(&g,bytes,&size)==SAVE_INVALID);
     CHECK(game_leave_training(&g,&saved)); CHECK(g.materials[1]==7 && piles(&g)==1);
 }
+static int spirit_effects(const Game *g, int amount) {
+    int n=0; for(int i=0;i<g->effect_count;i++) n+=g->effects[i].kind==FX_SPIRIT && g->effects[i].amount==amount; return n;
+}
+static void spirit_drops(void) {
+    /* Table: one read per kill, scaled to 0..99; 0 = orb, 1..8 = shard. */
+    int counts[3]={0};
+    for(unsigned r=0;r<100;r++) counts[game_spirit_roll(r)]++;
+    CHECK(counts[SPIRIT_NONE]==91 && counts[SPIRIT_SHARD]==8 && counts[SPIRIT_ORB]==1);
+    CHECK(game_spirit_roll(0)==SPIRIT_ORB && game_spirit_roll(1)==SPIRIT_SHARD && game_spirit_roll(8)==SPIRIT_SHARD);
+    CHECK(game_spirit_roll(9)==SPIRIT_NONE && game_spirit_roll(100)==SPIRIT_NONE && game_spirit_roll(UINT_MAX)==SPIRIT_NONE);
+    const unsigned rolls[]={0,1,8,9,99};
+    for(int r=0;r<5;r++) {
+        Game g; ready(&g); int coins=g.coins; g.loot_rng=spirit_seed(rolls[r]); uint32_t seed=g.loot_rng;
+        CHECK(game_damage(&g,&g.hunt[0],100,FX_HIT));
+        SpiritDrop d=game_spirit_roll(rolls[r]);
+        CHECK(g.loot_rng==next_rng(next_rng(seed)) && g.coins==coins+HUNT_REWARD);
+        CHECK(g.spirit_orbs==(d==SPIRIT_ORB) && g.spirit_shards==(d==SPIRIT_SHARD));
+        CHECK(spirit_effects(&g,2)==(d==SPIRIT_ORB) && spirit_effects(&g,1)==(d==SPIRIT_SHARD));
+        CHECK(!strncmp(g.toast,"멧돼지 제압 +9문",strlen("멧돼지 제압 +9문")));
+        CHECK((strstr(g.toast,"정혼주")!=NULL)==(d!=SPIRIT_NONE));
+        /* Material result of the same kill is unchanged by the second draw. */
+        int k=game_material_roll((unsigned)(((uint64_t)next_rng(seed)*100)>>32));
+        CHECK(piles(&g)==(k>=0));
+        for(int n=0;n<3;n++) { g=rt(&g); CHECK(!game_damage(&g,&g.hunt[0],1,FX_HIT)); }
+        CHECK(g.spirit_orbs==(d==SPIRIT_ORB) && g.spirit_shards==(d==SPIRIT_SHARD) && g.loot_rng==next_rng(next_rng(seed)));
+    }
+    /* Quest boars and the butcher never roll 정혼주. */
+    Game g; ready(&g); uint32_t seed=g.loot_rng=spirit_seed(0);
+    CHECK(game_damage(&g,&g.boars[0],100,FX_HIT));
+    CHECK(g.loot_rng==seed && !g.spirit_orbs && !g.spirit_shards);
+    /* Cap: a full count stays full, the kill still pays, the toast says so. */
+    ready(&g); g.spirit_shards=SPIRIT_LIMIT; g.loot_rng=spirit_seed(1);
+    CHECK(game_damage(&g,&g.hunt[0],100,FX_HIT));
+    CHECK(g.spirit_shards==SPIRIT_LIMIT && strstr(g.toast,"한도") && !spirit_effects(&g,1));
+    /* Refining: only from the open bag, 5 shards -> 1 orb, orb cap respected. */
+    ready(&g); g.spirit_shards=SPIRIT_SHARDS_PER_ORB*2-1;
+    CHECK(game_refine_error(&g) && !game_refine_spirit(&g));
+    g.phase=PH_BAG; CHECK(!game_refine_error(&g) && game_refine_spirit(&g));
+    CHECK(g.spirit_shards==SPIRIT_SHARDS_PER_ORB-1 && g.spirit_orbs==1);
+    Game before=g; CHECK(!game_refine_spirit(&g)); CHECK(g.spirit_shards==before.spirit_shards && g.spirit_orbs==1);
+    g.spirit_shards=SPIRIT_SHARDS_PER_ORB; g.spirit_orbs=SPIRIT_LIMIT;
+    CHECK(game_refine_error(&g) && !game_refine_spirit(&g) && g.spirit_orbs==SPIRIT_LIMIT && g.spirit_shards==SPIRIT_SHARDS_PER_ORB);
+    g.phase=PH_PLAY; g.spirit_orbs=12; g.spirit_shards=3; g=rt(&g);
+    CHECK(g.spirit_orbs==12 && g.spirit_shards==3);
+    /* Save: out-of-range counts refused; v1..v4 records load with zero. */
+    Game bad=g; bad.spirit_shards=-1; CHECK(save_encode(&bad,bytes,&size)==SAVE_INVALID);
+    bad=g; bad.spirit_orbs=SPIRIT_LIMIT+1; CHECK(save_encode(&bad,bytes,&size)==SAVE_INVALID);
+    const size_t old_sizes[]={216,224,SAVE_V3_SIZE,SAVE_V4_SIZE};
+    for(int version=1;version<=4;version++) {
+        CHECK(save_encode(&g,bytes,&size)==SAVE_OK); size=old_sizes[version-1]; sign_record(size,version);
+        Game out; CHECK(save_check(bytes,size)==SAVE_OK && save_decode(&out,bytes,size)==SAVE_OK);
+        CHECK(out.spirit_orbs==0 && out.spirit_shards==0 && out.coins==g.coins);
+    }
+    CHECK(save_encode(&g,bytes,&size)==SAVE_OK && size==SAVE_V5_SIZE && size<=SAVE_CAPACITY);
+    bytes[size-8]=0xE8; bytes[size-7]=0x03; bytes[size-6]=0; bytes[size-5]=0; sign_record(size,5);
+    Game sentinel=g,out=g; CHECK(save_decode(&out,bytes,size)==SAVE_CORRUPT && !memcmp(&out,&sentinel,sizeof out));
+    /* Training targets never roll and the main counts come back unchanged. */
+    ready(&g); g.spirit_shards=4; Game saved; CHECK(game_enter_training(&g,&saved));
+    uint32_t rng=g.loot_rng;
+    for(int n=0;n<20;n++) CHECK(game_damage(&g,&g.boss,1000,FX_HIT));
+    CHECK(g.loot_rng==rng && !g.spirit_shards && !g.spirit_orbs && !game_refine_spirit(&g));
+    CHECK(game_leave_training(&g,&saved) && g.spirit_shards==4);
+}
 /* An isolated initial save used only by the SDL/browser execution tests. */
 static void fixture(const char *path) {
     Game g; ready(&g); g.hero.pos.x+=45; g.loot_rng=seed_for(0);
@@ -230,7 +300,7 @@ static void fixture(const char *path) {
     CHECK(fwrite(bytes,1,size,f)==size); CHECK(!fclose(f));
 }
 int main(int argc,char **argv) {
-    tables_and_once(); persistence_and_capacity(); collection(); sales(); migration_and_training();
+    tables_and_once(); persistence_and_capacity(); collection(); sales(); migration_and_training(); spirit_drops();
     if(argc>1) fixture(argv[1]);
     printf("Economy: %d checks passed\n",checks); return 0;
 }

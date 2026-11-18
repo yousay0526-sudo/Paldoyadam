@@ -25,6 +25,14 @@
 #define MATERIAL_PILES_PER_KIND 16
 #define MATERIAL_DROP_MAX (MATERIAL_COUNT * MATERIAL_PILES_PER_KIND)
 #define MATERIAL_LIMIT 9999
+/* 정혼주: rare growth currency for the (upcoming) training tree. Each ordinary
+ * boar kill reads one fresh PRNG value scaled to 0..99 and looks it up in a
+ * fixed table: below SPIRIT_ORB_CHANCE = orb, the next SPIRIT_SHARD_CHANCE
+ * values = shard, the rest = nothing. No pity counter, no guarantee. */
+#define SPIRIT_ORB_CHANCE 1
+#define SPIRIT_SHARD_CHANCE 8
+#define SPIRIT_SHARDS_PER_ORB 5
+#define SPIRIT_LIMIT 999
 #define COIN_LIMIT 1000000 /* Existing save currency ceiling. */
 #define NPC_COUNT 5
 #define TRACE_COUNT 2
@@ -164,7 +172,8 @@ const char *game_map_name(MapId map);
 const char *game_map_asset(MapId map);
 
 /* FX_DUST: amount 1 footstep, 2 dash, 3 fall; angle is the travel heading. */
-typedef enum { FX_NUMBER, FX_HIT, FX_WIND, FX_SKILL, FX_BOSS_SWING, FX_DUST } EffectKind;
+/* FX_SPIRIT: amount 1 shard, 2 orb; flies from pos to the hero (display only). */
+typedef enum { FX_NUMBER, FX_HIT, FX_WIND, FX_SKILL, FX_BOSS_SWING, FX_DUST, FX_SPIRIT } EffectKind;
 typedef enum { NOTICE_NONE = 0, NOTICE_BOSS = 1, NOTICE_DEATH = 2, NOTICE_VICTORY = 4 } Notice;
 typedef struct {
     Vec2 pos, dir;
@@ -271,6 +280,8 @@ typedef struct {
     int materials[MATERIAL_COUNT];
     MaterialDrop material_drops[MATERIAL_DROP_MAX];
     uint32_t loot_rng;
+    /* Collected straight into the bag at the kill; never on the ground. */
+    int spirit_shards, spirit_orbs;
     /* Coalesced pickup notice waits until the existing toast is free. */
     int material_notice[MATERIAL_COUNT];
     bool traces[TRACE_COUNT], sword, armor, supplies_delivered, boss_rewarded, replay;
@@ -325,6 +336,11 @@ int game_material_total(const Game *g, Material material);
 bool game_collect_material(Game *g, int drop_index);
 const char *game_sale_error(const Game *g, Material material, int quantity);
 bool game_sell_material(Game *g, Material material, int quantity);
+typedef enum { SPIRIT_NONE, SPIRIT_SHARD, SPIRIT_ORB } SpiritDrop;
+SpiritDrop game_spirit_roll(unsigned roll);
+/* NULL when SPIRIT_SHARDS_PER_ORB shards can be refined into one orb now. */
+const char *game_refine_error(const Game *g);
+bool game_refine_spirit(Game *g);
 extern const AugmentInfo AUGMENTS[3];
 extern const TechniqueInfo TECHNIQUES[TECH_COUNT];
 

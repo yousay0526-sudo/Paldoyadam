@@ -62,6 +62,8 @@ static bool valid(const Game *g) {
     if (!g->loot_rng) return false;
     for (int i = 0; i < MATERIAL_COUNT; i++)
         if (game_material_total(g, (Material)i) < 0) return false;
+    if (g->spirit_shards < 0 || g->spirit_shards > SPIRIT_LIMIT ||
+        g->spirit_orbs < 0 || g->spirit_orbs > SPIRIT_LIMIT) return false;
     for (int i = 0; i < MATERIAL_DROP_MAX; i++) {
         const MaterialDrop *p = &g->material_drops[i];
         if (p->quantity && (!bounded(p->drop.age, DROP_REST_SECONDS) ||
@@ -119,6 +121,7 @@ SaveResult save_encode(const Game *g, unsigned char *b, size_t *size) {
         F(p->quantity ? p->drop.pos.x : 0); F(p->quantity ? p->drop.pos.y : 0);
         F(p->quantity ? p->drop.age : 0); F(p->quantity ? p->drop.magnet_time : 0);
     }
+    I(g->spirit_shards); I(g->spirit_orbs);
     size_t p = 8; put(b, &p, (uint32_t)(n + 4));
     uint32_t sum = checksum(b, n); I(sum);
 #undef I
@@ -145,7 +148,7 @@ static SaveResult decode(Game *out, const unsigned char *b, size_t size, bool re
     if (get(b, &n) != 0x31594450u) return SAVE_CORRUPT;
     uint32_t version = get(b, &n);
     if (version < 1 || version > SAVE_VERSION) return SAVE_VERSION_NEW;
-    static const uint32_t sizes[] = {0, 216u, 224u, SAVE_V3_SIZE, SAVE_V4_SIZE};
+    static const uint32_t sizes[] = {0, 216u, 224u, SAVE_V3_SIZE, SAVE_V4_SIZE, SAVE_V5_SIZE};
     if (get(b, &n) != size || size != sizes[version]) return SAVE_CORRUPT;
     size_t end = size - 4;
     if (get(b, &end) != checksum(b, size - 4)) return SAVE_CORRUPT;
@@ -194,6 +197,8 @@ static SaveResult decode(Game *out, const unsigned char *b, size_t size, bool re
             p->drop.exists = p->quantity > 0;
         }
     }
+    /* v1..v4: no 정혼주 yet; start at zero, never granted for old kills. */
+    if (version >= 5) { I(g.spirit_shards); I(g.spirit_orbs); }
 #undef I
 #undef F
 #undef B

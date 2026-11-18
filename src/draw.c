@@ -335,6 +335,19 @@ void gfx_circle(Gfx *g, Vec2 p, float radius, SDL_Color c) {
     color(g, c);
     SDL_RenderDrawLinesF(g->renderer, points, 33);
 }
+void gfx_spirit(Gfx *g, Vec2 p, float radius, float alpha) {
+    alpha = clampf(alpha, 0, 1);
+    if (radius <= 0 || alpha <= 0) return;
+    Uint8 a = (Uint8)(255 * alpha);
+    gfx_disc(g, p, radius * 1.9f, (SDL_Color){150, 214, 232, (Uint8)(50 * alpha)}, (SDL_Color){150, 214, 232, 0});
+    gfx_disc(g, p, radius, (SDL_Color){196, 236, 246, (Uint8)(200 * alpha)}, (SDL_Color){236, 250, 255, a});
+    gfx_disc(g, (Vec2){p.x - radius * .25f, p.y - radius * .25f}, radius * .42f,
+             (SDL_Color){255, 255, 255, a}, (SDL_Color){255, 255, 255, 0});
+    SDL_Color glint = {255, 248, 214, (Uint8)(220 * alpha)};
+    float r = radius * 1.7f;
+    gfx_line(g, (Vec2){p.x - r, p.y}, (Vec2){p.x + r, p.y}, glint);
+    gfx_line(g, (Vec2){p.x, p.y - r}, (Vec2){p.x, p.y + r}, glint);
+}
 /* One centered circle, shared by fill and outline. More segments than the
  * generic in-world effect circles prevent a visibly faceted attack button. */
 void gfx_disc(Gfx *g, Vec2 p, float radius, SDL_Color fill, SDL_Color rim) {
@@ -1326,6 +1339,22 @@ void gfx_world(Gfx *f, const Game *g, float w, float h, Vec2 camera, bool has_ta
             gfx_center(f, s, x, y, size, c);
         } else if (e->kind == FX_DUST) {
             continue;
+        } else if (e->kind == FX_SPIRIT) {
+            /* Rises from the fallen boar, then is drawn into the hero. */
+            float t = clampf(1 - e->life / .9f, 0, 1);
+            Vec2 lift = {p.x, p.y - 40 * ACTOR_SCALE};
+            Vec2 hero = screen_pos(g->hero.pos, camera);
+            hero.y -= 30 * ACTOR_SCALE;
+            Vec2 at = lift;
+            if (t < .3f) {
+                float u = t / .3f, ease = 1 - (1 - u) * (1 - u);
+                at = (Vec2){p.x, p.y - (14 + 26 * ease) * ACTOR_SCALE};
+            } else {
+                float u = (t - .3f) / .7f, ease = u * u;
+                at = (Vec2){lift.x + (hero.x - lift.x) * ease, lift.y + (hero.y - lift.y) * ease};
+            }
+            float size = (e->amount == 2 ? 7.f : 4.5f) * ACTOR_SCALE * (t > .85f ? (1 - t) / .15f : 1);
+            gfx_spirit(f, at, size, t < .1f ? t / .1f : 1);
         } else if (e->kind == FX_SKILL) {
             /* A shock ring expanding from the strike point. */
             float t = clampf(1 - e->life / .30f, 0, 1), grow = 1 - (1 - t) * (1 - t);
