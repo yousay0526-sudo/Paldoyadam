@@ -139,7 +139,9 @@ typedef enum {
     PH_COMPLETE,
     PH_DEAD,
     PH_PAUSED,
-    PH_TECHNIQUES
+    PH_TECHNIQUES,
+    /* 짧은 토벌 overlay; raid.stage says offer, augment pick or result. */
+    PH_RAID
 } Phase;
 typedef enum {
     Q_MEET,
@@ -265,6 +267,17 @@ typedef struct {
     int amount;
     bool damage;
 } Effect;
+#define RAID_AUG_COUNT 6
+#define RAID_AUG_MAX_STACK 3
+typedef enum { RAID_OFFER, RAID_PICK, RAID_RESULT } RaidStage;
+typedef struct {
+    bool active, success, elite_spawned;
+    RaidStage stage;
+    float time, spawn_timer;
+    int kills, energy, energy_need, level, coins, elite;
+    int stacks[RAID_AUG_COUNT], offer[3], offer_count;
+    uint32_t rng;
+} Raid;
 typedef struct {
     Phase phase;
     Quest quest;
@@ -322,6 +335,9 @@ typedef struct {
         int last_damage, impact_damage;
         float hit_time;
     } training;
+    /* 짧은 토벌 (src/raid.c). Never saved: like training, the main state is
+     * kept aside on entry and restored on leaving, plus the result reward. */
+    Raid raid;
 } Game;
 
 extern const Vec2 HOME, BOSS_HOME;

@@ -1,4 +1,5 @@
 #include "game.h"
+#include "raid.h"
 #include "world.h"
 #include <math.h>
 #include <stdio.h>
@@ -204,7 +205,9 @@ static void effect(Game *g, Effect e) {
 }
 static void dead(Game *g) {
     world_select(g->map);
-    if (g->hero.hp <= 0 && g->phase != PH_DEAD) {
+    if (g->hero.hp <= 0 && g->raid.active) {
+        raid_hero_down(g);
+    } else if (g->hero.hp <= 0 && g->phase != PH_DEAD) {
         g->phase = PH_DEAD;
         g->notices |= NOTICE_DEATH;
     }
@@ -650,7 +653,9 @@ bool game_damage(Game *g, Enemy *e, int amount, EffectKind kind) {
         e->state = AI_DEAD;
         e->dying = ENEMY_DEATH_SECONDS;
         effect(g, (Effect){.kind = FX_DUST, .pos = e->pos, .life = .55f, .amount = 3});
-        if (e == &g->boss) {
+        if (g->raid.active) {
+            raid_on_kill(g, e);
+        } else if (e == &g->boss) {
             g->hero.bleed = 0;
             g->quest = Q_RETURN;
             if (!g->boss_rewarded && !g->replay) {
@@ -779,7 +784,7 @@ bool game_dodge(Game *g, Vec2 direction) {
     h->dodging = true; h->dodge_elapsed = 0; h->dodge_dir = dir;
     h->dodge_origin = h->pos; h->dodge_perfect = false;
     h->invul = fmaxf(h->invul, DODGE_INVUL_SECONDS);
-    if (g->dodge_charges == DODGE_CHARGES) g->dodge_recharge = DODGE_RECHARGE_SECONDS;
+    if (g->dodge_charges == DODGE_CHARGES) g->dodge_recharge = raid_dodge_recharge(g, DODGE_RECHARGE_SECONDS);
     g->dodge_charges--;
     effect(g, (Effect){.kind = FX_DUST, .pos = h->pos, .life = .45f, .amount = 2,
                        .angle = atan2f(dir.y, dir.x)});
@@ -931,7 +936,7 @@ static bool gwanpa(Game *g, const Enemy *e, bool (*reaches)(const Enemy *, Vec2)
     if (g->combo_time > 0) g->combo_time = COMBO_SECONDS;
     if (g->dodge_charges < DODGE_CHARGES) {
         g->dodge_charges++;
-        g->dodge_recharge = g->dodge_charges < DODGE_CHARGES ? DODGE_RECHARGE_SECONDS : 0;
+        g->dodge_recharge = g->dodge_charges < DODGE_CHARGES ? raid_dodge_recharge(g, DODGE_RECHARGE_SECONDS) : 0;
     }
     return true;
 }
@@ -1167,12 +1172,12 @@ static int combo_damage(const Game *g, int move, int damage) {
 #define WIND_RANGE 120.0f
 static float blade_range(const Game *g) {
     world_select(g->map);
-    return g->augment == AUG_STEEL ? BLADE_RANGE_STEEL : BLADE_RANGE;
+    return (g->augment == AUG_STEEL ? BLADE_RANGE_STEEL : BLADE_RANGE) + raid_range_bonus(g);
 }
 float game_attack_range(const Game *g, int move) {
     world_select(g->map);
     if (move == MOVE_ATTACK)
-        return g->augment == AUG_WIND ? WIND_RANGE : blade_range(g);
+        return g->augment == AUG_WIND || raid_wind_damage(g) ? fmaxf(WIND_RANGE, blade_range(g)) : blade_range(g);
     return move >= 0 && move < TECH_COUNT ? TECHNIQUES[move].range : 0;
 }
 float game_attack_half_angle(int move) {
@@ -1258,8 +1263,8 @@ static void begin_technique(Game *g, Technique technique) {
     h->attack_face = h->face;
     h->attacking = false; h->skilling = true; h->skill_hit = false;
     h->skill_elapsed = 0; h->technique = technique;
-    float cooldown = technique == TECH_CLEAVE && g->augment == AUG_FLOW
-        ? 4 : TECHNIQUES[technique].cooldown;
+    float cooldown = raid_cooldown(g, technique == TECH_CLEAVE && g->augment == AUG_FLOW
+        ? 4 : TECHNIQUES[technique].cooldown);
     if (technique == TECH_CLEAVE) g->cooldown = cooldown;
     else g->technique_cooldowns[technique] = cooldown;
     if (technique == TECH_RETREAT || technique == TECH_THRUST)
@@ -1385,9 +1390,11 @@ static void tick_attack(Game *g, float dt) {
             game_attack_contains(h->pos, h->attack_angle, game_attack_range(g, MOVE_ATTACK), MOVE_ATTACK, e->pos)) {
             float d = distance(h->pos, e->pos);
             if (d < blade_range(g))
-                hit |= game_damage(g, e, combo_damage(g, MOVE_ATTACK, (g->augment == AUG_STEEL ? 13 : 9) + (g->sword ? 5 : 0)), FX_HIT);
+                hit |= game_damage(g, e, combo_damage(g, MOVE_ATTACK, (g->augment == AUG_STEEL ? 13 : 9) + (g->sword ? 5 : 0) + raid_basic_bonus(g)), FX_HIT);
             if (g->augment == AUG_WIND && d < WIND_RANGE)
                 hit |= game_damage(g, e, 6, FX_WIND);
+            if (raid_wind_damage(g) && d < WIND_RANGE && e->hp > 0)
+                hit |= game_damage(g, e, raid_wind_damage(g), FX_WIND);
         }
         finish_impact(g, MOVE_ATTACK, hit);
     }
@@ -1433,7 +1440,7 @@ static void tick_technique(Game *g, float dt) {
         if (step > 0)
             h->pos = world_move(h->pos, (Vec2){cosf(h->skill_angle) * step,
                                              sinf(h->skill_angle) * step}, HERO_RADIUS);
-        int base = h->technique == TECH_CLEAVE && g->augment == AUG_FLOW ? 32 : info->damage;
+        int base = (h->technique == TECH_CLEAVE && g->augment == AUG_FLOW ? 32 : info->damage) + raid_technique_bonus(g);
         h->impact_origin = h->pos;
         bool hit = technique_area(g, info->range, combo_damage(g, h->technique, base + (g->sword ? 5 : 0)));
         finish_impact(g, h->technique, hit);
@@ -1608,7 +1615,7 @@ void game_tick(Game *g, float dt, Vec2 input) {
         g->dodge_recharge -= dt;
         if (g->dodge_recharge <= 0) {
             g->dodge_charges++;
-            g->dodge_recharge = g->dodge_charges < DODGE_CHARGES ? DODGE_RECHARGE_SECONDS : 0;
+            g->dodge_recharge = g->dodge_charges < DODGE_CHARGES ? raid_dodge_recharge(g, DODGE_RECHARGE_SECONDS) : 0;
         }
     }
     g->chain_fade = fmaxf(0, g->chain_fade - dt);
@@ -1671,7 +1678,8 @@ void game_tick(Game *g, float dt, Vec2 input) {
             for (int i = 0; i < HUNT_COUNT && g->phase == PH_PLAY; i++)
                 if (g->hunt[i].hp > 0)
                     tick_boar(g, &g->hunt[i], world_dt);
-        tick_hunt_respawn(g, dt);
+        if (g->raid.active) raid_tick(g, dt);
+        else tick_hunt_respawn(g, dt);
     }
     separate_bodies(g, dt);
     tick_loot(g, dt);
