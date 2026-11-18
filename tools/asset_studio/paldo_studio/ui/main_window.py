@@ -4,12 +4,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import numpy as np
+
 from PySide6.QtCore import QSize, Qt, QTimer
 from PySide6.QtGui import QAction, QActionGroup, QColor, QIcon, QKeySequence, QPainter, QPixmap
 from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QComboBox, QDockWidget, QDoubleSpinBox,
                                QFileDialog, QFormLayout, QGroupBox, QHBoxLayout, QInputDialog, QLayout,
                                QLabel, QLineEdit, QListWidget, QListWidgetItem, QMainWindow,
-                               QMessageBox, QPushButton, QScrollArea, QSlider, QSpinBox,
+                               QMessageBox, QPlainTextEdit, QPushButton, QScrollArea, QSlider, QSpinBox,
                                QToolBar, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget)
 
 from .. import __version__
@@ -21,8 +23,8 @@ from ..model import EIGHT_DIRECTIONS, KINDS, PROJECT_FILE, SLOTS, TOLERANCE_LABE
 from .canvas import BACKGROUNDS, Canvas, pil_to_qimage, preview_pixmap
 from ..templates import (TEMPLATE_SUFFIX, Template, asset_from_template, builtin_templates, load_template,
                          project_templates, save_template)
-from .dialogs import (ArtworkImportDialog, CellImportDialog, CheckDialog, NewAssetDialog, SheetImportDialog,
-                      SheetPreviewDialog, TemplateDialog)
+from .dialogs import (ArtworkImportDialog, AtlasSplitDialog, CellImportDialog, CheckDialog, NewAssetDialog,
+                      PromptBrowserDialog, SheetImportDialog, SheetPreviewDialog, TemplateDialog)
 from .overview import Overview
 
 
@@ -97,6 +99,8 @@ class MainWindow(QMainWindow):
         c = menu.addMenu("보정(&C)")
         self.act_artwork = self._action(c, "GPT 원화 가져오기 (현재 칸)…", QKeySequence("Ctrl+G"),
                                         self.ask_import_artwork)
+        self.act_atlas = self._action(c, "원화 아틀라스 자동 분할 (여러 자세 한 장)…", QKeySequence("Ctrl+Shift+G"),
+                                      self.ask_import_atlas)
         c.addSeparator()
         self.act_bg = self._action(c, "선택 레이어 배경 제거…", QKeySequence("Ctrl+Shift+B"), self.ask_remove_background)
         self.act_noise = self._action(c, "선택 레이어 잡점(알파 1~4) 지우기", QKeySequence(), self.clean_noise)
@@ -109,7 +113,7 @@ class MainWindow(QMainWindow):
                                        self.match_reference_height)
         self.act_height_px = self._action(c, "키 맞추기: 선택 레이어 그림 키를 px로…", QKeySequence("Ctrl+Shift+H"),
                                           self.ask_match_height)
-        self.fix_actions = (self.act_artwork, self.act_bg, self.act_noise, self.act_snap, self.act_snap_all,
+        self.fix_actions = (self.act_artwork, self.act_atlas, self.act_bg, self.act_noise, self.act_snap, self.act_snap_all,
                             self.act_height, self.act_height_px)
 
         x = menu.addMenu("내보내기(&X)")
@@ -253,6 +257,13 @@ class MainWindow(QMainWindow):
         form.addRow("발 기준점 X", self.f_ax)
         form.addRow("발 기준점 Y", self.f_ay)
         form.addRow("내보낼 파일명", self.f_export)
+        self.f_memo = QPlainTextEdit()
+        self.f_memo.setPlaceholderText("사용한 프롬프트, 원화 출처(어느 대화·몇 번째 결과), 고친 점 등")
+        self.f_memo.setFixedHeight(84)
+        self.f_memo_btn = QPushButton("저장소의 기존 프롬프트 보기…")
+        self.f_memo_btn.clicked.connect(self.show_repo_prompts)
+        form.addRow("프롬프트 메모", self.f_memo)
+        form.addRow(self.f_memo_btn)
         self.f_dirs = QLabel()
         form.addRow("방향", self.f_dirs)
         self.f_frames = QLabel()
@@ -359,6 +370,7 @@ class MainWindow(QMainWindow):
         self.f_ax.valueChanged.connect(lambda v: self._asset_anchor(0, v))
         self.f_ay.valueChanged.connect(lambda v: self._asset_anchor(1, v))
         self.f_export.editingFinished.connect(lambda: self._asset_field("export_name", self.f_export.text().strip()))
+        self.f_memo.textChanged.connect(self._memo_changed)
         self.f_layout.currentIndexChanged.connect(lambda: self._asset_field("sheet_layout", self.f_layout.currentData()))
         self.f_columns.valueChanged.connect(lambda v: self._asset_field("sheet_columns", int(v)))
         self.l_name.editingFinished.connect(lambda: self._layer_field("name", self.l_name.text().strip()))
@@ -655,6 +667,8 @@ class MainWindow(QMainWindow):
             self.f_frames.setText(f"{a.frames}개" + (f" (발 기준점 따로: {', '.join(map(str, own))})" if own else ""))
             self.f_layout.setCurrentIndex(max(0, self.f_layout.findData(a.sheet_layout)))
             self.f_columns.setValue(a.sheet_columns)
+            if self.f_memo.toPlainText() != a.memo:
+                self.f_memo.setPlainText(a.memo)
         if l:
             self.l_name.setText(l.name)
             self.l_slot.setCurrentIndex(max(0, self.l_slot.findData(l.slot)))
@@ -786,6 +800,32 @@ class MainWindow(QMainWindow):
             problem = layout_problem(a)
             if problem:
                 self.statusBar().showMessage(f"내보내기 형식: {problem}", 6000)
+
+    def _memo_changed(self):
+        a = self.asset
+        text = self.f_memo.toPlainText()
+        if self._syncing or a is None or a.memo == text:
+            return
+        self._checkpoint(f"{a.id}-memo")
+        a.memo = text
+        self._mark()
+
+    def repo_prompts(self) -> list[Path]:
+        """Prompt files already kept next to the masters in the game repository (read only)."""
+        repo = self.specs.repo
+        return sorted((repo / "art").rglob("*prompt*.txt")) if repo and (repo / "art").is_dir() else []
+
+    def show_repo_prompts(self):
+        files = self.repo_prompts()
+        if not files:
+            QMessageBox.information(self, "프롬프트", "저장소에서 프롬프트 파일을 찾지 못했습니다.")
+            return
+        dialog = PromptBrowserDialog(files, self.specs.repo, self)
+        if dialog.exec() and dialog.chosen():
+            path, text = dialog.chosen()
+            rel = path.relative_to(self.specs.repo).as_posix()
+            memo = self.f_memo.toPlainText()
+            self.f_memo.setPlainText((memo + "\n\n" if memo.strip() else "") + f"[참고: {rel}]\n{text.strip()}")
 
     def _asset_anchor(self, index: int, value: float):
         a = self.asset
@@ -1616,6 +1656,79 @@ class MainWindow(QMainWindow):
         self._mark()
         self.refresh_all()
         return layer
+
+    def ask_import_atlas(self):
+        a = self.asset
+        if not a:
+            return
+        path, _ = QFileDialog.getOpenFileName(self, "원화 아틀라스 자동 분할", "", "PNG 이미지 (*.png)")
+        if not path:
+            return
+        try:
+            image = open_png(Path(path))
+        except (OSError, ValueError) as exc:
+            QMessageBox.critical(self, "가져오기 실패", str(exc))
+            return
+        has_ref = any(l.slot == "reference" for l in a.layers)
+        dialog = AtlasSplitDialog(Path(path), image, a.directions, self.view, self.frame, has_ref, self)
+        if dialog.exec():
+            v = dialog.values()
+            made, scale, wanted = self.import_atlas(Path(path), v["cols"], v["rows"], v["targets"], v["remove_bg"],
+                                                    v["tolerance"], v["height"], v["name"], v["slot"])
+            note = f"자세 {len(made)}개, 배율 {scale:g}"
+            if scale < wanted - 1e-6:
+                note += f" (칸을 넘지 않게 {wanted:g}에서 줄임)"
+            self.statusBar().showMessage(note, 8000)
+
+    def import_atlas(self, path: Path, cols: int, rows: int, targets: list, remove_bg: bool = True,
+                     tolerance: int = 24, height=None, name: str = "원화", slot: str = "body"):
+        """Split one artwork atlas into poses and place each on its (direction, frame), as ONE undo step.
+
+        All poses share one scale (the motion keeps its proportions); each pose's
+        foot root becomes the layer pivot and is put on that frame's foot root.
+        Returns ({(view, frame): layer}, scale used, scale wanted).
+        """
+        a = self.asset
+        original = open_png(Path(path))
+        if len(targets) != cols * rows:
+            raise ValueError("칸 수와 넣을 곳 수가 다릅니다")
+        self._checkpoint()
+        base = self.project.import_png(Path(path), original.width, original.height, original.mode)
+        image = original.convert("RGBA")
+        if remove_bg:
+            result = autofix.remove_background(image, tolerance)
+            if result.colour is not None:
+                image = result.image
+                base = autofix.derived_source(self.project, image, base, "background",
+                                              {"colour": list(result.colour), "tolerance": tolerance})
+        poses = autofix.find_poses(image, cols, rows)
+        target = None
+        if height == "reference":
+            refs = [autofix.reference_height(self.project, a, self.cache, v, f) for v, f in targets]
+            refs = [r for r in refs if r]
+            target = float(np.median(refs)) if refs else None
+        elif isinstance(height, (int, float)):
+            target = float(height)
+        scale, wanted = autofix.common_scale(poses, target, (a.width, a.height), tuple(a.anchor))
+        made = {}
+        for pose, (view, frame) in zip(poses, targets):
+            if pose.image is None:
+                continue
+            source = autofix.derived_source(self.project, pose.image, base, "pose",
+                                            {"cell": list(pose.cell), "grid": [cols, rows],
+                                             "bounds": list(pose.bounds)})
+            layer = self.project.add_layer(a, source, f"{name} {view}" if view else name, None, slot, None,
+                                           view=view, frame=frame)
+            layer.pivot = [round(pose.root[0], 2), round(pose.root[1], 2)]
+            layer.scale = scale
+            self.project.snap_pivot_to_anchor(a, layer)
+            made[(view, frame)] = layer
+        here = made.get((self.view, self.frame))
+        if here is not None:
+            self.layer_id = here.id
+        self._mark()
+        self.refresh_all()
+        return made, scale, wanted
 
     def ask_remove_background(self):
         l = self.layer

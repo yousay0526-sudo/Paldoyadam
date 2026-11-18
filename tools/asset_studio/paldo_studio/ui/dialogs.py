@@ -9,10 +9,10 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QPainter, QPixmap
 from PySide6.QtWidgets import (QCheckBox, QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox,
                                QFormLayout, QHBoxLayout, QHeaderView, QLabel, QLineEdit, QListWidget,
-                               QListWidgetItem, QScrollArea, QSpinBox, QTableWidget, QTableWidgetItem,
+                               QListWidgetItem, QPlainTextEdit, QScrollArea, QSpinBox, QTableWidget, QTableWidgetItem,
                                QVBoxLayout, QWidget)
 
-from ..autofix import background_colour, clean_alpha_noise, remove_background
+from ..autofix import background_colour, clean_alpha_noise, find_poses, remove_background
 from ..checks import LEVEL_LABEL
 from ..game_specs import Specs, sheet_layout
 from ..model import EIGHT_DIRECTIONS, KINDS, SLOTS
@@ -543,3 +543,172 @@ class ArtworkImportDialog(QDialog):
                 "feather": self.feather.isChecked(), "clean_noise": self.noise.isChecked(),
                 "height": float(self.height_px.value()) if mode == "number" else (mode or None),
                 "snap": self.snap.isChecked(), "slot": self.slot.currentData()}
+
+
+class AtlasSplitDialog(QDialog):
+    """원화 아틀라스 자동 분할: one GPT atlas (e.g. 4×4 poses) into directions/frames of the asset."""
+
+    MAPPINGS = {"rows_views": "행 = 방향, 열 = 프레임 (몬스터 걷기·공격 원화)",
+                "cells_frames": "칸 순서 = 프레임 (현재 방향에)",
+                "cells_views": "칸 순서 = 방향 (현재 프레임에)"}
+
+    def __init__(self, path: Path, image: Image.Image, directions: list[str], view: str, frame: int,
+                 has_reference: bool, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(f"원화 아틀라스 자동 분할 — {path.name}")
+        self.image = image.convert("RGBA")
+        self.directions, self.view, self.frame = directions, view, frame
+        self.cols, self.rows = QSpinBox(), QSpinBox()
+        for box in (self.cols, self.rows):
+            box.setRange(1, 16)
+            box.setValue(4)
+        self.mapping = QComboBox()
+        for key, label in self.MAPPINGS.items():
+            if directions or key == "cells_frames":
+                self.mapping.addItem(label, key)
+        self.start = QComboBox()
+        for d in directions:
+            self.start.addItem(d, d)
+        self.remove_bg = QCheckBox("배경 제거 (네 모서리 색과 이어진 부분)")
+        self.remove_bg.setChecked(background_colour(self.image) is not None)
+        self.tolerance = QSpinBox()
+        self.tolerance.setRange(1, 128)
+        self.tolerance.setValue(24)
+        self.height_mode = QComboBox()
+        if has_reference:
+            self.height_mode.addItem("가운데 자세 키 = 참고 레이어(기존 그림) 키", "reference")
+        self.height_mode.addItem("가운데 자세 키를 숫자로 (px)", "number")
+        self.height_mode.addItem("원본 크기 그대로 (칸을 넘으면 줄임)", "")
+        self.height_px = QSpinBox()
+        self.height_px.setRange(4, 4096)
+        self.height_px.setValue(136)
+        self.name = QLineEdit(path.stem)
+        self.slot = QComboBox()
+        for key, label in SLOTS.items():
+            self.slot.addItem(label, key)
+        self.preview = QLabel()
+        self.info = QLabel()
+        self.info.setWordWrap(True)
+        form = QFormLayout()
+        form.addRow("열 수", self.cols)
+        form.addRow("행 수", self.rows)
+        form.addRow("넣을 곳", self.mapping)
+        form.addRow("첫 행의 방향", self.start)
+        form.addRow(self.remove_bg)
+        form.addRow("배경 색 허용 차이", self.tolerance)
+        form.addRow("키", self.height_mode)
+        form.addRow("목표 키 (px)", self.height_px)
+        form.addRow("레이어 이름", self.name)
+        form.addRow("부위", self.slot)
+        layout = QVBoxLayout(self)
+        layout.addWidget(QLabel("칸마다 가운데에 가장 가까운 그림 덩어리를 한 자세로 고릅니다 "
+                                "(scripts/prepare_monster_assets.py와 같은 방식). 반사·재채색·보간은 하지 않습니다."))
+        row = QHBoxLayout()
+        row.addWidget(self.preview)
+        row.addLayout(form)
+        layout.addLayout(row)
+        layout.addWidget(self.info)
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+        self.ok_button = buttons.button(QDialogButtonBox.Ok)
+        for w in (self.cols, self.rows, self.tolerance):
+            w.valueChanged.connect(self._update)
+        for w in (self.mapping, self.start, self.height_mode):
+            w.currentIndexChanged.connect(self._update)
+        self.remove_bg.toggled.connect(self._update)
+        self._update()
+
+    def targets(self) -> list[tuple[str, int]] | None:
+        """(direction, frame) for each grid cell in row-major order, or None when it does not fit."""
+        cols, rows, mode = self.cols.value(), self.rows.value(), self.mapping.currentData()
+        if mode == "rows_views":
+            start = self.directions.index(self.start.currentData())
+            if start + rows > len(self.directions):
+                return None
+            return [(self.directions[start + r], c) for r in range(rows) for c in range(cols)]
+        if mode == "cells_views":
+            if cols * rows > len(self.directions):
+                return None
+            return [(self.directions[i], self.frame) for i in range(cols * rows)]
+        return [(self.view, i) for i in range(cols * rows)]
+
+    def _update(self):
+        mode = self.mapping.currentData()
+        self.start.setEnabled(mode == "rows_views")
+        self.height_px.setEnabled(self.height_mode.currentData() == "number")
+        image = self.image
+        if self.remove_bg.isChecked():
+            image = remove_background(image, self.tolerance.value()).image
+        poses = find_poses(image, self.cols.value(), self.rows.value())
+        side = 360
+        k = side / max(image.width, image.height)
+        pixmap = _checker_pixmap(image.resize((max(1, round(image.width * k)), max(1, round(image.height * k)))), 10)
+        painter = QPainter(pixmap)
+        targets = self.targets()
+        for i, p in enumerate(poses):
+            if p.bounds is None:
+                continue
+            painter.setPen(QColor(220, 60, 60) if p.warning else QColor(40, 200, 90))
+            x0, y0, x1, y1 = (v * k for v in p.bounds)
+            painter.drawRect(round(x0), round(y0), round(x1 - x0), round(y1 - y0))
+            if targets:
+                v, f = targets[i]
+                painter.drawText(round(x0) + 2, round(y0) + 12, f"{v} {f + 1}".strip())
+        painter.end()
+        self.preview.setPixmap(pixmap)
+        found = sum(p.image is not None for p in poses)
+        warnings = [f"{p.cell[1] + 1}행 {p.cell[0] + 1}열: {p.warning}" for p in poses if p.warning]
+        self.ok_button.setEnabled(targets is not None and found > 0)
+        text = f"자세 {found}/{len(poses)}개를 찾았습니다."
+        if targets is None:
+            text += " 이 배치로는 방향이 모자랍니다(첫 행 방향·행 수 확인)."
+        self.info.setText(text + ("\n" + "\n".join(warnings) if warnings else ""))
+
+    def values(self) -> dict:
+        mode = self.height_mode.currentData()
+        return {"cols": self.cols.value(), "rows": self.rows.value(), "targets": self.targets(),
+                "remove_bg": self.remove_bg.isChecked(), "tolerance": self.tolerance.value(),
+                "height": float(self.height_px.value()) if mode == "number" else (mode or None),
+                "name": self.name.text().strip() or "원화", "slot": self.slot.currentData()}
+
+
+class PromptBrowserDialog(QDialog):
+    """Read-only list of the prompt files kept next to the masters in the game repository."""
+
+    def __init__(self, files: list[Path], repo: Path, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("저장소의 기존 프롬프트 (읽기 전용)")
+        self.resize(900, 560)
+        self.files = files
+        self.list = QListWidget()
+        for f in files:
+            self.list.addItem(f.relative_to(repo).as_posix())
+        self.text = QPlainTextEdit()
+        self.text.setReadOnly(True)
+        row = QHBoxLayout()
+        row.addWidget(self.list, 1)
+        row.addWidget(self.text, 2)
+        layout = QVBoxLayout(self)
+        layout.addLayout(row)
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons.button(QDialogButtonBox.Ok).setText("메모에 붙이기")
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+        self.list.currentRowChanged.connect(self._show)
+        if files:
+            self.list.setCurrentRow(0)
+
+    def _show(self, row: int):
+        try:
+            self.text.setPlainText(self.files[row].read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError, IndexError) as exc:
+            self.text.setPlainText(f"읽지 못했습니다: {exc}")
+
+    def chosen(self) -> tuple[Path, str] | None:
+        row = self.list.currentRow()
+        if not 0 <= row < len(self.files):
+            return None
+        return self.files[row], self.text.toPlainText()

@@ -402,6 +402,55 @@ class GuiSmokeTest(unittest.TestCase):
         self.assertLessEqual(abs(height - 140), 1)
         self.assertGreater(w.l_h.value(), 140)  # whole picture incl. margin is taller
 
+    def test_atlas_split_into_directions_and_frames(self):
+        from paldo_studio.checks import check_asset
+        w = self.window
+        w.new_project(self.dir / "atlas", "아틀라스")
+        entries, _ = w.template_entries()
+        boar = next(t for g, t in entries if t.key == "monster-boar-walk")
+        w.new_asset_from_template(boar, "멧돼지 걷기 다시", with_reference=True)
+        master = REPO / "art/monsters/boar-walk-0-master.png"
+        order = w.asset.directions
+        targets = [(order[r], c) for r in range(4) for c in range(4)]  # first half: N NE E SE
+        made, scale, wanted = w.import_atlas(master, 4, 4, targets, remove_bg=True, height="reference",
+                                             name="새 걷기", slot="body")
+        self.assertEqual(sorted(made), sorted(targets))
+        self.assertLessEqual(scale, wanted)
+        self.assertTrue(all(w.project.source(l.source).derived["operation"] == "pose" for l in made.values()))
+        report = check_asset(w.project, w.asset, w.cache, w.specs)
+        placed = [i for i in report if (i["view"], i["frame"]) in made]
+        self.assertFalse([i for i in placed if i["message"].startswith("발 접지")], placed)
+        self.assertFalse([i for i in placed if i["level"] == "error"], placed)
+        # Directions not in this half are still empty: the check says so.
+        self.assertTrue([i for i in report if i["view"] == "S" and i["level"] == "error"])
+        w.undo()
+        self.assertTrue(all(l.slot == "reference" for l in w.asset.layers))
+
+    def test_prompt_memo(self):
+        from paldo_studio.ui.dialogs import PromptBrowserDialog
+        w = self.window
+        w.new_project(self.dir / "memo", "메모")
+        w.new_asset("도깨비", "monster", 192, 192, (96, 176))
+        w.f_memo.setPlainText("GPT 대화 3번째 결과, 뿔을 짧게 고쳐 달라고 함")
+        self.assertEqual(w.asset.memo, "GPT 대화 3번째 결과, 뿔을 짧게 고쳐 달라고 함")
+        files = w.repo_prompts()
+        self.assertTrue(any(f.name == "boar-walk-0-prompt.txt" for f in files))
+        d = PromptBrowserDialog(files, REPO)
+        d.list.setCurrentRow(next(i for i, f in enumerate(files) if f.name == "boar-walk-0-prompt.txt"))
+        path, text = d.chosen()
+        self.assertEqual(text, path.read_text(encoding="utf-8"))
+        self.assertTrue(w.save_project())
+        w.open_project(self.dir / "memo")
+        self.assertEqual(w.f_memo.toPlainText(), "GPT 대화 3번째 결과, 뿔을 짧게 고쳐 달라고 함")
+        w.f_memo.setPlainText("바뀐 메모")
+        w.undo()
+        self.assertEqual(w.asset.memo, "GPT 대화 3번째 결과, 뿔을 짧게 고쳐 달라고 함")
+        w.import_png(REPO / "assets/minion.png")
+        _, meta = w.export_current([{"level": "warn", "message": "", "layer": None}])
+        import json
+        self.assertEqual(json.loads(meta.read_text(encoding="utf-8"))["asset"]["memo"],
+                         "GPT 대화 3번째 결과, 뿔을 짧게 고쳐 달라고 함")
+
     def test_projects_cannot_live_in_runtime_assets(self):
         with self.assertRaises(ValueError):
             self.window.new_project(REPO / "assets" / "studio-test", "x")

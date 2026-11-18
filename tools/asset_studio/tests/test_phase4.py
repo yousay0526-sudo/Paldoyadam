@@ -86,6 +86,37 @@ class BuiltinTemplateTests(unittest.TestCase):
                 self.assertEqual(sha(REPO / rel), before)
 
 
+@unittest.skipIf(REPO is None, "game repository not found")
+class AtlasPoseTests(unittest.TestCase):
+    def test_pose_picking_matches_the_repository_preparation_script(self):
+        """find_poses picks the same bounds and foot roots as scripts/prepare_monster_assets.py did
+        (recorded in art/monsters/preparation.json) for every boar walk and butcher skill pose."""
+        import json
+        prep = json.loads((REPO / "art/monsters/preparation.json").read_text(encoding="utf-8"))
+        for name in ("boar-walk", "butcher-skill"):
+            frames = prep["atlases"][name]["frames"]
+            for half in range(2):
+                master = REPO / f"art/monsters/{name}-{half}-master.png"
+                before = sha(master)
+                poses = autofix.find_poses(open_png(master), 4, 4)
+                for i, pose in enumerate(poses):
+                    record = frames[half * 16 + i]
+                    self.assertEqual(list(pose.bounds), record["source_bounds"], (name, half, i))
+                    self.assertEqual(list(pose.root), [float(v) for v in record["source_root_in_crop"]])
+                    self.assertEqual(pose.warning, "")
+                self.assertEqual(sha(master), before)
+
+    def test_common_scale_keeps_poses_inside_the_cell(self):
+        poses = autofix.find_poses(open_png(REPO / "art/monsters/boar-walk-0-master.png"), 4, 4)
+        scale, wanted = autofix.common_scale(poses, 136, (192, 192), (96, 176))
+        self.assertLessEqual(scale, wanted)
+        for p in poses:
+            rx, ry = p.root
+            self.assertGreaterEqual(96 - rx * scale, 4.99)
+            self.assertLessEqual(96 + (p.image.width - rx) * scale, 192 - 4.99)
+            self.assertGreaterEqual(176 - ry * scale, 4.99)
+
+
 class UserTemplateTests(Base):
     def test_save_load_and_make_asset(self):
         a = self.project.add_asset("마을 사람", "npc", 160, 200, (80, 190), directions=["S", "E"])
